@@ -1,0 +1,701 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"md",
+				"md_extensions	statement"
+			],
+			[
+				"assertL",
+				"assertDictEqual	function"
+			],
+			[
+				"assertIn",
+				"assertIsNone	function"
+			],
+			[
+				"assertEqual",
+				"assertMultiLineEqual	function"
+			],
+			[
+				"assert",
+				"assertMultiLineEqual	function"
+			],
+			[
+				"css",
+				"css_compress"
+			],
+			[
+				"ass",
+				"assertListEqual	function"
+			],
+			[
+				"assertN",
+				"assertIsNone	function"
+			],
+			[
+				"remote",
+				"remote_image	statement"
+			],
+			[
+				"assertI",
+				"assertIsNotNone	function"
+			],
+			[
+				"test_to",
+				"test_to_b64image"
+			],
+			[
+				"back",
+				"background"
+			],
+			[
+				"bac",
+				"background_img"
+			],
+			[
+				"background",
+				"background_img"
+			],
+			[
+				"favicon",
+				"favicon_file"
+			],
+			[
+				"to_b",
+				"to_b64_image"
+			],
+			[
+				"urlli",
+				"urllib2	module"
+			],
+			[
+				"image",
+				"image_filename"
+			],
+			[
+				"assertn",
+				"assertNotIn	function"
+			],
+			[
+				"Data",
+				"dataframe"
+			],
+			[
+				"not",
+				"not"
+			],
+			[
+				"extra",
+				"extract_t4csv"
+			],
+			[
+				"metadata",
+				"meta_data"
+			],
+			[
+				"extract",
+				"extract_df"
+			],
+			[
+				"read",
+				"read_pickle	function"
+			],
+			[
+				"pd",
+				"pandas	module"
+			],
+			[
+				"read_con",
+				"read_config"
+			],
+			[
+				"extract_",
+				"extract_t4csv"
+			],
+			[
+				"localport",
+				"local_bind_port"
+			],
+			[
+				"_remote",
+				"_remote_tunnel_address_list"
+			],
+			[
+				"local_bind_add",
+				"local_bind_address_list"
+			],
+			[
+				"remote_",
+				"remote_tunnel_list"
+			],
+			[
+				"ssh_p",
+				"ssh_public_key_file"
+			],
+			[
+				"ssh_host",
+				"ssh_host_key"
+			],
+			[
+				"host",
+				"ssh_host"
+			],
+			[
+				"ad",
+				"add_argument"
+			],
+			[
+				"local_bin",
+				"local_bind_address_list"
+			],
+			[
+				"remote_bind_add",
+				"remote_bind_address_list"
+			],
+			[
+				"ge",
+				"getLogger"
+			]
+		]
+	},
+	"buffers":
+	[
+		{
+			"file": "/data/virtualenv/md2html/md2html/md2html.py",
+			"settings":
+			{
+				"buffer_size": 12734,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "pySMSCMon/pysmscmon.py",
+			"settings":
+			{
+				"buffer_size": 35504,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "pySMSCMon/html.py",
+			"settings":
+			{
+				"buffer_size": 13104,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "pySMSCMon/sshtunnel.py",
+			"settings":
+			{
+				"buffer_size": 33097,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "/data/virtualenv/md2html/test/test_md2html.py",
+			"settings":
+			{
+				"buffer_size": 4349,
+				"line_ending": "Unix"
+			}
+		}
+	],
+	"build_system": "Packages/Python/Python.sublime-build",
+	"build_system_choices":
+	[
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 374.0,
+		"last_filter": "",
+		"selected_items":
+		[
+			[
+				"virtual",
+				"SublimeREPL: Python - virtualenv"
+			],
+			[
+				"install",
+				"Package Control: Install Package"
+			],
+			[
+				"packages",
+				"Package Control: List Packages"
+			],
+			[
+				"remove",
+				"Package Control: Remove Package"
+			],
+			[
+				"Package Control: install",
+				"Package Control: Install Package"
+			],
+			[
+				"Package Control: ",
+				"Package Control: Install Package"
+			],
+			[
+				"Package Control:",
+				"Package Control: Install Package"
+			]
+		],
+		"width": 417.0
+	},
+	"console":
+	{
+		"height": 126.0,
+		"history":
+		[
+			"print('Error validating download (got %s instead of %s), please try manual install' % (dh, h)) if dh != h else open(os.path.join( ipp, pf), 'wb' ).write(by)",
+			"import urllib.request",
+			"import urllib.request,os,hashlib; h = 'eb2297e1a458f27d836c04bb0cbaf282' + 'd0e7a3098092775ccb37ca9d6b2e4b7d'; pf = 'Package Control.sublime-package'; ipp = sublime.installed_packages_path(); urllib.request.install_opener( urllib.request.build_opener( urllib.request.ProxyHandler()) ); by = urllib.request.urlopen( 'http://packagecontrol.io/' + pf.replace(' ', '%20')).read(); dh = hashlib.sha256(by).hexdigest(); print('Error validating download (got %s instead of %s), please try manual install' % (dh, h)) if dh != h else open(os.path.join( ipp, pf), 'wb' ).write(by)",
+			"print(a)",
+			"print a",
+			"a=32",
+			"import urllib.request,os,hashlib; h = '7183a2d3e96f11eeadd761d777e62404' + 'e330c659d4bb41d3bdf022e94cab3cd0'; pf = 'Package Control.sublime-package'; ipp = sublime.installed_packages_path(); urllib.request.install_opener( urllib.request.build_opener( urllib.request.ProxyHandler()) ); by = urllib.request.urlopen( 'http://packagecontrol.io/' + pf.replace(' ', '%20')).read(); dh = hashlib.sha256(by).hexdigest(); print('Error validating download (got %s instead of %s), please try manual install' % (dh, h)) if dh != h else open(os.path.join( ipp, pf), 'wb' ).write(by) ",
+			"sys.path",
+			"import sys",
+			"import paramiko",
+			"import ",
+			"version",
+			"impo",
+			"pip",
+			"vers"
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"expanded_folders":
+	[
+		"/data/virtualenv/pySMSCMon",
+		"/data/virtualenv/pySMSCMon/pySMSCMon",
+		"/data/virtualenv/pySMSCMon/test"
+	],
+	"file_history":
+	[
+		"/data/virtualenv/pySMSCMon/test/test-pysmscmon.py",
+		"/data/virtualenv/pySMSCMon/pySMSCMon/sshtunnel.py",
+		"/data/virtualenv/md2html/md2html/b64.py",
+		"/data/virtualenv/pySMSCMon/pySMSCMon/pysmscmon.py",
+		"/home/fernandezjm/Documents/Telefónica/VPN/update_password.py",
+		"/data/virtualenv/pySMSCMon/pySMSCMon/html.py",
+		"/data/virtualenv/md2html/md2html/layout/sidebar.html",
+		"/data/Documents/Telefónica/VPN/update_password.py",
+		"/home/fernandezjm/Desktop/md2html.py",
+		"/home/fernandezjm/.config/sublime-text-3/Packages/User/Default (Linux).sublime-keymap",
+		"/home/fernandezjm/.config/sublime-text-3/Packages/Default/Default (Linux).sublime-keymap",
+		"/home/fernandezjm/.config/sublime-text-3/Packages/User/Preferences.sublime-settings",
+		"/home/fernandezjm/.config/sublime-text-3/Packages/User/Python.sublime-settings",
+		"/home/fernandezjm/.config/sublime-text-3/Packages/Default/Preferences.sublime-settings",
+		"/data/virtualenv/pySMSCMon/pySMSCMon/test-pysmscmon.py",
+		"/data/virtualenv/pySMSCMon/pysmscmon.sublime-project",
+		"/home/fernandezjm/.config/sublime-text-3/Packages/User/JSON.sublime-settings",
+		"/home/fernandezjm/.config/sublime-text-3/Packages/Anaconda/Default (Linux).sublime-keymap",
+		"/data/spyder/t4/sshtunnel.py",
+		"/data/spyder/t4/t4_porcolumnas.py",
+		"/data/Dropbox/sshtunnel.py",
+		"/data/Dropbox/t4_t61conflict.py",
+		"/home/fernandezjm/Documents/SMSC/MONITORING_SCRIPTS/pml2csv.py",
+		"/home/fernandezjm/.config/sublime-text-3/Packages/Pylinter/Default (Linux).sublime-keymap",
+		"/home/fernandezjm/.config/sublime-text-3/Packages/Pylinter/Pylinter.sublime-settings",
+		"/home/fernandezjm/.config/sublime-text-3/Packages/User/Distraction Free.sublime-settings"
+	],
+	"find":
+	{
+		"height": 33.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+			"loglevel",
+			"elf.logger.deb",
+			"extensions:",
+			"loading template",
+			"init_logger",
+			"copyri",
+			"date",
+			"time",
+			"working_dir",
+			"pop",
+			"md_ext",
+			"THIS_DIR",
+			"md_exten",
+			"b64_ima",
+			"b64_",
+			"md2html",
+			"M2html",
+			"Md_to_html",
+			"markdown",
+			"THIS_DIR",
+			"fbuffer",
+			"md2html",
+			"kwar",
+			"css_list",
+			"html_template",
+			"metadata",
+			"b64",
+			"logo",
+			"fbuffer.write",
+			"parse",
+			"fbuffer.write",
+			"extension",
+			"stringIO",
+			"(extension",
+			"stringIO",
+			"kwargs",
+			".render",
+			"meta_data",
+			"empty",
+			"bold",
+			"fold",
+			"curm",
+			"configparser",
+			"sshtunnelfor",
+			"password",
+			"init_tunnels",
+			"sshtunnel",
+			"sshtunnel.",
+			"read_config",
+			"in sectopm",
+			"No option",
+			"no option",
+			"logger",
+			"to_dataframe",
+			"extract_df",
+			"cur_meta",
+			"datetime",
+			"cur_meta",
+			"print",
+			"extract_df",
+			":\n",
+			"cur_meta",
+			"to_datafr",
+			"_metadata",
+			"meta_data",
+			"cursor",
+			"select_var",
+			"test/",
+			"select_var",
+			"complete",
+			"select_var",
+			"']]))",
+			"_metadata",
+			"gutter",
+			"with",
+			"wrap",
+			"pickle",
+			"selected",
+			"local_bind_address",
+			"local_bind_address_list",
+			"make_ssh_forward_server",
+			"assert",
+			"private",
+			"private_key",
+			"None",
+			"private_",
+			"auth",
+			"key_file",
+			"private_",
+			"key_file",
+			"ssh_private_key",
+			"=",
+			"ssh_user",
+			"select",
+			"select.",
+			"logging",
+			"select",
+			"indent"
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 0,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "/data/virtualenv/md2html/md2html/md2html.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 12734,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								12734,
+								12734
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 3763.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "pySMSCMon/pysmscmon.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 35504,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								27771,
+								27771
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.tmLanguage",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 12823.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 4,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "pySMSCMon/html.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 13104,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								12851,
+								12851
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.tmLanguage",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 4153.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "pySMSCMon/sshtunnel.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 33097,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								27902,
+								28012
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.tmLanguage",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 10273.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				}
+			]
+		},
+		{
+			"selected": 0,
+			"sheets":
+			[
+				{
+					"buffer": 4,
+					"file": "/data/virtualenv/md2html/test/test_md2html.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 4349,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								411,
+								411
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 3,
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 23.0
+	},
+	"input":
+	{
+		"height": 32.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			],
+			[
+				1,
+				0,
+				2,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			0.477665441176,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.exec":
+	{
+		"height": 100.0
+	},
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"pinned_build_system": "",
+	"project": "pysmscmon.sublime-project",
+	"replace":
+	{
+		"height": 42.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+			[
+				"",
+				"#ri"
+			]
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 500.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 380.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": true,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 220.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}

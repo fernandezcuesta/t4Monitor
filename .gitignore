@@ -1,0 +1,13 @@
+*.pyc
+*.*~
+*old*.*
+pySMSCMon/store/*
+pySMSCMon/reports/*
+*cache*
+reports/
+store/
+share/
+bin/
+include/
+lib/
+man/
