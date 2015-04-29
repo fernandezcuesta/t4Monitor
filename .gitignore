@@ -11,3 +11,6 @@ bin/
 include/
 lib/
 man/
+*sublime-*
+*.dat
+favicon.ico
