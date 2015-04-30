@@ -49,16 +49,18 @@ class SftpSession(object):
 
         # if a password was not specified, send an empty string
         password = self.ssh_arguments.get('ssh_pass', '')
-       
+
         # if a public key file was specified, override configuration (if found)
         identityfile = self.ssh_arguments.get('ssh_key',
-                                              locals().get('identityfile', ''))
+                                              locals().get('identityfile',
+                                                           ''))
 
         # if a TCP port was specified, override configuration (if found)
         self.tcp_port = int(self.ssh_arguments.get('ssh_port',
                                                    locals().get('tcp_port',
-                                                                self.tcp_port)))
-
+                                                                self.tcp_port)
+                                                   )
+                            )
         # if a ssh timeout is not specified, set it to 10 seconds
         ssh_timeout = float(self.ssh_arguments.get('ssh_timeout', 10.0))
 
@@ -96,7 +98,7 @@ class SftpSession(object):
                                    look_for_keys=False,
                                    compress=True,
                                    timeout=ssh_timeout)
-            else:		 
+            else:
                 client.connect(self.hostname,
                                port=self.tcp_port,
                                username=username,
@@ -108,38 +110,38 @@ class SftpSession(object):
             self.ssh_transport = client
 
             if self.ssh_transport:
-                self.ssh_transport.sftp_session = self.ssh_transport.open_sftp()
-            
+                self.ssh_transport.sftp_session = self.ssh_transport.open_sftp(
+                                                                              )
+
             return self.ssh_transport
-   
+
         except paramiko.AuthenticationException:
-            self.logger.error('Cannot log in to the system, bad authentication')
+            self.logger.error("Can't log in to the system, bad authentication")
             raise SFTPSessionError
         except socket_timeout:
-            self.logger.error('Could not connect to host: %s after %s seconds. '
-                              'Timeout.', self.hostname, ssh_timeout)
+            self.logger.error("Can't connect to host: %s after %s seconds. "
+                              "Timeout.", self.hostname, ssh_timeout)
             raise SFTPSessionError
         except socket_error:
-            self.logger.error('Connection refused on port %s, destination: %s.',
+            self.logger.error('Connection refused on port %s, destination: %s',
                               tcp_port, self.hostname)
             raise SFTPSessionError
         except paramiko.ssh_exception.SSHException as _exc:
-            self.logger.error('Server does not allow sftp or tunnel forwarding,'
-                              ' aborting... %s', _exc)
+            self.logger.error("Server doesn't allow sftp or tunnel forwarding,"
+                              " aborting... %s", _exc)
             raise SFTPSessionError
-    
+
     def run_command(self, command):
         """ Runs the specified command over the SSH session """
         return self.ssh_transport.exec_command(command)
-    
+
     def status(self):
         """ Return -1 if no SSH session is established
                     0 if SSH session is up but SFTP is down
                     1 if SSH and SFTP sessions are up
         """
-        return -1 if not self.ssh_transport \
-                  else 1 if self.ssh_transport.sftp_session else 0
-
+        return -1 if not self.ssh_transport else 1 \
+            if self.ssh_transport.sftp_session else 0
 
     def close(self):
         """ Close an existing SSH connection """
@@ -148,46 +150,45 @@ class SftpSession(object):
     def __init__(self, hostname, **ssh_arguments):
         """
         Initialize sftp session. Optional ssh argument list:
-        ssh_user, ssh_pass, ssh_key_file, ssh_configfile, ssh_port, ssh_timeout
+        ssh_user, ssh_pass, ssh_key, ssh_configfile, ssh_port, ssh_timeout
         Otherwise: open method will check ~/.ssh/config
         """
         self.hostname = hostname
-        self.logger = ssh_arguments.pop('logger') if 'logger' in ssh_arguments \
-                      else logging.getLogger(__name__)
+        self.logger = ssh_arguments.pop('logger') if 'logger' in \
+            ssh_arguments else logging.getLogger(__name__)
         self.ssh_arguments = ssh_arguments
         self.ssh_transport = None
-        self.tcp_port = 22 
+        self.tcp_port = 22
 
     def __enter__(self):
         """
         Invoked when opening the sftp session (under with statements)
         """
         ssh_carrier = self.connect()
-         # if succeeded, return the sftp_session object, else exit
+        # if succeeded, return the sftp_session object, else exit
         self.logger.debug('%s > SFTP %sOK', self.hostname,
                           '' if ssh_carrier.sftp_session else '*NOT* ')
         return ssh_carrier
 
-
     class Break(Exception):
         """Break out of the with statement"""
         pass
-  
+
     def __exit__(self, etype, *args):
         """ Gracefully terminate SSH and SFTP connections """
-        
+
         if self.ssh_transport:
             if self.ssh_transport.sftp_session:
                 self.ssh_transport.sftp_session.close()
                 self.logger.debug('Waiting 1/2 second to avoid RST')
-                time.sleep(0.5)  #   Gracefully close instead of sending RST
+                time.sleep(0.5)  # Gracefully close instead of sending RST
             self.ssh_transport.close()
         self.logger.info('Closed connection to port %s', self.tcp_port)
         if etype == self.Break:
             raise SFTPSessionError
         else:
             return None
-     
+
 #if __name__ == "__main__":
 #   print 'Testing connection to localhost'
 #   _ = SftpSession('localhost',

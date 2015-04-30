@@ -16,7 +16,7 @@ import ConfigParser
 from matplotlib import pylab as pylab, pyplot as plt
 
 
-__version_info__ = (0, 3, 3)
+__version_info__ = (0, 3, 4)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
@@ -29,38 +29,6 @@ STORE_FOLDER = 'store'
 
 pylab.rcParams['figure.figsize'] = 13, 10
 
-
-class Container(object):
-    """ Object passed to jinja2 containg
-
-        - graphs: dictionary of key, value -> {system-id, list of graphs}
-        - logs: dictionary of key, value -> {system-id, log entries}
-        - date_time: Report generation date and time
-        - data: dataframe passed to get_graphs()
-        - system: string containing current system-id being rendered
-    """
-    graphs = {}  # will be filled by calls from within jinja for loop
-    logs = {}
-    year = dt.date.today().year
-    date_time = dt.date.strftime(dt.datetime.today(), "%d/%m/%Y %H:%M:%S")
-    data = pd.DataFrame()
-    system = ''
-    logger = None
-
-    def clone(self, system):
-        """ Makes a copy of the data container where the system is filled in,
-            data is shared with the original (note in pandas we need to do a
-            pandas.DataFrame.copy(), otherwise it's just a view), date_time is
-            copied from the original and logs and graphs are left unmodified.
-        """
-        my_clone = Container()
-        my_clone.date_time = self.date_time
-        my_clone.data = self.data
-        # Backwards compatibility with non threaded version
-        my_clone.logs = {system: self.logs[system]}
-        my_clone.system = system
-        my_clone.logger = self.logger
-        return my_clone
 
 
 def get_html_output(container):
@@ -89,6 +57,13 @@ def get_html_output(container):
         return ['']
 
 
+def count_graphs():
+    """ Returns the number of graphs to be drawn per system """
+    with open(GRAPHS_DEFINITION_FILE, 'r') as graphs_txt:
+        lines = graphs_txt.readlines()
+        return len([l for l in lines if len(l.strip()) and l.strip()[0] != "#"])
+
+
 def get_graphs(container):
     """ Produces b64 encoded graphs for the selected system.
         data (pandas.DataFrame) is used implicitly while evaluating the
@@ -113,24 +88,29 @@ def get_graphs(container):
             except ValueError:
                 optional_args = {'ylim': 0.0}
 
-            container.logger.debug('%s| Plotting %s',
+            container.logger.debug('%s|  > Plotting %s',
                                    container.system,
                                    info[0])
-            _b64figure = pysmscmon.to_base64(getattr(pysmscmon, "plot_var")\
-                                            (container.data,
-                                             *[x.strip() for x in \
-                                                 info[0].split(',')],
-                                             system=container.system.upper(),
-                                             logger=container.logger,
-                                             **optional_args))
-            if not _b64figure:
+            try:
+                _b64figure = pysmscmon.to_base64(getattr(pysmscmon, "plot_var")\
+                    (container.data,
+                     *[x.strip() for x in info[0].split(',')],
+                     system=container.system.upper(),
+                     logger=container.logger,
+                     **optional_args))
+                if not _b64figure:
+                    yield False
+                else:
+                    yield (info[1], _b64figure)
+            except Exception as exc:
+                container.logger.error('Unexpected error while ' \
+                                       'rendering graph: %s', repr(exc))
                 yield False
-            else:
-                yield (info[1], _b64figure)
 
-
-def _main(logger, alldays=False, nologs=False, noreports=False):
-    """ Main method, gets data and logs, store and render the HTML output """
+def serial_main(logger, alldays=False, nologs=False, noreports=False):
+    """ Main method, gets data and logs, store and render the HTML output
+        Serial (stable, but slow) implementation
+    """
 
     pylab.rcParams['figure.figsize'] = 13, 10
     plt.style.use('ggplot')
@@ -173,8 +153,9 @@ def _main(logger, alldays=False, nologs=False, noreports=False):
             container.system = system
             with open('{1}/Report_{0}_{2}.html'.
                       format(dt.date.strftime(dt.datetime.today(),
-                             "%Y%m%d_%H%M"),
-                             OUTPUT_FOLDER, container.system), 'w') as output:
+                                              "%Y%m%d_%H%M"),
+                             OUTPUT_FOLDER, container.system),
+                      'w') as output:
                 output.writelines(get_html_output(container=container))
     else:
         logger.info('Skipped report generation')
@@ -195,7 +176,9 @@ def th_reports(container, system):
 
 
 def threaded_main(logger, alldays=False, nologs=False, noreports=False):
-    """ Main method, gets data and logs, store and render the HTML output """
+    """ Main method, gets data and logs, store and render the HTML output
+        Threaded version (fast, error prone)
+    """
     pylab.rcParams['figure.figsize'] = 13, 10
     plt.style.use('ggplot')
     container = Container()
@@ -296,12 +279,47 @@ def check_files(logger):
     return True
 
 
+class Container(object):
+    """ Object passed to jinja2 containg
+
+        - graphs: dictionary of key, value -> {system-id, list of graphs}
+        - logs: dictionary of key, value -> {system-id, log entries}
+        - date_time: Report generation date and time
+        - data: dataframe passed to get_graphs()
+        - system: string containing current system-id being rendered
+    """
+    graphs = {}  # will be filled by calls from within jinja for loop
+#    num_graphs = count_graphs()
+    logs = {}
+    year = dt.date.today().year
+    date_time = dt.date.strftime(dt.datetime.today(), "%d/%m/%Y %H:%M:%S")
+    data = pd.DataFrame()
+    system = ''
+    logger = None
+
+    def clone(self, system):
+        """ Makes a copy of the data container where the system is filled in,
+            data is shared with the original (note in pandas we need to do a
+            pandas.DataFrame.copy(), otherwise it's just a view), date_time is
+            copied from the original and logs and graphs are left unmodified.
+        """
+        my_clone = Container()
+        my_clone.date_time = self.date_time
+        my_clone.data = self.data
+#        my_clone.num_graphs = self.num_graphs
+        # Backwards compatibility with non threaded version
+        my_clone.logs = {system: self.logs[system]}
+        my_clone.system = system
+        my_clone.logger = self.logger
+        return my_clone
+
+
 if __name__ == "__main__":
     PARSER = argparse.ArgumentParser(description='SMSC Monitoring script',
                                      formatter_class=argparse.
                                      RawTextHelpFormatter)
 
-    PARSER.add_argument('--all', action="store_true",
+    PARSER.add_argument('--all', action="store_true", dest="alldays",
                         help='Collect all data available on SMSCs'
                              'not just for today')
     PARSER.add_argument('--fast', action="store_true",
@@ -313,8 +331,13 @@ if __name__ == "__main__":
     PARSER.add_argument('--nologs', action="store_true",
                         help='Skip log information collection from SMSCs')
     PARSER.add_argument('--settings',
-                        help='Settings file (default: settings.cfg)')
-    PARSER.add_argument('--loglevel', const="WARNING",
+                        default=pysmscmon.SETTINGS_FILE,
+                        help='Settings file (default: {})'.format(\
+                            pysmscmon.SETTINGS_FILE))
+    PARSER.add_argument('--template', default=HTML_TEMPLATE,
+                        help='HTML template (default: {})'.format(HTML_TEMPLATE)
+                       )
+    PARSER.add_argument('--loglevel', const=pysmscmon.DEFAULT_LOGLEVEL,
                         choices=['DEBUG',
                                  'INFO',
                                  'WARNING',
@@ -323,15 +346,17 @@ if __name__ == "__main__":
                         help='Debug level (default: %s)' %
                         pysmscmon.DEFAULT_LOGLEVEL,
                         nargs='?')
-    ARGS = PARSER.parse_args()
-
-    if ARGS.settings:
-        pysmscmon.SETTINGS_FILE = ARGS.settings
+    ARGS = vars(PARSER.parse_args())
+           
+    pysmscmon.SETTINGS_FILE = ARGS.pop('settings')
     # Default for pysmscmon is 'settings.cfg' in same folder as pysmscmon.py
 
-    LOGGER = pysmscmon.init_logger(ARGS.loglevel)
+    HTML_TEMPLATE = ARGS.pop('template')
+
+    LOGGER = pysmscmon.init_logger(ARGS.pop('loglevel'))
+    
     if check_files(LOGGER):
-        if ARGS.fast:
-            threaded_main(LOGGER, ARGS.all, ARGS.nologs, ARGS.noreports)
+        if ARGS.pop('fast'):
+            threaded_main(LOGGER, **ARGS)
         else:
-            _main(LOGGER, ARGS.all, ARGS.nologs, ARGS.noreports)
+            serial_main(LOGGER, **ARGS)

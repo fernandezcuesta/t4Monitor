@@ -7,7 +7,7 @@
     <!-- Enable responsiveness on mobile devices -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
     <meta name="author" content="Acision" />
-    <title>Monitoring of Telef&oacute;nica SMSCs at {{data.date_time}}</title>
+    <title>Monitoring of {{ data.system }} at {{data.date_time}}</title>
 
     <!-- ACISION FAVICON -->
     <link id="favicon" rel="icon" type="image/png" href="data:image/png;base64,
@@ -30,7 +30,7 @@
    *     | (_| | (__| \__ \ | (_) | | | |
    *      \__,_|\___|_|___/_|\___/|_| |_|
    *
-   * CSS file for TLF Monitoring
+   * CSS file for SMSC Monitoring
    * 
   */
   
@@ -278,7 +278,7 @@ s1skwud3tJZzwjtYJiEOc6sWmG7d5YfgA08P1ykOo6OYqGv8mcTMA2GTzsIa18BVUYu+dOz3XLfE
 pYWkAAuwTA4SdVMdNldZiFcOJi5EhxLHcBlXcbLDIZgr5vN+HIN3cN8sjZlJompY1hfo4MyC7ufu
 4n2zPQ9E+Dd5C0iYl2RN8VldRS4ardEardEardEardH0tP8DQld2eAM+tMoAAAAASUVORK5CYII=">
     <div id="contentDiv">
-      <h1>Telef&oacute;nica SMSCs Status Report ({{data.system}})</h1>
+      <h1>SMSC Status Report</h1>
       <h2>Report date: {{data.date_time}}</h2>
       <p>On this report, output from the monitoring scripts running on the SMSCs will be summarized, as well as an extract of the application logs.</p>
       <p>Information for the following system is shown: <strong>{{ data.system }}</strong></p>

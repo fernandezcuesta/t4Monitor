@@ -112,7 +112,7 @@ else:
     import socketserver as SocketServer
 
 
-__version_info__ = (0, 0, 3, 5)
+__version_info__ = (0, 0, 3, 6)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'pahaz'
 __author__ = 'cameronmaske'
@@ -356,7 +356,7 @@ class SSHTunnelForwarder(threading.Thread):
                                 ' we will not attempt to connect.', *target)
         return reachable
 
-    def remote_is_up(self, srv):
+    def remote_is_up(self, srv):  # ????? DOESNT MAKE SENSE, GET RID OF THIS?
         """
         Check if remote target host:port is reachable
         Returns: Boolean
@@ -460,9 +460,9 @@ class SSHTunnelForwarder(threading.Thread):
         ssh_conf = paramiko.SSHConfig()
         try:
             # open the ssh config file
-            ssh_conf.parse(open(expanduser(ssh_arguments.get('ssh_configfile',
-                                                             '~/.ssh/config')
-                                          ), 'r'))
+            ssh_config_file = expanduser(ssh_arguments.get('ssh_configfile',
+                                                           '~/.ssh/config'))
+            ssh_conf.parse(open(ssh_config_file, 'r'))
             # looks for information for the destination system
             hostname_info = ssh_conf.lookup(ssh_address)
             # gather settings for user, port and identity file
@@ -471,8 +471,7 @@ class SSHTunnelForwarder(threading.Thread):
             tcp_port = hostname_info.get('port', 22)
         except IOError:
             self.logger.warning('Could not read SSH configuration file: %s',
-                                format(ssh_arguments.get('ssh_configfile',
-                                                         '~/.ssh/config')))
+                                ssh_config_file)
 
         # if a TCP port was specified, override configuration (if found)
         tcp_port = ssh_arguments.get('ssh_port', locals().get('tcp_port', 22))
@@ -511,7 +510,8 @@ class SSHTunnelForwarder(threading.Thread):
         if not self._ssh_password and not self._ssh_private_key:
             self.logger.error('No authentication method was supplied: '
                               'ssh_password, ssh_private_key_file.')
-            raise AssertionError('No password or private key supplied')
+            raise BaseSSHTunnelForwarderError('No password or private ' \
+                                              'key supplied')
 
         # OTHER
         self._threaded = ssh_arguments.get('threaded', False)

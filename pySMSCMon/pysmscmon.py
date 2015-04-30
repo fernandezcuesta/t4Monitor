@@ -71,7 +71,7 @@ from re import split
 from random import randint
 from paramiko import SSHException
 
-__version_info__ = (0, 5, 1)
+__version_info__ = (0, 5, 2)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
@@ -216,8 +216,8 @@ def select_var(dataframe, *var_names, **optional):
         else:
             selected = dataframe.columns
         if not selected:  # if var_names were not found in dataframe columns
-            logger.warning('%s not found for this system (%s), '
-                           'nothing selected.', var_names, system_filter)
+            logger.warning('%s| %s not found for this system, '
+                           'nothing selected.', system_filter, var_names)
         yield selected
     else:  # no system selected, work only with first variable for all systems
         if len(var_names) == 0:
@@ -346,8 +346,9 @@ def plot_var(dataframe, *var_names, **optional):
         return plotaxis
 
     except TypeError:
-        logger.error('%s| No data found%s',
-                     system_filter if system_filter else '',
+        logger.error('%s%s not drawn%s',
+                     '{}| '.format(system_filter) if system_filter else '',
+                     var_names,
                      ' for this system' if system_filter else '')
         _ = plt.plot()
         return plt.gca()
@@ -590,6 +591,9 @@ def init_tunnels(config, logger, system=None):
                                             for k in tunnelports]))
         pwd = config.get('GATEWAY', 'password').strip("\"' ") or None \
             if config.has_option('GATEWAY', 'password') else None
+        pkey = config.get('GATEWAY', 'identity_file').strip("\"' ") or None \
+            if config.has_option('GATEWAY', 'identity_file') else None
+
         server = sshtunnel.SSHTunnelForwarder(ssh_address=jumpbox_addr,
                                               ssh_port=jumpbox_port,
                                               ssh_username=config.
@@ -598,7 +602,9 @@ def init_tunnels(config, logger, system=None):
                                               remote_bind_address_list=rbal,
                                               local_bind_address_list=lbal,
                                               threaded=False,
-                                              logger=logger)
+                                              logger=logger,
+                                              ssh_private_key_file=pkey or None
+                                              )
         # Add the system<>port bindings to the return object
         server.tunnelports = tunnelports
         return server
@@ -644,9 +650,15 @@ def get_system_data(sdata):
     tunn_port = sdata.conf.get(sdata.system, 'tunnel_port')
     logger.info('%s| Connecting to tunel port %s', sdata.system, tunn_port)
 
+    ssh_pass = sdata.conf.get(sdata.system, 'password').strip("\"' ") or None \
+        if sdata.conf.has_option(sdata.system, 'password') else None
+    ssh_key = sdata.conf.get(sdata.system, 'identity_file').strip("\"' ") \
+        or None if sdata.conf.has_option(sdata.system, 'identity_file') \
+        else None
     with SftpSession(hostname='127.0.0.1',
                      ssh_user=sdata.conf.get(sdata.system, 'username'),
-                     ssh_pass=sdata.conf.get(sdata.system, 'password'),
+                     ssh_pass=ssh_pass,
+                     ssh_key=ssh_key,
                      ssh_timeout=sdata.conf.get(sdata.system, 'ssh_timeout'),
                      ssh_port=tunn_port, logger=logger) as session:
 
@@ -729,7 +741,7 @@ def init_logger(loglevel=None, name=__name__):
     if not any(isinstance(x, logging.StreamHandler) for x in logger.handlers):
         console_handler = logging.StreamHandler()
         if logging.getLevelName(logger.level) == 'DEBUG':
-            _fmt = '%(asctime)s| %(levelname)-.4s | %(threadName).9s/' \
+            _fmt = '%(asctime)s| %(levelname)-4.3s|%(threadName)10.9s/' \
                    '%(lineno)04d@%(module)-10.9s| %(message)s'
             console_handler.setFormatter(logging.Formatter(_fmt))
         else:
@@ -905,12 +917,3 @@ def main_threaded(alldays=False, nologs=False, logger=None):
     finally:
         return data, logs
 
-
-if __name__ == "__main__":
-    # create console logger with INFO level
-    LOGGER = init_logger(loglevel='DEBUG')
-    SETTINGS_FILE = 'settings2.cfg'
-    LOG_COMMAND = 'ls -lrt'
-#    main_threaded(logger=LOGGER, alldays=True, nologs=False)
-    data = get_stats_from_host('localhost', '/data/XMAS2K13/datos/1jan2014_a1.csv', ssh_user='fernandezjm', logger=LOGGER)
-    print data.shape
