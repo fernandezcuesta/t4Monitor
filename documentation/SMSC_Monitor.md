@@ -106,17 +106,17 @@ look like this (repeated as many times as systems being monitored, 3 in this
 case):
 ```
     ---------------------------------------------------------
-    Collecting statistics for SMTFB
+    Collecting statistics for SMSC-1
     WARNING: Could not read SSH configuration file:  ~/.ssh/config
     Opening connection to server
     Server is started.
     WARNING: Could not read SSH configuration file
     Establishing SFTP session: smsc@127.0.0.1:20970...
     Reusing established sftp session...
-    Loading file DISKS_SMTFB_22DEC2014.CSV;1...
+    Loading file DISKS_SMSC1_22DEC2014.CSV;1...
     ...         ...          output ommitted      ...            ...
-    Loading file ssd_smtfb_22dec2014.csv;1...
-    Data size obtained from smtfb: (65, 378)
+    Loading file ssd_smsc1_22dec2014.csv;1...
+    Data size obtained from smsc1: (65, 378)
     Applying calculations on obtained data...
     Resulting dataframe size: (65, 460)
     Closing sftp connection on port 20970
@@ -134,11 +134,11 @@ Followed by:
 
 ```
 Generating reports
-Generating report for SMTFB
+Generating report for SMSC1
 Generating graphics and rendering HTML output file...
-Generating report for SMTFC
+Generating report for SMSC2
 Generating graphics and rendering HTML output file...
-Generating report for SMTFD
+Generating report for SMSC3
 Generating graphics and rendering HTML output file...
 Done!
 ```
@@ -180,7 +180,7 @@ If the tool is not working or you want to manually visualize the CSV, the
 faster way to do it is by downloading all CSV files in `smsc$root:[monitor.out]`
 and read them with TLViz:
 
-![ ](/home/fernandezjm/Desktop/pySMSCMon/documentation/tlviz.png "")
+![ ](tlviz.png "")
 
 Another option is opening the statistics locally stored under the `store`
 subfolder with MS Excel or any other spreadsheet tool.
@@ -498,8 +498,7 @@ negotiated with the VPN server during connection establishment.
 
 ###Cisco Anyconnect client
 
-- Log in to `https://195.235.71.34/` with your credentials (*t****** user, password
-and group)
+- Log in to the VPN URL with your credentials
 - Choose ***AnyConnect*** from the options at the left side
 - Click on Start AnyConnect and let the client be installed automatically
 
@@ -507,7 +506,7 @@ and group)
 
 -	Download cstub from the VPN gateway:
 ```bash
-$ wget https://195.235.71.34/CACHE/sdesktop/hostscan/linux_x64/cstub â€“no-check-certificate
+$ wget https://<VPN_GW_IP>/CACHE/sdesktop/hostscan/linux_x64/cstub â€“no-check-certificate
 ```
 
 -	Create a custom CSD wrapper script:   
@@ -539,8 +538,8 @@ $HOME/cstub $ARGS
 -	Connect Manually (set the appropriate values for `--user`, `--os` and
 `--authgroup`):
 ```bash
-$ sudo openconnect --user=txxxxxx --csd-user=$USER --no-xmlpost --no-cert-check \
- --os=linux-64 --authgroup=AccesoL --csd-wrapper=$HOME/.wrapper.sh https://195.235.71.34
+$ sudo openconnect --user=<VPN_USER> --csd-user=$USER --no-xmlpost --no-cert-check \
+ --os=linux-64 --authgroup=<VPN_AUTH_GRP> --csd-wrapper=$HOME/.wrapper.sh https://<VPN_GW_IP>
 ```
 You can now manually set the default route and restore `/etc/resolv.conf`
 entries.
@@ -551,7 +550,7 @@ entries.
 *is already installed.* 
 
     Create a connection from the following profile at
-`/etc/NetworkManager/system-connections/TLF-VPN` (or wherever NetworkManager
+`/etc/NetworkManager/system-connections/MY-VPN` (or wherever NetworkManager
 profiles reside for your distribution) with the following contents (customize
 your home folder and user!):
 ```bash
@@ -574,10 +573,10 @@ stoken_source=disabled
 certsigs-flags=0
 cookie-flags=2
 csd_wrapper=YOUR_HOME_FOLDER/.wrapper.sh
-gateway=195.235.71.34
+gateway=<VPN_GW_IP>
 authtype=password
 [vpn-secrets]
-certsigs=6F229B250D805F23DCC5424BCAE965B4FCB800F0
+certsigs=6F249B250D86F23D424BCAE965B4FCB810F0   <-- TODO: Check how to get this!!!
 form:main:group_list=<VPN_ACCESS_GROUP>
 form:main:username=<VPN_USERNAME>
 lasthost=<VPN_GATEWAY_IP_OR_HOSTNAME>
@@ -671,7 +670,7 @@ LD_PRELOAD=/opt/cisco/anyconnect/lib/libhack.so /opt/cisco/anyconnect/bin/vpnage
 
 ```console
 $ mkvirtualenv --python=$(which python2) pySMSCMon
-$ git clone https://github.com/fernandezcuesta/pySMSCMon.git
+$ git clone https://github.com/fernandezcuesta/pySMSCMon.git .
 $ pip install -r requirements.txt
 ```
 
@@ -683,12 +682,11 @@ $ pip install -r requirements.txt
 - Open an Anaconda Command Prompt and run the following commands:
 
     ```dos
-    Anaconda> conda create -n SMSC python=2.7
+    Anaconda> git clone https://github.com/fernandezcuesta/pySMSCMon.git SMSC
+    Anaconda> cd SMSC
+    Anaconda> conda create -n SMSC --file requirements-conda.txt
     Anaconda> activate SMSC
-    [SMSC] > git clone https://github.com/fernandezcuesta/pySMSCMon.git
-    [SMSC] > cd pySMSCMon
-    [SMSC] > pip install -r requirements.txt
-    [SMSC] >  Û!#Û! 
+    [SMSC] > 
     ```
 
 - [jesusmanuel.fernandez@acision.com](mailto:jesusmanuel.fernandez@acision.com)
