@@ -64,6 +64,7 @@ import Queue as queue
 import logging
 import sys
 import getpass
+import pickle
 from sftpsession import SftpSession, SFTPSessionError
 from cStringIO import StringIO
 from itertools import takewhile
@@ -71,12 +72,12 @@ from re import split
 from random import randint
 from paramiko import SSHException
 
-__version_info__ = (0, 5, 2)
+__version_info__ = (0, 6, 0)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
-__all__ = ('select_var', 'main', 'plot_var', 'copy_metadata', 'to_base64',
-           'get_stats_from_host', 'restore_metadata', 'extract_df')
+__all__ = ('select_var', 'main_serial', 'plot_var', 'copy_metadata',
+           'to_base64', 'get_stats_from_host', 'restore_metadata', 'extract_df')
 
 
 # CONSTANTS
@@ -163,23 +164,54 @@ def _custom_finalize(self, other, method=None):
         _el_meta = getattr(element, name, '')
         if _cur_meta:
             if isinstance(_el_meta, set):
-                object.__setattr__(self, name, _cur_meta.union(_el_meta))
+                setattr(self, name, _cur_meta.union(_el_meta))
+#                object.__setattr__(self, name, _cur_meta.union(_el_meta))
             else:
                 _cur_meta.add(_el_meta)
         else:
-            object.__setattr__(self, name,
-                               _el_meta if isinstance(_el_meta, set)
-                               else set([_el_meta]))
+            setattr(self,
+                    name,
+                    _el_meta if isinstance(_el_meta, set) else set([_el_meta]))
+#            object.__setattr__(self, name,
+#                               _el_meta if isinstance(_el_meta, set)
+#                               else set([_el_meta]))
     for name in self._metadata:
         if method == 'concat':
             map(lambda element: _wrapper(element, name), other.objs)
         else:
-            object.__setattr__(self, name, getattr(other, name, ''))
+            setattr(self, name, getattr(other, name, ''))
+#            object.__setattr__(self, name, getattr(other, name, ''))
     return self
 
+def to_pickle(self, name):
+    """ Allow saving metadata to pickle """
+    with open(name, 'wb') as pickleout:
+        pickle.dump(self, pickleout, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(self._metadata,
+                    pickleout,
+                    protocol=pickle.HIGHEST_PROTOCOL)
+        for item in self._metadata:
+            pickle.dump(getattr(self, item),
+                        pickleout,
+                        protocol=pickle.HIGHEST_PROTOCOL)
+
+def read_pickle(name):
+    """ Properly restore dataframe plus its metadata from pickle store """
+    with open(name, 'rb') as picklein:
+        
+        try:
+            dataframe = pickle.load(picklein)
+            setattr(dataframe, '_metadata', pickle.load(picklein))
+            for item in dataframe._metadata:
+                setattr(dataframe, item, pickle.load(picklein))
+        except EOFError:
+            pass
+        return dataframe if 'dataframe' in locals() else pd.DataFrame()
 
 pd.DataFrame._metadata = ['system']
 pd.DataFrame.__finalize__ = _custom_finalize
+pd.DataFrame.to_pickle = pd.to_pickle = to_pickle
+pd.DataFrame.read_pickle = pd.read_pickle = read_pickle
 pd.DataFrame.oper = calculations.oper
 pd.DataFrame.oper_wrapper = calculations.oper_wrapper
 pd.DataFrame.recursive_lis = calculations.recursive_lis
@@ -241,7 +273,8 @@ def select_var(dataframe, *var_names, **optional):
                 logger.warning('%s not found for system/s: %s, nothing was '
                                'selected.',
                                var_names[0],
-                               [str(item) for item in set(dataframe.system)])
+                               dataframe.system)
+#                               [str(item) for item in set(dataframe.system)])
                 yield []
 
 
@@ -391,10 +424,11 @@ def restore_metadata(metadata, dataframe):
     """
     assert isinstance(metadata, dict)
     assert isinstance(dataframe, pd.DataFrame)
-    for kv in metadata:
-        object.__setattr__(dataframe, kv, metadata[kv])
-        if kv not in dataframe._metadata:
-            dataframe._metadata.append(kv)
+    for keyvalue in metadata:
+        setattr(dataframe, keyvalue, metadata[keyvalue])
+#        object.__setattr__(dataframe, keyvalue, metadata[keyvalue])
+        if keyvalue not in dataframe._metadata:
+            dataframe._metadata.append(keyvalue)
     return dataframe
 
 
@@ -447,7 +481,8 @@ def to_dataframe(field_names, data, metadata):
         for item in metadata:
 #            _df[item] = metadata[item]
             _df[item] = pd.Series([metadata[item]]*len(_df), index=_df.index)
-            object.__setattr__(_df, item, metadata[item])
+#            object.__setattr__(_df, item, metadata[item])
+            setattr(_df, item, metadata[item])
             if item not in _df._metadata:
                 _df._metadata.append(item)
     except Exception as exc:
@@ -604,7 +639,7 @@ def init_tunnels(config, logger, system=None):
                                               threaded=False,
                                               logger=logger,
                                               ssh_private_key_file=pkey or None
-                                              )
+                                             )
         # Add the system<>port bindings to the return object
         server.tunnelports = tunnelports
         return server
@@ -699,7 +734,9 @@ def get_system_data(sdata):
             if data.empty:
                 logger.warning('%s| Data size obtained is 0 Bytes, skipping '
                                'log collection.', sdata.system)
-                sdata.__setattr__('nologs', True)
+#                sdata.__setattr__('nologs', True)
+                setattr(sdata, 'nologs', True)
+                
             else:
                 logger.info('%s| Data size obtained: %s. '
                             'Now applying calculations...',
@@ -718,7 +755,8 @@ def get_system_data(sdata):
                            taglist)
             logger.warning('%s| Skipping log collection for this system',
                            sdata.system)
-            sdata.__setattr__('nologs', True)
+#            sdata.__setattr__('nologs', True)
+            setattr(sdata, 'nologs', True)
 
         # Done gathering data, now get the logs
         if sdata.nologs:
@@ -754,7 +792,21 @@ def init_logger(loglevel=None, name=__name__):
     return logger
 
 
-def main(alldays=False, nologs=False, logger=None):
+
+def consolidate_data(data, tmp_data):
+    """ Concatenate partial dataframe with resulting dataframe """
+    
+    result = pd.concat([data, tmp_data])
+    # Group by index while keeping the metadata
+    tmp_meta = copy_metadata(result)
+    result = result.groupby(result.index).last()
+    restore_metadata(tmp_meta, result)
+    # we are only interested in first 5 chars of the system name
+    result.system = set([i[0:5] for i in result.system])
+    return result
+
+
+def main_serial(alldays=False, nologs=False, logger=None):
     """ Here comes the main function
     Optional: alldays (Boolean): if true, do not filter on today's date
               nologs (Boolean): if true, skip log info collection
@@ -762,9 +814,12 @@ def main(alldays=False, nologs=False, logger=None):
     logger = logger or init_logger()
 
     _sd = SData()
-    _sd.__setattr__('logger', logger)
-    _sd.__setattr__('alldays', alldays)
-    _sd.__setattr__('nologs', nologs)
+    setattr(_sd, 'logger', logger)
+    setattr(_sd, 'alldays', alldays)
+    setattr(_sd, 'nologs', nologs)
+#    _sd.__setattr__('logger', logger)
+#    _sd.__setattr__('alldays', alldays)
+#    _sd.__setattr__('nologs', nologs)
 
     data = pd.DataFrame()
     logs = {}
@@ -773,16 +828,17 @@ def main(alldays=False, nologs=False, logger=None):
     logger.info('Initializing...')
 
     try:
-        _sd.__setattr__('conf', read_config())
+        setattr(_sd, 'conf', read_config())
+#        _sd.__setattr__('conf', read_config())
         for _sd.system in \
         [x for x in _sd.conf.sections() if x not in ['GATEWAY', 'MISC']]:
             logger.info('%s| Collecting statistics', _sd.system)
             try:
-                # server = init_tunnel_per_sys(_sd.conf, system)
-                _sd.__setattr__('server',
-                                init_tunnels(_sd.conf, logger, _sd.system))
-#                _sd.server._tunnel_is_up[_sd.conf.get(_sd.system,
-#                                                      'tunnel_port')] = False
+                setattr(_sd, 'server', init_tunnels(_sd.conf,
+                                                    logger,
+                                                    _sd.system))
+#                _sd.__setattr__('server',
+#                                init_tunnels(_sd.conf, logger, _sd.system))
             except sshtunnel.BaseSSHTunnelForwarderError:
                 continue
             except Exception as _ex:
@@ -791,11 +847,11 @@ def main(alldays=False, nologs=False, logger=None):
                 return data, logs
             logger.info('Opening connection to tunnels')
             _sd.server.start()
-#            time.sleep(1)
             # Get data from the remote system
             try:
                 tunnelport = _sd.server.tunnelports[_sd.system]
-                if not _sd.server.tunnel_is_up[tunnelport]:
+                if tunnelport not in _sd.server.tunnel_is_up or \
+                    not _sd.server.tunnel_is_up[tunnelport]:
                     logger.error('Cannot download data from %s.', _sd.system)
                     raise IOError
                 tmp_data, logs[_sd.system] = get_system_data(_sd)
@@ -805,15 +861,7 @@ def main(alldays=False, nologs=False, logger=None):
                 continue
 
             # concatenate with the dataframe to be returned as result
-            data = pd.concat([data, tmp_data])
-
-            # Group by index while keeping the metadata
-            tmp_meta = copy_metadata(data)
-            data = data.groupby(data.index).last()
-            restore_metadata(tmp_meta, data)
-            # we are only interested in first 5 chars of the system name
-            data.system = set([i[0:5] for i in data.system])
-
+            data = consolidate_data(data, tmp_data)
             logger.info('Done for %s', _sd.system)
             _sd.server.stop()
     except ConfigReadError as msg:
@@ -864,29 +912,37 @@ def main_threaded(alldays=False, nologs=False, logger=None):
     results_queue = queue.Queue()
 
     _sd = SData()
-    _sd.__setattr__('logger', logger)
-    _sd.__setattr__('alldays', alldays)
-    _sd.__setattr__('nologs', nologs)
+    setattr(_sd, 'logger', logger)
+    setattr(_sd, 'alldays', alldays)
+    setattr(_sd, 'nologs', nologs)
+#    _sd.__setattr__('logger', logger)
+#    _sd.__setattr__('alldays', alldays)
+#    _sd.__setattr__('nologs', nologs)
 
     # Initialize tunnel(s) and get the SSH session object
     logger.info('Initializing...')
 
     try:
-        _sd.__setattr__('conf', read_config())
+#        _sd.__setattr__('conf', read_config())
+        setattr(_sd, 'conf', read_config())
         # Initialize tunnels
-        _sd.__setattr__('server', init_tunnels(_sd.conf, logger))
+        setattr(_sd, 'server', init_tunnels(_sd.conf, logger))
+#        _sd.__setattr__('server', init_tunnels(_sd.conf, logger))
 
-        if not _sd.server or not _sd.server._is_started:
+        if not _sd.server:  # or not _sd.server.is_started:
             raise sshtunnel.BaseSSHTunnelForwarderError
         logger.info('Opening connection to gateway')
         _sd.server.start()
+        
+        if not _sd.server.is_started:
+            raise sshtunnel.BaseSSHTunnelForwarderError
 
         all_systems = [x for x in _sd.conf.sections()
                        if x not in ['GATEWAY', 'MISC']]
-        threads = [threading.Thread(target=thread_wrapper, name=system,
-                                    args=(_sd, results_queue, system)
-                                   ) for system in all_systems]
-        for thread_item in threads:
+
+        for thread_item in [threading.Thread(target=thread_wrapper, name=system,
+                                             args=(_sd, results_queue, system))
+                            for system in all_systems]:
             thread_item.daemon = True
             thread_item.start()
 
@@ -894,13 +950,7 @@ def main_threaded(alldays=False, nologs=False, logger=None):
             res_sys, res_data, res_log = results_queue.get()  # 1st one to end
             logger.debug('%s| Consolidating results', res_sys)
             # concatenate with the dataframe to be returned as result
-            data = pd.concat([data, res_data])
-            # Group by index while keeping the metadata
-            tmp_meta = copy_metadata(data)
-            data = data.groupby(data.index).last()
-            restore_metadata(tmp_meta, data)
-            # we are only interested in first 5 chars of the system name
-            data.system = set([i[0:5] for i in data.system])
+            data = consolidate_data(data, res_data)
             logs[res_sys] = res_log
             logger.info('%s| Done collecting data!', res_sys)
 

@@ -111,10 +111,10 @@ class TestpySMSCmon(unittest.TestCase):
         # # Missing data should return an empty DF
         self.assertTrue(smsc.to_dataframe(header, [], metadata).empty)
         # # Missing metadata should return metadata-ready empty DF
-        for item in dataframe.meta_data:
+        for item in dataframe._metadata:
             self.assertIn(item, smsc.to_dataframe(header,
                                                   data_lines,
-                                                  {}).meta_data)
+                                                  {})._metadata)
         my_df = smsc.to_dataframe(['COL1', 'My Sample Time'],
                                   ['7, 2000-01-01 00:00:01',
                                    '23, 2000-01-01 00:01:00',
@@ -134,9 +134,9 @@ class TestpySMSCmon(unittest.TestCase):
         metadata_bck = smsc.copy_metadata(my_df)
         empty_df = pd.DataFrame()
         smsc.restore_metadata(metadata_bck, empty_df)
-        # Check that empty_df.meta_data values are copied
-        for item in my_df.meta_data:
-            self.assertIn(item, empty_df.meta_data)
+        # Check that empty_df._metadata values are copied
+        for item in my_df._metadata:
+            self.assertIn(item, empty_df._metadata)
 
     def test_plotvar(self):
         """ Test function for plot_var """

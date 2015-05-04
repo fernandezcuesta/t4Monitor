@@ -112,7 +112,7 @@ else:
     import socketserver as SocketServer
 
 
-__version_info__ = (0, 0, 3, 6)
+__version_info__ = (0, 0, 3, 6, 0)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'pahaz'
 __author__ = 'cameronmaske'
@@ -542,19 +542,16 @@ class SSHTunnelForwarder(threading.Thread):
         except BaseSSHTunnelForwarderError as _ex:
             self.logger.error(_ex)
 #            raise BaseSSHTunnelForwarderError
-
+        self.is_started = False
         self.logger.debug('Concurrent connections allowed: %s', self._threaded)
-        self._is_started = True if self._server_list and \
-                           all(self._server_list) else False
-
         super(SSHTunnelForwarder, self).__init__()
 
 
     def start_tunnels(self):
         """ Marks tunnels are up/down """
+        self.is_started = True
         self.logger.debug('Server is %sstarted.',
-                          '' if self._is_started else '*NOT* ')
-
+                          '' if self.is_started else '*NOT* ')        
         for _srv in self._server_list:
             self.tunnel_is_up[_srv.server_address[1]] = self.remote_is_up(_srv)
 
@@ -580,11 +577,11 @@ class SSHTunnelForwarder(threading.Thread):
             try:
                 self._transport.connect(hostkey=self._ssh_host_key,
                                         username=self._ssh_username,
-                                        password=self._ssh_password)
+                                        password=self._ssh_password)                
+                self.start_tunnels()
+                return
             except paramiko.ssh_exception.AuthenticationException:
                 self.logger.warning('Bad password, retrying with public key')            
-            self.start_tunnels()
-            return
         if hasattr(self, '_ssh_private_key'):
             self.logger.debug('Logging in with RSA key')
             try:
@@ -642,7 +639,7 @@ class SSHTunnelForwarder(threading.Thread):
                               where 55550 and 55551 are the local bind ports
         """
         self.logger.info('Closing all open connections...')
-        if not self._is_started:
+        if not self.is_started:
             self.logger.debug('Server was already stopped!')
             return
 
@@ -660,14 +657,14 @@ class SSHTunnelForwarder(threading.Thread):
         self._transport.close()
         self._transport.stop_thread()
         self.logger.debug('Transport is now closed')
-        self._is_started = False
+        self.is_started = False
 
     @property
     def local_bind_ports(self):
         """
         Returns a list containing the ports of local side of active tunnels
         """
-        if not self._is_started:
+        if not self.is_started:
             return []
         return [port for port in self.tunnel_is_up if self.tunnel_is_up[port]]
 
@@ -676,7 +673,7 @@ class SSHTunnelForwarder(threading.Thread):
         """
         Returns a list containing the IP addresses listening for active tunnels
         """
-        if not self._is_started:
+        if not self.is_started:
             return []
         return [_server.bind_host for _server in self._server_list
                 if self.tunnel_is_up.get(_server.bind_port)]
@@ -686,7 +683,7 @@ class SSHTunnelForwarder(threading.Thread):
         """
         Returns a list containing the ports of remote side of active tunnels
         """
-        if not self._is_started:
+        if not self.is_started:
             return []
         return [_server.remote_port for _server in self._server_list
                 if self.tunnel_is_up.get(_server.bind_port)]
@@ -696,7 +693,7 @@ class SSHTunnelForwarder(threading.Thread):
         """
         Returns a list containing the remote IP addresses of the active tunnels
         """
-        if not self._is_started:
+        if not self.is_started:
             return []
         return [_server.remote_host for _server in self._server_list
                 if self.tunnel_is_up.get(_server.bind_port)]

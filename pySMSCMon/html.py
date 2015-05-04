@@ -13,10 +13,11 @@ import pandas as pd
 import threading
 import ast
 import ConfigParser
+import progressbar as pb
 from matplotlib import pylab as pylab, pyplot as plt
 
 
-__version_info__ = (0, 3, 4)
+__version_info__ = (0, 6, 0)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
@@ -30,6 +31,22 @@ STORE_FOLDER = 'store'
 pylab.rcParams['figure.figsize'] = 13, 10
 
 
+
+
+def print_progressbar(maxval):
+    """ Generates a progressbar adding +1 each time the function is called """
+    
+    widgets = ['Rendering graph ',
+               pb.Counter(),
+               ' (',
+               pb.Percentage(),
+               ' done) ',
+               pb.Bar(marker=pb.RotatingMarker()),
+               ' ',
+               pb.ETA()]
+    pbar = pb.ProgressBar(widgets=widgets, maxval=maxval).start()
+    for progress in range(maxval):
+        yield pbar.update(progress)
 
 def get_html_output(container):
     """ Create the jinja2 environment.
@@ -45,6 +62,7 @@ def get_html_output(container):
         j2_tpl.globals['get_graphs'] = get_graphs
         container.logger.info('%s| Generating graphics and rendering report',
                               container.system)
+        container.num_graphs += count_graphs()  # n_graphs*n_systems
         return j2_tpl.render(data=container)
     except AssertionError:
         container.logger.error('Data container error!')
@@ -88,9 +106,13 @@ def get_graphs(container):
             except ValueError:
                 optional_args = {'ylim': 0.0}
 
-            container.logger.debug('%s|  > Plotting %s',
-                                   container.system,
-                                   info[0])
+            if container.logger.level == 10:            
+                container.logger.debug('%s|  Plotting %s',
+                                       container.system,
+                                       info[0])
+            else:
+                print_progressbar(container.num_graphs)
+
             try:
                 _b64figure = pysmscmon.to_base64(getattr(pysmscmon, "plot_var")\
                     (container.data,
@@ -117,7 +139,9 @@ def serial_main(logger, alldays=False, nologs=False, noreports=False):
 
     container = Container()
     container.logger = logger
-    container.data, container.logs = pysmscmon.main(alldays, nologs, logger)
+    container.data, container.logs = pysmscmon.main_serial(alldays,
+                                                           nologs,
+                                                           logger)
 
     #   container.data = pd.read_pickle('test/testdata.dat')
     #   container.logs = {'SMTFB': 'B', 'SMTFC': 'C', 'SMTFD': 'D'}
@@ -151,6 +175,7 @@ def serial_main(logger, alldays=False, nologs=False, noreports=False):
     if not noreports:
         for system in all_systems:
             container.system = system
+            container.num_graphs += count_graphs()
             with open('{1}/Report_{0}_{2}.html'.
                       format(dt.date.strftime(dt.datetime.today(),
                                               "%Y%m%d_%H%M"),
@@ -217,6 +242,7 @@ def threaded_main(logger, alldays=False, nologs=False, noreports=False):
         # in case of error.
         # Doing this with threads throws many errors with Qt (when acting as
         # matplotlib backend out from main thread)
+        container.num_graphs = count_graphs()*len(all_systems)
         threads = [threading.Thread(target=th_reports,
                                     args=(container, system),
                                     name=system) for system in all_systems]
@@ -289,7 +315,7 @@ class Container(object):
         - system: string containing current system-id being rendered
     """
     graphs = {}  # will be filled by calls from within jinja for loop
-#    num_graphs = count_graphs()
+    num_graphs = 0
     logs = {}
     year = dt.date.today().year
     date_time = dt.date.strftime(dt.datetime.today(), "%d/%m/%Y %H:%M:%S")
