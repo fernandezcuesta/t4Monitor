@@ -12,6 +12,7 @@ include/
 lib/
 man/
 *sublime-*
+.*spyder*
 *.dat
 favicon.ico
 *tlf*
