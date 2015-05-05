@@ -58,6 +58,7 @@ import ConfigParser
 import calculations
 import sshtunnel
 import pandas as pd
+import __builtin__
 import threading
 import datetime as dt
 import Queue as queue
@@ -72,12 +73,13 @@ from re import split
 from random import randint
 from paramiko import SSHException
 
-__version_info__ = (0, 6, 0)
+__version_info__ = (0, 6, 2)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
-__all__ = ('select_var', 'main_serial', 'plot_var', 'copy_metadata',
-           'to_base64', 'get_stats_from_host', 'restore_metadata', 'extract_df')
+__all__ = ('select_var', 'main', 'plot_var', 'copy_metadata',
+           'to_base64', 'get_stats_from_host', 'restore_metadata',
+           'extract_df')
 
 
 # CONSTANTS
@@ -165,23 +167,19 @@ def _custom_finalize(self, other, method=None):
         if _cur_meta:
             if isinstance(_el_meta, set):
                 setattr(self, name, _cur_meta.union(_el_meta))
-#                object.__setattr__(self, name, _cur_meta.union(_el_meta))
             else:
                 _cur_meta.add(_el_meta)
         else:
             setattr(self,
                     name,
                     _el_meta if isinstance(_el_meta, set) else set([_el_meta]))
-#            object.__setattr__(self, name,
-#                               _el_meta if isinstance(_el_meta, set)
-#                               else set([_el_meta]))
     for name in self._metadata:
         if method == 'concat':
             map(lambda element: _wrapper(element, name), other.objs)
         else:
             setattr(self, name, getattr(other, name, ''))
-#            object.__setattr__(self, name, getattr(other, name, ''))
     return self
+
 
 def to_pickle(self, name):
     """ Allow saving metadata to pickle """
@@ -195,10 +193,10 @@ def to_pickle(self, name):
                         pickleout,
                         protocol=pickle.HIGHEST_PROTOCOL)
 
+
 def read_pickle(name):
     """ Properly restore dataframe plus its metadata from pickle store """
     with open(name, 'rb') as picklein:
-        
         try:
             dataframe = pickle.load(picklein)
             setattr(dataframe, '_metadata', pickle.load(picklein))
@@ -359,18 +357,18 @@ def plot_var(dataframe, *var_names, **optional):
                 getattr(plt, key)(optional[key])
 
             for key, grp in dataframe.groupby(['system']):
-                sel_list = list(selected.next())
-                if not sel_list:
+                sel = list(selected.next())
+                if not sel:
                     # other systems may have this
                     continue
-                for item in sel_list:
+                for item in sel:
                     logger.debug('Drawing item: %s (%s)' % (item, key))
                     # convert timestamp to number
                     my_ts = [ts.to_julian_date() - 1721424.5
                              for ts in grp[item].dropna().index]
                     plt.plot(my_ts,
                              grp[item].dropna(), label='%s@%s' % (item, key))
-            if not sel_list:  # nothing at all was found
+            if not sel:  # nothing at all was found
                 raise TypeError
         # Style the resulting plot
         plotaxis.xaxis.set_major_formatter(md.DateFormatter('%d/%m/%y\n%H:%M'))
@@ -383,10 +381,10 @@ def plot_var(dataframe, *var_names, **optional):
                      '{}| '.format(system_filter) if system_filter else '',
                      var_names,
                      ' for this system' if system_filter else '')
-        _ = plt.plot()
+        item = plt.plot()
         return plt.gca()
     except Exception as exc:
-        _, _, exc_tb = sys.exc_info()
+        item, item, exc_tb = sys.exc_info()
         logger.error('Exception at plot_var (line %s): %s',
                      exc_tb.tb_lineno,
                      repr(exc))
@@ -426,7 +424,6 @@ def restore_metadata(metadata, dataframe):
     assert isinstance(dataframe, pd.DataFrame)
     for keyvalue in metadata:
         setattr(dataframe, keyvalue, metadata[keyvalue])
-#        object.__setattr__(dataframe, keyvalue, metadata[keyvalue])
         if keyvalue not in dataframe._metadata:
             dataframe._metadata.append(keyvalue)
     return dataframe
@@ -479,9 +476,7 @@ def to_dataframe(field_names, data, metadata):
                               parse_dates={'datetime': [df_timecol]},
                               index_col='datetime')
         for item in metadata:
-#            _df[item] = metadata[item]
             _df[item] = pd.Series([metadata[item]]*len(_df), index=_df.index)
-#            object.__setattr__(_df, item, metadata[item])
             setattr(_df, item, metadata[item])
             if item not in _df._metadata:
                 _df._metadata.append(item)
@@ -490,18 +485,22 @@ def to_dataframe(field_names, data, metadata):
     return _df
 
 
-def dataframize(a_file, sftp_session, logger=None):
+def dataframize(a_file, sftp_session=None, logger=None):
     """
     Wrapper for to_dataframe, leading with non-existing files over sftp
+    If sftp_session is not a valid session, work with local filesystem
     """
 
     logger = logger or init_logger()
     logger.info('Loading file %s...', a_file)
     try:
+        if not isinstance(sftp_session, SftpSession):
+            sftp_session = __builtin__
         with sftp_session.open(a_file) as file_descriptor:
             _single_df = to_dataframe(*extract_t4csv(file_descriptor))
         return _single_df
     except IOError:  # non-existing files also return an empty dataframe
+        logger.error('File not found: %s', a_file)
         return pd.DataFrame()
     except ExtractCSVException:
         logger.error('An error occured while extracting the CSV file: %s',
@@ -511,10 +510,6 @@ def dataframize(a_file, sftp_session, logger=None):
         logger.error('Error occurred while internally processing CSV file: %s',
                      a_file)
         return pd.DataFrame()
-#    except Exception:
-#        exc_typ, _, exc_tb = sys.exc_info()
-#        print 'Unexpected error ({2}@line {0}): {1}'.format(exc_tb.tb_lineno,
-#                                 exc_typ, exc_tb.tb_frame.f_code.co_filename)
 
 
 def get_stats_from_host(hostname, *files, **kwargs):
@@ -734,9 +729,8 @@ def get_system_data(sdata):
             if data.empty:
                 logger.warning('%s| Data size obtained is 0 Bytes, skipping '
                                'log collection.', sdata.system)
-#                sdata.__setattr__('nologs', True)
                 setattr(sdata, 'nologs', True)
-                
+
             else:
                 logger.info('%s| Data size obtained: %s. '
                             'Now applying calculations...',
@@ -755,7 +749,6 @@ def get_system_data(sdata):
                            taglist)
             logger.warning('%s| Skipping log collection for this system',
                            sdata.system)
-#            sdata.__setattr__('nologs', True)
             setattr(sdata, 'nologs', True)
 
         # Done gathering data, now get the logs
@@ -792,10 +785,9 @@ def init_logger(loglevel=None, name=__name__):
     return logger
 
 
-
 def consolidate_data(data, tmp_data):
-    """ Concatenate partial dataframe with resulting dataframe """
-    
+    """ Concatenate partial dataframe with resulting dataframe
+    """
     result = pd.concat([data, tmp_data])
     # Group by index while keeping the metadata
     tmp_meta = copy_metadata(result)
@@ -804,81 +796,6 @@ def consolidate_data(data, tmp_data):
     # we are only interested in first 5 chars of the system name
     result.system = set([i[0:5] for i in result.system])
     return result
-
-
-def main_serial(alldays=False, nologs=False, logger=None):
-    """ Here comes the main function
-    Optional: alldays (Boolean): if true, do not filter on today's date
-              nologs (Boolean): if true, skip log info collection
-    """
-    logger = logger or init_logger()
-
-    _sd = SData()
-    setattr(_sd, 'logger', logger)
-    setattr(_sd, 'alldays', alldays)
-    setattr(_sd, 'nologs', nologs)
-#    _sd.__setattr__('logger', logger)
-#    _sd.__setattr__('alldays', alldays)
-#    _sd.__setattr__('nologs', nologs)
-
-    data = pd.DataFrame()
-    logs = {}
-
-    # Initialize tunnel(s) and get the SSH session object
-    logger.info('Initializing...')
-
-    try:
-        setattr(_sd, 'conf', read_config())
-#        _sd.__setattr__('conf', read_config())
-        for _sd.system in \
-        [x for x in _sd.conf.sections() if x not in ['GATEWAY', 'MISC']]:
-            logger.info('%s| Collecting statistics', _sd.system)
-            try:
-                setattr(_sd, 'server', init_tunnels(_sd.conf,
-                                                    logger,
-                                                    _sd.system))
-#                _sd.__setattr__('server',
-#                                init_tunnels(_sd.conf, logger, _sd.system))
-            except sshtunnel.BaseSSHTunnelForwarderError:
-                continue
-            except Exception as _ex:
-                logger.error('Unexpected error while opening SSH tunnels')
-                logger.error(repr(_ex))
-                return data, logs
-            logger.info('Opening connection to tunnels')
-            _sd.server.start()
-            # Get data from the remote system
-            try:
-                tunnelport = _sd.server.tunnelports[_sd.system]
-                if tunnelport not in _sd.server.tunnel_is_up or \
-                    not _sd.server.tunnel_is_up[tunnelport]:
-                    logger.error('Cannot download data from %s.', _sd.system)
-                    raise IOError
-                tmp_data, logs[_sd.system] = get_system_data(_sd)
-            except (IOError, SFTPSessionError):
-                _sd.server.stop()
-                logger.warning('Continue to next system')
-                continue
-
-            # concatenate with the dataframe to be returned as result
-            data = consolidate_data(data, tmp_data)
-            logger.info('Done for %s', _sd.system)
-            _sd.server.stop()
-    except ConfigReadError as msg:
-        logger.error(msg)
-    except SSHException:
-        logger.error('Could not open remote connection')
-    except Exception as ex:
-        exc_typ, _, exc_tb = sys.exc_info()
-        logger.error('Unexpected error %s: (%s@line %s): %s',
-                     ex,
-                     exc_tb.tb_frame.f_code.co_filename,
-                     exc_tb.tb_lineno,
-                     exc_typ)
-        # Stop last SSH tunnel if up
-        _sd.server.stop()
-    finally:
-        return data, logs
 
 
 def thread_wrapper(sdata, results_queue, system):
@@ -901,69 +818,225 @@ def thread_wrapper(sdata, results_queue, system):
     results_queue.put((system, data, log))
 
 
-def main_threaded(alldays=False, nologs=False, logger=None):
-    """ Here comes the main function, with threads
+def start_server(server, logger):
+    """
+    Dummy function to start SSH servers
+    """
+    if not server:  # or not _sd.server.is_started:
+        raise sshtunnel.BaseSSHTunnelForwarderError
+    logger.info('Opening connection to gateway')
+    server.start()
+    if not server.is_started:
+        raise sshtunnel.BaseSSHTunnelForwarderError
+
+
+def main(alldays=False, nologs=False, logger=None, threads=False):
+    """ Here comes the main function
     Optional: alldays (Boolean): if true, do not filter on today's date
               nologs (Boolean): if true, skip log info collection
     """
+    # TODO: review exceptions and comment where they may come from
     logger = logger or init_logger()
     data = pd.DataFrame()
     logs = {}
-    results_queue = queue.Queue()
 
     _sd = SData()
     setattr(_sd, 'logger', logger)
     setattr(_sd, 'alldays', alldays)
     setattr(_sd, 'nologs', nologs)
-#    _sd.__setattr__('logger', logger)
-#    _sd.__setattr__('alldays', alldays)
-#    _sd.__setattr__('nologs', nologs)
-
-    # Initialize tunnel(s) and get the SSH session object
-    logger.info('Initializing...')
 
     try:
-#        _sd.__setattr__('conf', read_config())
         setattr(_sd, 'conf', read_config())
-        # Initialize tunnels
-        setattr(_sd, 'server', init_tunnels(_sd.conf, logger))
-#        _sd.__setattr__('server', init_tunnels(_sd.conf, logger))
+        all_systems = [item for item in _sd.conf.sections()
+                       if item not in ['GATEWAY', 'MISC']]
+        if threads:
+            logger.info('Initializing tunnels')
+            setattr(_sd, 'server', init_tunnels(_sd.conf, logger))
+            results_queue = queue.Queue()
+            start_server(_sd.server, logger)
+            for item in [threading.Thread(target=thread_wrapper,
+                                          name=_sd.system,
+                                          args=(_sd, results_queue, _sd.system))
+                         for _sd.system in all_systems]:
+                item.daemon = True
+                item.start()
 
-        if not _sd.server:  # or not _sd.server.is_started:
-            raise sshtunnel.BaseSSHTunnelForwarderError
-        logger.info('Opening connection to gateway')
-        _sd.server.start()
-        
-        if not _sd.server.is_started:
-            raise sshtunnel.BaseSSHTunnelForwarderError
+            for item in range(len(all_systems)):
+                res_sys, res_data, res_log = results_queue.get()
+                logger.debug('%s| Consolidating results', res_sys)
+                data = consolidate_data(data, res_data)
+                logs[res_sys] = res_log
+                logger.info('%s| Done collecting data!', res_sys)
+                _sd.server.stop()
+        else:
+            for _sd.system in all_systems:
+                logger.info('%s| Initializing tunnel', _sd.system)
+                try:
+                    setattr(_sd, 'server', init_tunnels(_sd.conf,
+                                                        logger,
+                                                        _sd.system))
+                    start_server(_sd.server, logger)
+                    tunnelport = _sd.server.tunnelports[_sd.system]
+                    if tunnelport not in _sd.server.tunnel_is_up \
+                    or not _sd.server.tunnel_is_up[tunnelport]:
+                        logger.error('Cannot download data from %s.',
+                                     _sd.system)
+                        raise IOError
+                    res_data, logs[_sd.system] = get_system_data(_sd)
+                    data = consolidate_data(data, res_data)
+                    logger.info('Done for %s', _sd.system)
+                    _sd.server.stop()
+                except (sshtunnel.BaseSSHTunnelForwarderError,
+                        IOError,
+                        SFTPSessionError):
+                    _sd.server.stop()
+                    logger.warning('Continue to next system')
+                    continue
 
-        all_systems = [x for x in _sd.conf.sections()
-                       if x not in ['GATEWAY', 'MISC']]
-
-        for thread_item in [threading.Thread(target=thread_wrapper, name=system,
-                                             args=(_sd, results_queue, system))
-                            for system in all_systems]:
-            thread_item.daemon = True
-            thread_item.start()
-
-        for _ in range(len(all_systems)):
-            res_sys, res_data, res_log = results_queue.get()  # 1st one to end
-            logger.debug('%s| Consolidating results', res_sys)
-            # concatenate with the dataframe to be returned as result
-            data = consolidate_data(data, res_data)
-            logs[res_sys] = res_log
-            logger.info('%s| Done collecting data!', res_sys)
-
-        logger.info('Stopping connection to gateway')
-        _sd.server.stop()
-    except sshtunnel.BaseSSHTunnelForwarderError:
+    except (sshtunnel.BaseSSHTunnelForwarderError, AttributeError):
         logger.error('Could not initialize the SSH tunnels, aborting')
     except ConfigReadError:
         logger.error('Could not read settings file: %s', SETTINGS_FILE)
-    except AttributeError:  # raised when no server could be open
-        pass
-        # Stop last SSH tunnel if up
-#        _sd.server.stop()
-    finally:
-        return data, logs
+    except SSHException:
+        logger.error('Could not open remote connection')
+    except Exception as _ex:
+        logger.error('Unexpected error while opening SSH tunnels')
+        logger.error(repr(_ex))
 
+    return data, logs
+
+#def main_serial(alldays=False, nologs=False, logger=None):
+#    """ Here comes the main function
+#    Optional: alldays (Boolean): if true, do not filter on today's date
+#              nologs (Boolean): if true, skip log info collection
+#    """
+#    logger = logger or init_logger()
+#    data = pd.DataFrame()
+#    logs = {}
+#
+#    _sd = SData()
+#    setattr(_sd, 'logger', logger)
+#    setattr(_sd, 'alldays', alldays)
+#    setattr(_sd, 'nologs', nologs)
+#
+#
+#    # Initialize tunnel(s) and get the SSH session object
+#    logger.info('Initializing...')
+#
+#    try:
+#        setattr(_sd, 'conf', read_config())
+#        for _sd.system in \
+#        [x for x in _sd.conf.sections() if x not in ['GATEWAY', 'MISC']]:
+#            logger.info('%s| Collecting statistics', _sd.system)
+#            try:
+#                setattr(_sd, 'server', init_tunnels(_sd.conf,
+#                                                    logger,
+#                                                    _sd.system))
+#            except sshtunnel.BaseSSHTunnelForwarderError:
+#                continue
+#            except Exception as _ex:
+#                logger.error('Unexpected error while opening SSH tunnels')
+#                logger.error(repr(_ex))
+#                return data, logs
+#            logger.info('Opening connection to tunnels')
+#            _sd.server.start()
+#            # Get data from the remote system
+#            try:
+#                tunnelport = _sd.server.tunnelports[_sd.system]
+#                if tunnelport not in _sd.server.tunnel_is_up or \
+#                    not _sd.server.tunnel_is_up[tunnelport]:
+#                    logger.error('Cannot download data from %s.', _sd.system)
+#                    raise IOError
+#                tmp_data, logs[_sd.system] = get_system_data(_sd)
+#            except (IOError, SFTPSessionError):
+#                _sd.server.stop()
+#                logger.warning('Continue to next system')
+#                continue
+#
+#            # concatenate with the dataframe to be returned as result
+#            data = consolidate_data(data, tmp_data)
+#            logger.info('Done for %s', _sd.system)
+#            _sd.server.stop()
+#    except ConfigReadError as msg:
+#        logger.error(msg)
+#    except SSHException:
+#        logger.error('Could not open remote connection')
+#    except Exception as ex:
+#        exc_typ, _, exc_tb = sys.exc_info()
+#        logger.error('Unexpected error %s: (%s@line %s): %s',
+#                     ex,
+#                     exc_tb.tb_frame.f_code.co_filename,
+#                     exc_tb.tb_lineno,
+#                     exc_typ)
+#        # Stop last SSH tunnel if up
+#        _sd.server.stop()
+#    finally:
+#        return data, logs
+
+#def main_threaded(alldays=False, nologs=False, logger=None):
+#    """ Here comes the main function, with threads
+#    Optional: alldays (Boolean): if true, do not filter on today's date
+#              nologs (Boolean): if true, skip log info collection
+#    """
+#    logger = logger or init_logger()
+#    data = pd.DataFrame()
+#    logs = {}
+#    results_queue = queue.Queue()
+#
+#    _sd = SData()
+#    setattr(_sd, 'logger', logger)
+#    setattr(_sd, 'alldays', alldays)
+#    setattr(_sd, 'nologs', nologs)
+#
+#    # Initialize tunnel(s) and get the SSH session object
+#    logger.info('Initializing...')
+#
+#    try:
+#        setattr(_sd, 'conf', read_config())
+#        # Initialize tunnels
+#        setattr(_sd, 'server', init_tunnels(_sd.conf, logger))
+#
+#        if not _sd.server:  # or not _sd.server.is_started:
+#            raise sshtunnel.BaseSSHTunnelForwarderError
+#        logger.info('Opening connection to gateway')
+#        _sd.server.start()
+#
+#        if not _sd.server.is_started:
+#            raise sshtunnel.BaseSSHTunnelForwarderError
+#
+#        all_systems = [x for x in _sd.conf.sections()
+#                       if x not in ['GATEWAY', 'MISC']]
+#
+#        for thread_item in [threading.Thread(target=thread_wrapper,
+#                                             name=system,
+#                                             args=(_sd, results_queue, system))
+#                            for system in all_systems]:
+#            thread_item.daemon = True
+#            thread_item.start()
+#
+#        for _ in range(len(all_systems)):
+#            res_sys, res_data, res_log = results_queue.get()  # 1st one to end
+#            logger.debug('%s| Consolidating results', res_sys)
+#            # concatenate with the dataframe to be returned as result
+#            data = consolidate_data(data, res_data)
+#            logs[res_sys] = res_log
+#            logger.info('%s| Done collecting data!', res_sys)
+#
+#        logger.info('Stopping connection to gateway')
+#        _sd.server.stop()
+#    except sshtunnel.BaseSSHTunnelForwarderError:
+#        logger.error('Could not initialize the SSH tunnels, aborting')
+#    except ConfigReadError:
+#        logger.error('Could not read settings file: %s', SETTINGS_FILE)
+#    except AttributeError:  # raised when no server could be open
+#        pass
+#        # Stop last SSH tunnel if up
+##        _sd.server.stop()
+#    finally:
+#        return data, logs
+
+if __name__ == '__main__':
+    df = get_stats_from_host('test',
+                             '/data/virtualenv/pySMSCMon/test/test_data.csv',
+                             sftp_client='local')
+    print df.shape

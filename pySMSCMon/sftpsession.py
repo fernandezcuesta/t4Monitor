@@ -69,7 +69,11 @@ class SftpSession(object):
         client = paramiko.SSHClient()
 
         # Load ~/.ssh/config - like file
-        client.load_system_host_keys()
+        try:  # This is somehow required with paramiko 1.15.2
+            client.load_system_host_keys()
+        except TypeError:
+            self.logger.debug('ssh config file could not be loaded')
+
         # Automatically add new hostkeys if not found in ssh config file
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 

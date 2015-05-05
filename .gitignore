@@ -20,3 +20,4 @@ favicon.ico
 documentation/*.png
 documentation/log_howto*
 *prueba*
+*_example*.py

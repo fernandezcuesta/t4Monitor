@@ -11,13 +11,12 @@ import datetime as dt
 import argparse
 import pandas as pd
 import threading
-import ast
 import ConfigParser
-import progressbar as pb
+from ast import literal_eval
 from matplotlib import pylab as pylab, pyplot as plt
 
 
-__version_info__ = (0, 6, 0)
+__version_info__ = (0, 6, 2)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
@@ -30,23 +29,6 @@ STORE_FOLDER = 'store'
 
 pylab.rcParams['figure.figsize'] = 13, 10
 
-
-
-
-def print_progressbar(maxval):
-    """ Generates a progressbar adding +1 each time the function is called """
-    
-    widgets = ['Rendering graph ',
-               pb.Counter(),
-               ' (',
-               pb.Percentage(),
-               ' done) ',
-               pb.Bar(marker=pb.RotatingMarker()),
-               ' ',
-               pb.ETA()]
-    pbar = pb.ProgressBar(widgets=widgets, maxval=maxval).start()
-    for progress in range(maxval):
-        yield pbar.update(progress)
 
 def get_html_output(container):
     """ Create the jinja2 environment.
@@ -62,7 +44,6 @@ def get_html_output(container):
         j2_tpl.globals['get_graphs'] = get_graphs
         container.logger.info('%s| Generating graphics and rendering report',
                               container.system)
-        container.num_graphs += count_graphs()  # n_graphs*n_systems
         return j2_tpl.render(data=container)
     except AssertionError:
         container.logger.error('Data container error!')
@@ -73,13 +54,6 @@ def get_html_output(container):
                                container.system,
                                repr(other_exception))
         return ['']
-
-
-def count_graphs():
-    """ Returns the number of graphs to be drawn per system """
-    with open(GRAPHS_DEFINITION_FILE, 'r') as graphs_txt:
-        lines = graphs_txt.readlines()
-        return len([l for l in lines if len(l.strip()) and l.strip()[0] != "#"])
 
 
 def get_graphs(container):
@@ -101,20 +75,17 @@ def get_graphs(container):
                                          line)
                 continue
             try:
-                optional_args = ast.literal_eval("dict(%s)" % info[2]) \
+                optional_args = literal_eval("dict(%s)" % info[2]) \
                                 if len(info) == 3 else {'ylim': 0.0}
             except ValueError:
                 optional_args = {'ylim': 0.0}
 
-            if container.logger.level == 10:            
                 container.logger.debug('%s|  Plotting %s',
                                        container.system,
                                        info[0])
-            else:
-                print_progressbar(container.num_graphs)
-
             try:
-                _b64figure = pysmscmon.to_base64(getattr(pysmscmon, "plot_var")\
+                _b64figure = pysmscmon.to_base64(getattr(pysmscmon,
+                                                         "plot_var")\
                     (container.data,
                      *[x.strip() for x in info[0].split(',')],
                      system=container.system.upper(),
@@ -125,66 +96,9 @@ def get_graphs(container):
                 else:
                     yield (info[1], _b64figure)
             except Exception as exc:
-                container.logger.error('Unexpected error while ' \
+                container.logger.error('Unexpected error while '
                                        'rendering graph: %s', repr(exc))
                 yield False
-
-def serial_main(logger, alldays=False, nologs=False, noreports=False):
-    """ Main method, gets data and logs, store and render the HTML output
-        Serial (stable, but slow) implementation
-    """
-
-    pylab.rcParams['figure.figsize'] = 13, 10
-    plt.style.use('ggplot')
-
-    container = Container()
-    container.logger = logger
-    container.data, container.logs = pysmscmon.main_serial(alldays,
-                                                           nologs,
-                                                           logger)
-
-    #   container.data = pd.read_pickle('test/testdata.dat')
-    #   container.logs = {'SMTFB': 'B', 'SMTFC': 'C', 'SMTFD': 'D'}
-
-    if container.data.empty:
-        logger.error('Could not retrieve data!!! Aborting.')
-        return
-
-    conf = pysmscmon.read_config()
-
-    all_systems = [x for x in conf.sections() if x not in ['GATEWAY', 'MISC']]
-    datetag = dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M")
-
-    # Store the data locally
-    logger.info('Making a local copy of data in store folder')
-    container.data.to_pickle('{0}/data_{1}.pkl'.format(STORE_FOLDER, datetag))
-    container.data.to_csv('{0}/data_{1}.csv'.format(STORE_FOLDER, datetag))
-
-    if not nologs:
-        for system in all_systems:
-            if system not in container.logs:
-                logger.warning('No log info found for %s', system)
-                continue
-            with open('{0}/logs_{1}_{2}.txt'.format(STORE_FOLDER,
-                                                    system,
-                                                    datetag),
-                      'w') as logtxt:
-                logtxt.writelines(container.logs[system])
-
-#   Call jinja2 template, separately to safely store the logs in case of error
-    if not noreports:
-        for system in all_systems:
-            container.system = system
-            container.num_graphs += count_graphs()
-            with open('{1}/Report_{0}_{2}.html'.
-                      format(dt.date.strftime(dt.datetime.today(),
-                                              "%Y%m%d_%H%M"),
-                             OUTPUT_FOLDER, container.system),
-                      'w') as output:
-                output.writelines(get_html_output(container=container))
-    else:
-        logger.info('Skipped report generation')
-    logger.info('Done!')
 
 
 def th_reports(container, system):
@@ -200,7 +114,8 @@ def th_reports(container, system):
         output.writelines(get_html_output(container=container_clone))
 
 
-def threaded_main(logger, alldays=False, nologs=False, noreports=False):
+def main(logger, alldays=False, nologs=False, noreports=False,
+         threaded=False):
     """ Main method, gets data and logs, store and render the HTML output
         Threaded version (fast, error prone)
     """
@@ -208,17 +123,18 @@ def threaded_main(logger, alldays=False, nologs=False, noreports=False):
     plt.style.use('ggplot')
     container = Container()
     container.logger = logger
-    container.data, container.logs = pysmscmon.main_threaded(alldays,
-                                                             nologs,
-                                                             logger)
+    # Open the tunnels and gather all data
+    container.data, container.logs = pysmscmon.main(alldays,
+                                                    nologs,
+                                                    logger,
+                                                    threaded)
     if container.data.empty:
-        logger.error('Error: could not retrieve data!!! Aborting.')
+        logger.error('Could not retrieve data!!! Aborting.')
         return
 
     conf = pysmscmon.read_config()
 
     all_systems = [x for x in conf.sections() if x not in ['GATEWAY', 'MISC']]
-
     datetag = dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M")
 
     # Store the data locally
@@ -227,6 +143,7 @@ def threaded_main(logger, alldays=False, nologs=False, noreports=False):
     container.data.to_pickle('{0}/data_{1}.pkl'.format(STORE_FOLDER, datetag))
     container.data.to_csv('{0}/data_{1}.csv'.format(STORE_FOLDER, datetag))
 
+    # Write logs
     if not nologs:
         for system in all_systems:
             if system not in container.logs:
@@ -237,30 +154,40 @@ def threaded_main(logger, alldays=False, nologs=False, noreports=False):
                                                     datetag),
                       'w') as logtxt:
                 logtxt.writelines(container.logs[system])
+    # Generate reports
     if not noreports:
         # Call jinja2 template, separately to safely store the logs
         # in case of error.
         # Doing this with threads throws many errors with Qt (when acting as
         # matplotlib backend out from main thread)
-        container.num_graphs = count_graphs()*len(all_systems)
-        threads = [threading.Thread(target=th_reports,
-                                    args=(container, system),
-                                    name=system) for system in all_systems]
-        for thread_item in threads:
-            thread_item.daemon = True
-            thread_item.start()
-        for thread_item in threads:
-            thread_item.join()
+        if threaded:
+            threads = [threading.Thread(target=th_reports,
+                                        args=(container, system),
+                                        name=system) for system in all_systems]
+            for thread_item in threads:
+                thread_item.daemon = True
+                thread_item.start()
+            for thread_item in threads:
+                thread_item.join()
+        else:
+            for system in all_systems:
+                container.system = system
+                with open('{1}/Report_{0}_{2}.html'.
+                          format(dt.date.strftime(dt.datetime.today(),
+                                                  "%Y%m%d_%H%M"),
+                                 OUTPUT_FOLDER, container.system), 
+                          'w') as output:
+                    output.writelines(get_html_output(container=container))
     else:
         logger.info('Skipped report generation')
     logger.info('Done!')
-
-
+    
+    
 def check_files(logger):
     """
     Runtime test that checks if all required files exist and are readable:
 
-    - settings file (pysmscmon.SETTINGS_FILE)    
+    - settings file (pysmscmon.SETTINGS_FILE)
     - calculations file (settings/MISC/calculations_file)
     - Jinja template (HTML_TEMPLATE)
     - graphs definition file (GRAPHS_DEFINITION_FILE)
@@ -332,7 +259,6 @@ class Container(object):
         my_clone = Container()
         my_clone.date_time = self.date_time
         my_clone.data = self.data
-#        my_clone.num_graphs = self.num_graphs
         # Backwards compatibility with non threaded version
         my_clone.logs = {system: self.logs[system]}
         my_clone.system = system
@@ -345,23 +271,23 @@ if __name__ == "__main__":
                                      formatter_class=argparse.
                                      RawTextHelpFormatter)
 
-    PARSER.add_argument('--all', action="store_true", dest="alldays",
+    PARSER.add_argument('--all', action='store_true', dest='alldays',
                         help='Collect all data available on SMSCs'
                              'not just for today')
-    PARSER.add_argument('--fast', action="store_true",
-                        help='Fast, experimental mode running with threads, '
+    PARSER.add_argument('--fast', action='store_true', dest='threaded',
+                        help='Fast mode running with threads, '
                              'lowering execution time by 1/2.')
-    PARSER.add_argument('--noreports', action="store_true",
+    PARSER.add_argument('--noreports', action='store_true',
                         help='Skip report creation, files are just gathered '
                              'and stored locally')
-    PARSER.add_argument('--nologs', action="store_true",
+    PARSER.add_argument('--nologs', action='store_true',
                         help='Skip log information collection from SMSCs')
     PARSER.add_argument('--settings',
                         default=pysmscmon.SETTINGS_FILE,
-                        help='Settings file (default: {})'.format(\
+                        help='Settings file (default: {})'.format(
                             pysmscmon.SETTINGS_FILE))
     PARSER.add_argument('--template', default=HTML_TEMPLATE,
-                        help='HTML template (default: {})'.format(HTML_TEMPLATE)
+                        help='HTML template (default: %s)' % HTML_TEMPLATE
                        )
     PARSER.add_argument('--loglevel', const=pysmscmon.DEFAULT_LOGLEVEL,
                         choices=['DEBUG',
@@ -373,16 +299,133 @@ if __name__ == "__main__":
                         pysmscmon.DEFAULT_LOGLEVEL,
                         nargs='?')
     ARGS = vars(PARSER.parse_args())
-           
+
     pysmscmon.SETTINGS_FILE = ARGS.pop('settings')
     # Default for pysmscmon is 'settings.cfg' in same folder as pysmscmon.py
 
     HTML_TEMPLATE = ARGS.pop('template')
 
     LOGGER = pysmscmon.init_logger(ARGS.pop('loglevel'))
-    
-    if check_files(LOGGER):
-        if ARGS.pop('fast'):
-            threaded_main(LOGGER, **ARGS)
-        else:
-            serial_main(LOGGER, **ARGS)
+
+    if check_files(LOGGER):        
+        main(LOGGER, **ARGS)
+#        if ARGS.pop('fast'):
+#            main(LOGGER, threaded=True, **ARGS)
+#        else:
+#            main(LOGGER, threaded=False, **ARGS)
+
+
+
+#def serial_main(logger, alldays=False, nologs=False, noreports=False):
+#    """ Main method, gets data and logs, store and render the HTML output
+#        Serial (stable, but slow) implementation
+#    """
+#
+#    pylab.rcParams['figure.figsize'] = 13, 10
+#    plt.style.use('ggplot')
+#
+#    container = Container()
+#    container.logger = logger
+#    container.data, container.logs = pysmscmon.main(alldays,
+#                                                    nologs,
+#                                                    logger,
+#                                                    False)
+#
+#    #   container.data = pd.read_pickle('test/testdata.dat')
+#    #   container.logs = {'SMTFB': 'B', 'SMTFC': 'C', 'SMTFD': 'D'}
+#
+#    if container.data.empty:
+#        logger.error('Could not retrieve data!!! Aborting.')
+#        return
+#
+#    conf = pysmscmon.read_config()
+#
+#    all_systems = [x for x in conf.sections() if x not in ['GATEWAY', 'MISC']]
+#    datetag = dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M")
+#
+#    # Store the data locally
+#    logger.info('Making a local copy of data in store folder')
+#    container.data.to_pickle('{0}/data_{1}.pkl'.format(STORE_FOLDER, datetag))
+#    container.data.to_csv('{0}/data_{1}.csv'.format(STORE_FOLDER, datetag))
+#
+#    if not nologs:
+#        for system in all_systems:
+#            if system not in container.logs:
+#                logger.warning('No log info found for %s', system)
+#                continue
+#            with open('{0}/logs_{1}_{2}.txt'.format(STORE_FOLDER,
+#                                                    system,
+#                                                    datetag),
+#                      'w') as logtxt:
+#                logtxt.writelines(container.logs[system])
+#
+##   Call jinja2 template, separately to safely store the logs in case of error
+#    if not noreports:
+#        for system in all_systems:
+#            container.system = system
+##            container.num_graphs += count_graphs()
+#            with open('{1}/Report_{0}_{2}.html'.
+#                      format(dt.date.strftime(dt.datetime.today(),
+#                                              "%Y%m%d_%H%M"),
+#                             OUTPUT_FOLDER, container.system),
+#                      'w') as output:
+#                output.writelines(get_html_output(container=container))
+#    else:
+#        logger.info('Skipped report generation')
+#    logger.info('Done!')
+
+
+#def threaded_main(logger, alldays=False, nologs=False, noreports=False):
+#    """ Main method, gets data and logs, store and render the HTML output
+#        Threaded version (fast, error prone)
+#    """
+#    pylab.rcParams['figure.figsize'] = 13, 10
+#    plt.style.use('ggplot')
+#    container = Container()
+#    container.logger = logger
+#    container.data, container.logs = pysmscmon.main(alldays,
+#                                                    nologs,
+#                                                    logger,
+#                                                    True)
+#    if container.data.empty:
+#        logger.error('Error: could not retrieve data!!! Aborting.')
+#        return
+#
+#    conf = pysmscmon.read_config()
+#
+#    all_systems = [x for x in conf.sections() if x not in ['GATEWAY', 'MISC']]
+#
+#    datetag = dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M")
+#
+#    # Store the data locally
+#    logger.info('Making a local copy of data in store folder')
+#
+#    container.data.to_pickle('{0}/data_{1}.pkl'.format(STORE_FOLDER, datetag))
+#    container.data.to_csv('{0}/data_{1}.csv'.format(STORE_FOLDER, datetag))
+#
+#    if not nologs:
+#        for system in all_systems:
+#            if system not in container.logs:
+#                logger.warning('No log info found for %s', system)
+#                continue
+#            with open('{0}/logs_{1}_{2}.txt'.format(STORE_FOLDER,
+#                                                    system,
+#                                                    datetag),
+#                      'w') as logtxt:
+#                logtxt.writelines(container.logs[system])
+#    if not noreports:
+#        # Call jinja2 template, separately to safely store the logs
+#        # in case of error.
+#        # Doing this with threads throws many errors with Qt (when acting as
+#        # matplotlib backend out from main thread)
+#        threads = [threading.Thread(target=th_reports,
+#                                    args=(container, system),
+#                                    name=system) for system in all_systems]
+#        for thread_item in threads:
+#            thread_item.daemon = True
+#            thread_item.start()
+#        for thread_item in threads:
+#            thread_item.join()
+#    else:
+#        logger.info('Skipped report generation')
+#    logger.info('Done!')

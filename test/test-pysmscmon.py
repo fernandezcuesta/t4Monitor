@@ -18,13 +18,16 @@ TEST_DATAFRAME = pd.DataFrame(np.random.randn(100, 4),
                                        'test3',
                                        'test4'])
 LOGGER = smsc.init_logger(loglevel='DEBUG', name='test-pysmscmon')
-
+TEST_CSV = 'test_data.csv'
+TEST_PKL = 'test_data.pkl'
+TEST_CONFIG = 'test_settings.cfg'
 
 class TestpySMSCmon(unittest.TestCase):
     """ Set of test functions for pySMSCMon module """
+    
     def test_config(self):
         """ test function for read_config """
-        config = smsc.read_config('test_settings.cfg')
+        config = smsc.read_config(TEST_CONFIG)
         self.assertIsInstance(config, ConfigParser.SafeConfigParser)
         self.assertGreater(config.sections(), 2)
         self.assertIn('GATEWAY', config.sections())
@@ -35,7 +38,7 @@ class TestpySMSCmon(unittest.TestCase):
 
     def test_extract_t4csv(self):
         """ Test function for extract_t4csv """
-        with open('test_data.csv', 'r') as filedescriptor:
+        with open(TEST_CSV, 'r') as filedescriptor:
             header, data_lines, metadata = smsc.extract_t4csv(filedescriptor)
 
         self.assertIsInstance(header, list)
@@ -60,7 +63,7 @@ class TestpySMSCmon(unittest.TestCase):
 
     def test_select_var(self):
         """ Test function for select_var """
-        dataframe = pd.read_pickle('test_data.pkl')
+        dataframe = pd.read_pickle(TEST_PKL)
 
         self.assertListEqual(list(dataframe.columns),
                              list(*smsc.select_var(dataframe, '',
@@ -87,7 +90,7 @@ class TestpySMSCmon(unittest.TestCase):
 
     def test_extractdf(self):
         """ Test function for extract_df """
-        dataframe = pd.read_pickle('test_data.pkl')
+        dataframe = pd.read_pickle(TEST_PKL)
         # Extract non existing -> empty
         self.assertTrue(smsc.extract_df(dataframe,
                                         'NONEXISTING_COLUMN',
@@ -101,11 +104,11 @@ class TestpySMSCmon(unittest.TestCase):
 
     def test_todataframe(self):
         """ Test function for to_dataframe """
-        with open('test_data.csv', 'r') as filedescriptor:
+        with open(TEST_CSV, 'r') as filedescriptor:
             header, data_lines, metadata = smsc.extract_t4csv(filedescriptor)
         dataframe = smsc.to_dataframe(header, data_lines, metadata)
         self.assertIsInstance(dataframe, pd.DataFrame)
-        self.assertEqual(dataframe.shape, (286, 931))
+        self.assertTupleEqual(dataframe.shape, (286, 931))
         # Missing header should return an empty DF
         self.assertTrue(smsc.to_dataframe([], data_lines, metadata).empty)
         # # Missing data should return an empty DF
@@ -140,7 +143,7 @@ class TestpySMSCmon(unittest.TestCase):
 
     def test_plotvar(self):
         """ Test function for plot_var """
-        with open('test_data.csv', 'r') as filedescriptor:
+        with open(TEST_CSV, 'r') as filedescriptor:
             header, data_lines, metadata = smsc.extract_t4csv(filedescriptor)
         dataframe = smsc.to_dataframe(header, data_lines, metadata)
         object.__setattr__(dataframe, 'system', ('SYSTEM1',))
@@ -162,9 +165,22 @@ class TestpySMSCmon(unittest.TestCase):
 
     def test_dataframize(self):
         """ Test function for dataframize """
+        dataframe = smsc.dataframize(TEST_CSV, logger=LOGGER)
+        self.assertTupleEqual(dataframe.shape, (286, 931))
+        self.assertTrue(hasattr(dataframe, '_metadata'))
+        # Check that metadata is in place and extra columns were created too
+        for item in dataframe._metadata:
+            self.assertTrue(hasattr(dataframe, item))
+            self.assertIn(item, dataframe)
 
     def test_getstats(self):
         """ Test function for get_stats_from_host """
+        df1 = smsc.get_stats_from_host('test',
+                                             TEST_CSV,
+                                             sftp_client='local',
+                                             logger=LOGGER)
+        df2 = smsc.read_pickle(TEST_PKL)
+        assert_frame_equal(df1, df2)
 
     def test_inittunnels(self):
         """ Test function for init_tunnels """
@@ -174,6 +190,12 @@ class TestpySMSCmon(unittest.TestCase):
 
     def test_getsysdata(self):
         """ Test function for get_system_data """
+
+    def test_serialmain(self):
+        """ Test function for main (serial mode) """
+
+    def test_threadedmain(self):
+        """ Test function for main (threaded mode) """
 
 if __name__ == '__main__':
     unittest.main()
