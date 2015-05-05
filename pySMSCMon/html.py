@@ -175,14 +175,14 @@ def main(logger, alldays=False, nologs=False, noreports=False,
                 with open('{1}/Report_{0}_{2}.html'.
                           format(dt.date.strftime(dt.datetime.today(),
                                                   "%Y%m%d_%H%M"),
-                                 OUTPUT_FOLDER, container.system), 
+                                 OUTPUT_FOLDER, container.system),
                           'w') as output:
                     output.writelines(get_html_output(container=container))
     else:
         logger.info('Skipped report generation')
     logger.info('Done!')
-    
-    
+
+
 def check_files(logger):
     """
     Runtime test that checks if all required files exist and are readable:
@@ -288,7 +288,7 @@ if __name__ == "__main__":
                             pysmscmon.SETTINGS_FILE))
     PARSER.add_argument('--template', default=HTML_TEMPLATE,
                         help='HTML template (default: %s)' % HTML_TEMPLATE
-                       )
+                        )
     PARSER.add_argument('--loglevel', const=pysmscmon.DEFAULT_LOGLEVEL,
                         choices=['DEBUG',
                                  'INFO',
@@ -307,125 +307,5 @@ if __name__ == "__main__":
 
     LOGGER = pysmscmon.init_logger(ARGS.pop('loglevel'))
 
-    if check_files(LOGGER):        
+    if check_files(LOGGER):
         main(LOGGER, **ARGS)
-#        if ARGS.pop('fast'):
-#            main(LOGGER, threaded=True, **ARGS)
-#        else:
-#            main(LOGGER, threaded=False, **ARGS)
-
-
-
-#def serial_main(logger, alldays=False, nologs=False, noreports=False):
-#    """ Main method, gets data and logs, store and render the HTML output
-#        Serial (stable, but slow) implementation
-#    """
-#
-#    pylab.rcParams['figure.figsize'] = 13, 10
-#    plt.style.use('ggplot')
-#
-#    container = Container()
-#    container.logger = logger
-#    container.data, container.logs = pysmscmon.main(alldays,
-#                                                    nologs,
-#                                                    logger,
-#                                                    False)
-#
-#    #   container.data = pd.read_pickle('test/testdata.dat')
-#    #   container.logs = {'SMTFB': 'B', 'SMTFC': 'C', 'SMTFD': 'D'}
-#
-#    if container.data.empty:
-#        logger.error('Could not retrieve data!!! Aborting.')
-#        return
-#
-#    conf = pysmscmon.read_config()
-#
-#    all_systems = [x for x in conf.sections() if x not in ['GATEWAY', 'MISC']]
-#    datetag = dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M")
-#
-#    # Store the data locally
-#    logger.info('Making a local copy of data in store folder')
-#    container.data.to_pickle('{0}/data_{1}.pkl'.format(STORE_FOLDER, datetag))
-#    container.data.to_csv('{0}/data_{1}.csv'.format(STORE_FOLDER, datetag))
-#
-#    if not nologs:
-#        for system in all_systems:
-#            if system not in container.logs:
-#                logger.warning('No log info found for %s', system)
-#                continue
-#            with open('{0}/logs_{1}_{2}.txt'.format(STORE_FOLDER,
-#                                                    system,
-#                                                    datetag),
-#                      'w') as logtxt:
-#                logtxt.writelines(container.logs[system])
-#
-##   Call jinja2 template, separately to safely store the logs in case of error
-#    if not noreports:
-#        for system in all_systems:
-#            container.system = system
-##            container.num_graphs += count_graphs()
-#            with open('{1}/Report_{0}_{2}.html'.
-#                      format(dt.date.strftime(dt.datetime.today(),
-#                                              "%Y%m%d_%H%M"),
-#                             OUTPUT_FOLDER, container.system),
-#                      'w') as output:
-#                output.writelines(get_html_output(container=container))
-#    else:
-#        logger.info('Skipped report generation')
-#    logger.info('Done!')
-
-
-#def threaded_main(logger, alldays=False, nologs=False, noreports=False):
-#    """ Main method, gets data and logs, store and render the HTML output
-#        Threaded version (fast, error prone)
-#    """
-#    pylab.rcParams['figure.figsize'] = 13, 10
-#    plt.style.use('ggplot')
-#    container = Container()
-#    container.logger = logger
-#    container.data, container.logs = pysmscmon.main(alldays,
-#                                                    nologs,
-#                                                    logger,
-#                                                    True)
-#    if container.data.empty:
-#        logger.error('Error: could not retrieve data!!! Aborting.')
-#        return
-#
-#    conf = pysmscmon.read_config()
-#
-#    all_systems = [x for x in conf.sections() if x not in ['GATEWAY', 'MISC']]
-#
-#    datetag = dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M")
-#
-#    # Store the data locally
-#    logger.info('Making a local copy of data in store folder')
-#
-#    container.data.to_pickle('{0}/data_{1}.pkl'.format(STORE_FOLDER, datetag))
-#    container.data.to_csv('{0}/data_{1}.csv'.format(STORE_FOLDER, datetag))
-#
-#    if not nologs:
-#        for system in all_systems:
-#            if system not in container.logs:
-#                logger.warning('No log info found for %s', system)
-#                continue
-#            with open('{0}/logs_{1}_{2}.txt'.format(STORE_FOLDER,
-#                                                    system,
-#                                                    datetag),
-#                      'w') as logtxt:
-#                logtxt.writelines(container.logs[system])
-#    if not noreports:
-#        # Call jinja2 template, separately to safely store the logs
-#        # in case of error.
-#        # Doing this with threads throws many errors with Qt (when acting as
-#        # matplotlib backend out from main thread)
-#        threads = [threading.Thread(target=th_reports,
-#                                    args=(container, system),
-#                                    name=system) for system in all_systems]
-#        for thread_item in threads:
-#            thread_item.daemon = True
-#            thread_item.start()
-#        for thread_item in threads:
-#            thread_item.join()
-#    else:
-#        logger.info('Skipped report generation')
-#    logger.info('Done!')

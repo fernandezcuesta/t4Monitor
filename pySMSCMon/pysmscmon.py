@@ -98,37 +98,31 @@ LOG_COMMAND = '@smsc$root:[monitor]log_mon_onscreen'
 
 # CLASSES
 class ExtractCSVException(Exception):
-
     """Exception raised while extracting a CSV file"""
     pass
 
 
 class ConfigReadError(Exception):
-
     """Exception raised while reading configuration file"""
     pass
 
 
 class ToDfError(Exception):
-
     """Exception raised while converting a CSV into a pandas dataframe"""
     pass
 
 
 class InitTunnelError(Exception):
-
     """Exception raised by InitTunnel"""
     pass
 
 
 class NoFileFound(Exception):
-
     """Exception raised by get_stats_from_host"""
     pass
 
 
 class SData(object):
-
     """
     Defines class 'SData' for use in `get_system_data` and `thread_wrapper`
     """
@@ -346,7 +340,7 @@ def plot_var(dataframe, *var_names, **optional):
             if not sel:
                 raise TypeError
             plotaxis = dataframe[dataframe['system'] == system_filter][sel].\
-                        dropna(axis=1, how='all').plot(**optional)
+                dropna(axis=1, how='all').plot(**optional)
         else:
             plt.set_cmap(optional.pop('cmap',
                                       optional.pop('colormap', 'Reds')))
@@ -634,7 +628,7 @@ def init_tunnels(config, logger, system=None):
                                               threaded=False,
                                               logger=logger,
                                               ssh_private_key_file=pkey or None
-                                             )
+                                              )
         # Add the system<>port bindings to the return object
         server.tunnelports = tunnelports
         return server
@@ -776,8 +770,8 @@ def init_logger(loglevel=None, name=__name__):
                    '%(lineno)04d@%(module)-10.9s| %(message)s'
             console_handler.setFormatter(logging.Formatter(_fmt))
         else:
-            console_handler.setFormatter(\
-            logging.Formatter('%(asctime)s| %(levelname)-8s| %(message)s'))
+            console_handler.setFormatter(
+                logging.Formatter('%(asctime)s| %(levelname)-8s| %(message)s'))
         logger.addHandler(console_handler)
 
     logger.info('Initialized logger with level: %s',
@@ -856,7 +850,8 @@ def main(alldays=False, nologs=False, logger=None, threads=False):
             start_server(_sd.server, logger)
             for item in [threading.Thread(target=thread_wrapper,
                                           name=_sd.system,
-                                          args=(_sd, results_queue, _sd.system))
+                                          args=(_sd, results_queue, _sd.system)
+                                          )
                          for _sd.system in all_systems]:
                 item.daemon = True
                 item.start()
@@ -904,139 +899,3 @@ def main(alldays=False, nologs=False, logger=None, threads=False):
         logger.error(repr(_ex))
 
     return data, logs
-
-#def main_serial(alldays=False, nologs=False, logger=None):
-#    """ Here comes the main function
-#    Optional: alldays (Boolean): if true, do not filter on today's date
-#              nologs (Boolean): if true, skip log info collection
-#    """
-#    logger = logger or init_logger()
-#    data = pd.DataFrame()
-#    logs = {}
-#
-#    _sd = SData()
-#    setattr(_sd, 'logger', logger)
-#    setattr(_sd, 'alldays', alldays)
-#    setattr(_sd, 'nologs', nologs)
-#
-#
-#    # Initialize tunnel(s) and get the SSH session object
-#    logger.info('Initializing...')
-#
-#    try:
-#        setattr(_sd, 'conf', read_config())
-#        for _sd.system in \
-#        [x for x in _sd.conf.sections() if x not in ['GATEWAY', 'MISC']]:
-#            logger.info('%s| Collecting statistics', _sd.system)
-#            try:
-#                setattr(_sd, 'server', init_tunnels(_sd.conf,
-#                                                    logger,
-#                                                    _sd.system))
-#            except sshtunnel.BaseSSHTunnelForwarderError:
-#                continue
-#            except Exception as _ex:
-#                logger.error('Unexpected error while opening SSH tunnels')
-#                logger.error(repr(_ex))
-#                return data, logs
-#            logger.info('Opening connection to tunnels')
-#            _sd.server.start()
-#            # Get data from the remote system
-#            try:
-#                tunnelport = _sd.server.tunnelports[_sd.system]
-#                if tunnelport not in _sd.server.tunnel_is_up or \
-#                    not _sd.server.tunnel_is_up[tunnelport]:
-#                    logger.error('Cannot download data from %s.', _sd.system)
-#                    raise IOError
-#                tmp_data, logs[_sd.system] = get_system_data(_sd)
-#            except (IOError, SFTPSessionError):
-#                _sd.server.stop()
-#                logger.warning('Continue to next system')
-#                continue
-#
-#            # concatenate with the dataframe to be returned as result
-#            data = consolidate_data(data, tmp_data)
-#            logger.info('Done for %s', _sd.system)
-#            _sd.server.stop()
-#    except ConfigReadError as msg:
-#        logger.error(msg)
-#    except SSHException:
-#        logger.error('Could not open remote connection')
-#    except Exception as ex:
-#        exc_typ, _, exc_tb = sys.exc_info()
-#        logger.error('Unexpected error %s: (%s@line %s): %s',
-#                     ex,
-#                     exc_tb.tb_frame.f_code.co_filename,
-#                     exc_tb.tb_lineno,
-#                     exc_typ)
-#        # Stop last SSH tunnel if up
-#        _sd.server.stop()
-#    finally:
-#        return data, logs
-
-#def main_threaded(alldays=False, nologs=False, logger=None):
-#    """ Here comes the main function, with threads
-#    Optional: alldays (Boolean): if true, do not filter on today's date
-#              nologs (Boolean): if true, skip log info collection
-#    """
-#    logger = logger or init_logger()
-#    data = pd.DataFrame()
-#    logs = {}
-#    results_queue = queue.Queue()
-#
-#    _sd = SData()
-#    setattr(_sd, 'logger', logger)
-#    setattr(_sd, 'alldays', alldays)
-#    setattr(_sd, 'nologs', nologs)
-#
-#    # Initialize tunnel(s) and get the SSH session object
-#    logger.info('Initializing...')
-#
-#    try:
-#        setattr(_sd, 'conf', read_config())
-#        # Initialize tunnels
-#        setattr(_sd, 'server', init_tunnels(_sd.conf, logger))
-#
-#        if not _sd.server:  # or not _sd.server.is_started:
-#            raise sshtunnel.BaseSSHTunnelForwarderError
-#        logger.info('Opening connection to gateway')
-#        _sd.server.start()
-#
-#        if not _sd.server.is_started:
-#            raise sshtunnel.BaseSSHTunnelForwarderError
-#
-#        all_systems = [x for x in _sd.conf.sections()
-#                       if x not in ['GATEWAY', 'MISC']]
-#
-#        for thread_item in [threading.Thread(target=thread_wrapper,
-#                                             name=system,
-#                                             args=(_sd, results_queue, system))
-#                            for system in all_systems]:
-#            thread_item.daemon = True
-#            thread_item.start()
-#
-#        for _ in range(len(all_systems)):
-#            res_sys, res_data, res_log = results_queue.get()  # 1st one to end
-#            logger.debug('%s| Consolidating results', res_sys)
-#            # concatenate with the dataframe to be returned as result
-#            data = consolidate_data(data, res_data)
-#            logs[res_sys] = res_log
-#            logger.info('%s| Done collecting data!', res_sys)
-#
-#        logger.info('Stopping connection to gateway')
-#        _sd.server.stop()
-#    except sshtunnel.BaseSSHTunnelForwarderError:
-#        logger.error('Could not initialize the SSH tunnels, aborting')
-#    except ConfigReadError:
-#        logger.error('Could not read settings file: %s', SETTINGS_FILE)
-#    except AttributeError:  # raised when no server could be open
-#        pass
-#        # Stop last SSH tunnel if up
-##        _sd.server.stop()
-#    finally:
-#        return data, logs
-
-if __name__ == '__main__':
-    df = get_stats_from_host('test',
-                             '/data/virtualenv/pySMSCMon/test/test_data.csv',
-                             sftp_client='local')
-    print df.shape
