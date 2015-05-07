@@ -6,7 +6,7 @@ Make the calculations on pd.DataFrame columns as defined in calc_file
 
 import pandas as pd
 import re
-
+import sys
 
 TTAG = '_tmp'
 
@@ -50,6 +50,8 @@ def oper_wrapper(self, oper1, funct, oper2, logger=None):
             return self.oper(self[oper1], funct, oper2, logger)
         else:
             return self.oper(self[oper1], funct, self[oper2], logger)
+    except KeyError as exc:
+        logger.warning('%s not found in dataset, returnin NaN', repr(exc))
     except Exception as exc:
         logger.error('Returning NaN. Unexpected error during calculations: %s',
                      repr(exc))
@@ -101,11 +103,14 @@ def recursive_lis(self, sign_pattern, parn_pattern, logger, res, c_list):
                                                        c_list[:-2]
                                                       ),
                                     c_list[-2],
-                                    c_list[-1].strip().
-                                    logger)
+                                    c_list[-1].strip(),
+                                    logger=logger)
         return res.strip()
-    except:
-        logger.error("Error in equation")
+    except Exception as exc:
+        item, item, exc_tb = sys.exc_info()
+        logger.error('Unexpected exception at calculations (line %s): %s',
+                     exc_tb.tb_lineno,
+                     repr(exc))
         return  
 
 

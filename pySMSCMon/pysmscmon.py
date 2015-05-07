@@ -71,9 +71,9 @@ from cStringIO import StringIO
 from itertools import takewhile
 from re import split
 from random import randint
-from paramiko import SSHException
+from paramiko import SSHException, SFTPClient
 
-__version_info__ = (0, 6, 2)
+__version_info__ = (0, 6, 2, 1)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
@@ -488,7 +488,7 @@ def dataframize(a_file, sftp_session=None, logger=None):
     logger = logger or init_logger()
     logger.info('Loading file %s...', a_file)
     try:
-        if not isinstance(sftp_session, SftpSession):
+        if not isinstance(sftp_session, SFTPClient):
             sftp_session = __builtin__
         with sftp_session.open(a_file) as file_descriptor:
             _single_df = to_dataframe(*extract_t4csv(file_descriptor))
@@ -540,9 +540,10 @@ def get_stats_from_host(hostname, *files, **kwargs):
             # repeating same code with the sftp_client passed to the function
             logger.debug('Using established sftp session...')
             close_me = False
-
-        _df = pd.concat([dataframize(a_file, sftp_session, logger)
-                         for a_file in files], axis=0)
+        _df = pd.concat([dataframize(a_file,
+                                     sftp_session,
+                                     logger) for a_file in files],
+                        axis=0)
         if close_me:
             logger.debug('Closing sftp session')
             session.close()
@@ -719,7 +720,9 @@ def get_system_data(sdata):
             data = get_stats_from_host(system_addr,
                                        *file_list,
                                        sftp_client=sftp_session,
-                                       logger=logger)
+                                       logger=logger,
+                                       sftp_folder=sdata.conf.get(sdata.system,
+                                                                  'folder'))
             if data.empty:
                 logger.warning('%s| Data size obtained is 0 Bytes, skipping '
                                'log collection.', sdata.system)
