@@ -12,7 +12,7 @@ import argparse
 import pandas as pd
 import threading
 import ConfigParser
-from ast import literal_eval
+#from ast import literal_eval
 from matplotlib import pylab as pylab, pyplot as plt
 
 
@@ -75,14 +75,14 @@ def get_graphs(container):
                                          line)
                 continue
             try:
-                optional_args = literal_eval("dict(%s)" % info[2]) \
-                                if len(info) == 3 else {'ylim': 0.0}
+                optional_kwargs = eval("dict(%s)" % info[2]) \
+                                  if len(info) == 3 else {'ylim': 0.0}
             except ValueError:
-                optional_args = {'ylim': 0.0}
+                optional_kwargs = {'ylim': 0.0}
 
-                container.logger.debug('%s|  Plotting %s',
-                                       container.system,
-                                       info[0])
+            container.logger.debug('%s|  Plotting %s',
+                                   container.system,
+                                   info[0])
             try:
                 _b64figure = pysmscmon.to_base64(getattr(pysmscmon,
                                                          "plot_var")\
@@ -90,7 +90,7 @@ def get_graphs(container):
                      *[x.strip() for x in info[0].split(',')],
                      system=container.system.upper(),
                      logger=container.logger,
-                     **optional_args))
+                     **optional_kwargs))
                 if not _b64figure:
                     yield False
                 else:
