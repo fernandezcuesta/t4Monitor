@@ -4,7 +4,7 @@
 Report generator module based on Jinja2
 """
 
-import pysmscmon
+import smscmon
 import os
 import jinja2
 import datetime as dt
@@ -40,7 +40,7 @@ def get_html_output(container):
 
         j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader(THIS_DIR),
                                     trim_blocks=True)
-        j2_tpl = j2_env.get_template(HTML_TEMPLATE)
+        j2_tpl = j2_env.get_template(container.html_template)
         j2_tpl.globals['get_graphs'] = get_graphs
         container.logger.info('%s| Generating graphics and rendering report',
                               container.system)
@@ -84,8 +84,8 @@ def get_graphs(container):
                                    container.system,
                                    info[0])
             try:
-                _b64figure = pysmscmon.to_base64(getattr(pysmscmon,
-                                                         "plot_var")\
+                _b64figure = smscmon.to_base64(getattr(smscmon,
+                                                       "plot_var")\
                     (container.data,
                      *[x.strip() for x in info[0].split(',')],
                      system=container.system.upper(),
@@ -114,40 +114,47 @@ def th_reports(container, system):
         output.writelines(get_html_output(container=container_clone))
 
 
-def main(logger, alldays=False, nologs=False, noreports=False,
-         threaded=False):
+def main(alldays=False, nologs=False, noreports=False, threaded=False,
+         **kwargs):
     """ Main method, gets data and logs, store and render the HTML output
         Threaded version (fast, error prone)
     """
     pylab.rcParams['figure.figsize'] = 13, 10
     plt.style.use('ggplot')
     container = Container()
-    container.logger = logger
-    # Open the tunnels and gather all data
-    container.data, container.logs = pysmscmon.main(alldays,
-                                                    nologs,
-                                                    logger,
-                                                    threaded)
-    if container.data.empty:
-        logger.error('Could not retrieve data!!! Aborting.')
+    container.logger = smscmon.init_logger(kwargs.get('loglevel'))
+    
+    container.html_template = kwargs.get('html_template', HTML_TEMPLATE)
+    
+    if not check_files(container.logger):  # check everything's in place
         return
 
-    conf = pysmscmon.read_config()
+    # Open the tunnels and gather all data
+    container.data, container.logs = smscmon.main(alldays,
+                                                  nologs,
+                                                  container.logger,
+                                                  threaded)
+    if container.data.empty:
+        container.logger.error('Could not retrieve data!!! Aborting.')
+        return
+
+    conf = smscmon.read_config()
 
     all_systems = [x for x in conf.sections() if x not in ['GATEWAY', 'MISC']]
     datetag = dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M")
 
     # Store the data locally
-    logger.info('Making a local copy of data in store folder')
+    container.logger.info('Making a local copy of data in store folder')
 
-    container.data.to_pickle('{0}/data_{1}.pkl'.format(STORE_FOLDER, datetag))
+    container.data.to_pickle('{0}/data_{1}.pkl'.format(STORE_FOLDER, datetag),
+                             compress=True)
     container.data.to_csv('{0}/data_{1}.csv'.format(STORE_FOLDER, datetag))
 
     # Write logs
     if not nologs:
         for system in all_systems:
             if system not in container.logs:
-                logger.warning('No log info found for %s', system)
+                container.logger.warning('No log info found for %s', system)
                 continue
             with open('{0}/logs_{1}_{2}.txt'.format(STORE_FOLDER,
                                                     system,
@@ -179,8 +186,8 @@ def main(logger, alldays=False, nologs=False, noreports=False,
                           'w') as output:
                     output.writelines(get_html_output(container=container))
     else:
-        logger.info('Skipped report generation')
-    logger.info('Done!')
+        container.logger.info('Skipped report generation')
+    container.logger.info('Done!')
 
 
 def check_files(logger):
@@ -205,14 +212,14 @@ def check_files(logger):
         logger.info('Creating non-existing subfolder /%s', OUTPUT_FOLDER)
         os.makedirs(OUTPUT_FOLDER)
 
-    if not os.path.isfile(pysmscmon.SETTINGS_FILE):
-        logger.error('Settings file not found: %s', pysmscmon.SETTINGS_FILE)
+    if not os.path.isfile(smscmon.SETTINGS_FILE):
+        logger.error('Settings file not found: %s', smscmon.SETTINGS_FILE)
         return False
 
     try:
-        conf = pysmscmon.read_config(pysmscmon.SETTINGS_FILE)
+        conf = smscmon.read_config(smscmon.SETTINGS_FILE)
         calc_file = conf.get('MISC', 'calculations_file')
-    except (pysmscmon.ConfigReadError, ConfigParser.Error) as _exc:
+    except (smscmon.ConfigReadError, ConfigParser.Error) as _exc:
         logger.error(repr(_exc))
         return False
 
@@ -249,6 +256,7 @@ class Container(object):
     data = pd.DataFrame()
     system = ''
     logger = None
+    html_template = HTML_TEMPLATE
 
     def clone(self, system):
         """ Makes a copy of the data container where the system is filled in,
@@ -263,6 +271,8 @@ class Container(object):
         my_clone.logs = {system: self.logs[system]}
         my_clone.system = system
         my_clone.logger = self.logger
+        my_clone.html_template = self.html_template
+
         return my_clone
 
 
@@ -283,29 +293,24 @@ if __name__ == "__main__":
     PARSER.add_argument('--nologs', action='store_true',
                         help='Skip log information collection from SMSCs')
     PARSER.add_argument('--settings',
-                        default=pysmscmon.SETTINGS_FILE,
+                        default=smscmon.SETTINGS_FILE,
                         help='Settings file (default: {})'.format(
-                            pysmscmon.SETTINGS_FILE))
+                            smscmon.SETTINGS_FILE))
     PARSER.add_argument('--template', default=HTML_TEMPLATE,
                         help='HTML template (default: %s)' % HTML_TEMPLATE
-                        )
-    PARSER.add_argument('--loglevel', const=pysmscmon.DEFAULT_LOGLEVEL,
+                       )
+    PARSER.add_argument('--loglevel', const=smscmon.DEFAULT_LOGLEVEL,
                         choices=['DEBUG',
                                  'INFO',
                                  'WARNING',
                                  'ERROR',
                                  'CRITICAL'],
                         help='Debug level (default: %s)' %
-                        pysmscmon.DEFAULT_LOGLEVEL,
+                        smscmon.DEFAULT_LOGLEVEL,
                         nargs='?')
     ARGS = vars(PARSER.parse_args())
 
-    pysmscmon.SETTINGS_FILE = ARGS.pop('settings')
+    smscmon.SETTINGS_FILE = ARGS.pop('settings')
     # Default for pysmscmon is 'settings.cfg' in same folder as pysmscmon.py
 
-    HTML_TEMPLATE = ARGS.pop('template')
-
-    LOGGER = pysmscmon.init_logger(ARGS.pop('loglevel'))
-
-    if check_files(LOGGER):
-        main(LOGGER, **ARGS)
+    main(**ARGS)

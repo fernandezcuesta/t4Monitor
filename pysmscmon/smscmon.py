@@ -56,7 +56,7 @@ else:
 from matplotlib import pyplot as plt, dates as md
 import ConfigParser
 import calculations
-import sshtunnel
+from sshtunnels import sshtunnel
 import pandas as pd
 import __builtin__
 import threading
@@ -64,16 +64,20 @@ import datetime as dt
 import Queue as queue
 import logging
 import sys
+import gzip
 import getpass
-import pickle
-from sftpsession import SftpSession, SFTPSessionError
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
+from sshtunnels.sftpsession import SftpSession, SFTPSessionError
 from cStringIO import StringIO
 from itertools import takewhile
 from re import split
 from random import randint
 from paramiko import SSHException, SFTPClient
 
-__version_info__ = (0, 6, 2, 1)
+__version_info__ = (0, 6, 2, 2)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
@@ -175,22 +179,39 @@ def _custom_finalize(self, other, method=None):
     return self
 
 
-def to_pickle(self, name):
+def to_pickle(self, name, compress=False):
     """ Allow saving metadata to pickle """
-    with open(name, 'wb') as pickleout:
-        pickle.dump(self, pickleout, protocol=pickle.HIGHEST_PROTOCOL)
-        pickle.dump(self._metadata,
-                    pickleout,
+#    with open(name, 'wb') as pickleout:
+    buffer_object = StringIO()
+    pickle.dump(self, buffer_object, protocol=pickle.HIGHEST_PROTOCOL)
+    pickle.dump(self._metadata,
+                buffer_object,
+                protocol=pickle.HIGHEST_PROTOCOL)
+    for item in self._metadata:
+        pickle.dump(getattr(self, item),
+                    buffer_object,
                     protocol=pickle.HIGHEST_PROTOCOL)
-        for item in self._metadata:
-            pickle.dump(getattr(self, item),
-                        pickleout,
-                        protocol=pickle.HIGHEST_PROTOCOL)
+    buffer_object.flush()
+    
+    if compress:
+        output = gzip
+        name = "%s.gz" % name
+    else:
+        output = __builtin__    
+
+    with output.open(name, 'wb') as pkl_out:
+        pkl_out.write(buffer_object.getvalue())
+    buffer_object.close()
 
 
-def read_pickle(name):
+def read_pickle(name, compress=False):
     """ Properly restore dataframe plus its metadata from pickle store """
-    with open(name, 'rb') as picklein:
+    if compress:
+        mode = gzip
+    else:
+        mode = __builtin__
+
+    with mode.open(name, 'rb') as picklein:
         try:
             dataframe = pickle.load(picklein)
             setattr(dataframe, '_metadata', pickle.load(picklein))
@@ -629,7 +650,7 @@ def init_tunnels(config, logger, system=None):
                                               threaded=False,
                                               logger=logger,
                                               ssh_private_key_file=pkey or None
-                                              )
+                                             )
         # Add the system<>port bindings to the return object
         server.tunnelports = tunnelports
         return server
@@ -854,7 +875,7 @@ def main(alldays=False, nologs=False, logger=None, threads=False):
             for item in [threading.Thread(target=thread_wrapper,
                                           name=_sd.system,
                                           args=(_sd, results_queue, _sd.system)
-                                          )
+                                         )
                          for _sd.system in all_systems]:
                 item.daemon = True
                 item.start()

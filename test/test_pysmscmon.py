@@ -5,7 +5,7 @@
 """
 
 import unittest
-import pysmscmon as smsc
+import pysmscmon.smscmon as smsc
 import ConfigParser
 import pandas as pd
 import numpy as np
@@ -18,13 +18,13 @@ TEST_DATAFRAME = pd.DataFrame(np.random.randn(100, 4),
                                        'test3',
                                        'test4'])
 LOGGER = smsc.init_logger(loglevel='DEBUG', name='test-pysmscmon')
-TEST_CSV = 'test_data.csv'
-TEST_PKL = 'test_data.pkl'
-TEST_CONFIG = 'test_settings.cfg'
+TEST_CSV = 'test/test_data.csv'
+TEST_PKL = 'test/test_data.pkl'
+TEST_CONFIG = 'test/test_settings.cfg'
 
 class TestpySMSCmon(unittest.TestCase):
     """ Set of test functions for pySMSCMon module """
-    
+
     def test_config(self):
         """ test function for read_config """
         config = smsc.read_config(TEST_CONFIG)

@@ -2,4 +2,4 @@
 from distutils.core import setup
 import py2exe
 
-setup(console=["html.py"])
+setup(console=["gen_html.py"])
