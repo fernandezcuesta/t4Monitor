@@ -37,7 +37,7 @@ class SftpSession(object):
             hostname_info = ssh_config.lookup(self.hostname)
             # gather settings for user, port and identity file
             username = hostname_info.get('user', '')
-            identityfile = hostname_info.get('identityfile', '')
+            identityfile = hostname_info.get('identityfile', '')[0]
             tcp_port = hostname_info.get('port', '22')
         except IOError:
             self.logger.warning('Could not read SSH configuration file: %s',
@@ -58,9 +58,7 @@ class SftpSession(object):
         # if a TCP port was specified, override configuration (if found)
         self.tcp_port = int(self.ssh_arguments.get('ssh_port',
                                                    locals().get('tcp_port',
-                                                                self.tcp_port)
-                                                   )
-                            )
+                                                                self.tcp_port)))
         # if a ssh timeout is not specified, set it to 10 seconds
         ssh_timeout = float(self.ssh_arguments.get('ssh_timeout', 10.0))
 
@@ -68,6 +66,7 @@ class SftpSession(object):
                           username, self.hostname, self.tcp_port)
         client = paramiko.SSHClient()
 
+       
         # Load ~/.ssh/config - like file
         try:  # This is somehow required with paramiko 1.15.2
             client.load_system_host_keys()
@@ -87,12 +86,12 @@ class SftpSession(object):
                                    port=self.tcp_port,
                                    username=username,
                                    password=password,
-                                   key_filename=identityfile,
+                                   key_filename=expanduser(identityfile),
                                    allow_agent=False,
                                    look_for_keys=False,
                                    compress=True,
                                    timeout=ssh_timeout)
-                # Retry without the pkey if failure
+                # Retry without the password if failure
                 except paramiko.AuthenticationException:
                     client.connect(self.hostname,
                                    port=self.tcp_port,
@@ -114,8 +113,7 @@ class SftpSession(object):
             self.ssh_transport = client
 
             if self.ssh_transport:
-                self.ssh_transport.sftp_session = self.ssh_transport.open_sftp(
-                                                                              )
+                self.ssh_transport.sftp_session = self.ssh_transport.open_sftp()
 
             return self.ssh_transport
 
@@ -149,7 +147,7 @@ class SftpSession(object):
 
     def close(self):
         """ Close an existing SSH connection """
-        self.__exit__(self.Break)    # Send Break as exception type
+        self.__exit__(None)  # (self.Break)
 
     def __init__(self, hostname, **ssh_arguments):
         """

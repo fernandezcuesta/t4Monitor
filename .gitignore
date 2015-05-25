@@ -17,9 +17,10 @@ man/
 favicon.ico
 *tlf*
 *TLF*
-documentation/*.png
-documentation/log_howto*
+docs/*.png
+docs/log_howto*
 *prueba*
 *_example*.py
 *.swp
 id_rsa*
+*egg*

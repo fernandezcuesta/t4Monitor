@@ -25,8 +25,8 @@ def oper(self, oper1, funct, oper2, logger=None):
     except TypeError or ValueError:
         logger.warning("Might be an error in the equation, returning NaN")
         return float('NaN')
-        
-      
+
+
 def oper_wrapper(self, oper1, funct, oper2, logger=None):
     """
     Returns the operation defined by f {+-*/} for oper1 and oper2 for df
@@ -39,8 +39,8 @@ def oper_wrapper(self, oper1, funct, oper2, logger=None):
         oper2 = float(oper2)
     except ValueError:
         pass
-       
-    try:   
+
+    try:
         if funct not in '+-*/':
             logger.warning("Might be an error in the equation, returning NaN")
             return float('NaN')
@@ -56,7 +56,6 @@ def oper_wrapper(self, oper1, funct, oper2, logger=None):
         logger.error('Returning NaN. Unexpected error during calculations: %s',
                      repr(exc))
         return float('NaN')
-      
 
 
 def recursive_lis(self, sign_pattern, parn_pattern, logger, res, c_list):
@@ -86,9 +85,11 @@ def recursive_lis(self, sign_pattern, parn_pattern, logger, res, c_list):
         else:
 #            print "Shouldn't be any parenthesis here:", c_list
             c_list = re.split(sign_pattern, re.sub(' ', '', c_list))
+
     # Break the recursive loop if we already have the result
     if res in self:
         return
+
     try:
         if len(c_list) == 3:
             self[res] = self.oper_wrapper(*c_list, logger=logger)
@@ -111,13 +112,28 @@ def recursive_lis(self, sign_pattern, parn_pattern, logger, res, c_list):
         logger.error('Unexpected exception at calculations (line %s): %s',
                      exc_tb.tb_lineno,
                      repr(exc))
-        return  
+        return
 
 
-def apply_lis(self, calc_file, logger):
+def clean_calculations(self, calc_file, logger):
+    """ Delete columns added by apply_lis """
+    try:
+        logger.info('Dataframe shape before cleanup: %s', self.shape)
+        with open(calc_file, 'r') as calcfile:
+            colnames = [line.split('=')[0].strip() for line in calcfile 
+                       if line[0] not in ';#!/%[ ' and len(line) > 3]
+            for col in colnames:
+                logger.debug('Deleting column: %s', col)
+            self.drop(colnames, axis=1, inplace=True)
+        logger.info('Dataframe shape after cleanup: %s', self.shape)
+    except IOError:
+        logger.error("Could not process calculation file: %s", calc_file)
+
+    
+def apply_calcs(self, calc_file, logger):
     """
     Read calculations file, make the calculations and get rid of temporary data
-    """    
+    """
     try:
         # Define regex patterns for functions and parenthesis lookup
         sign_pattern = re.compile(r'([+\-*/])')  # functions
@@ -125,25 +141,23 @@ def apply_lis(self, calc_file, logger):
         with open(calc_file, 'r') as calcfile:
             for line in calcfile:
                 if line[0] not in ';#!/%[ ' and len(line) > 3:
-                    logger.debug('%s | Processing line (length:%s): %s',
+                    logger.debug('%s | Processing: %s',
                                  list(self.system)[0],
-                                 len(line),
                                  line.strip())
                     self.recursive_lis(sign_pattern,
                                        parn_pattern,
                                        logger,
                                        *line.strip().split('='))
-        # Delete temporary columns (starting with TTAG)   
+        # Delete temporary columns (starting with TTAG)
         for colname in self.columns[[TTAG in col for col in self]]:
             del self[colname]
     except IOError:
-        logger.error("Error applying calculations, dataframe was not modified")
+        logger.error("Could not process calculation file: %s", calc_file)
 
 
 if __name__ == "__main__":
     pd.DataFrame.oper = oper
     pd.DataFrame.oper_wrapper = oper_wrapper
     pd.DataFrame.recursive_lis = recursive_lis
-    pd.DataFrame.apply_lis = apply_lis
-
+    pd.DataFrame.apply_calcs = apply_calcs
 

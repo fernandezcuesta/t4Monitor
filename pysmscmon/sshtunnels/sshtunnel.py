@@ -313,15 +313,14 @@ class SSHTunnelForwarder(threading.Thread):
         >>> server.stop()
     """
 
-    def local_is_up(self, target):
+    def local_is_up(self, srv):
         """
         Check if local side of the tunnel is up (remote target_host is
         reachable on TCP target_port)
 
-        target: (target_host, target_port)
         Returns: Boolean
-        TODO: Merge `local_is_up` and `remote_is_up`
         """
+        target = srv.server_address
         try:
             assert isinstance(target, tuple), 'target must be a tuple'
             assert isinstance(target[0], str), 'ip in (ip, port) must be string'
@@ -356,42 +355,42 @@ class SSHTunnelForwarder(threading.Thread):
                                 ' we will not attempt to connect.', *target)
         return reachable
 
-    def remote_is_up(self, srv):  # ????? DOESNT MAKE SENSE, GET RID OF THIS?
-        """
-        Check if remote target host:port is reachable
-        Returns: Boolean
-        """
-        try:
-            return self.local_is_up(srv.server_address)
-            if not self.local_is_up(srv.server_address):
-                raise HandlerSSHTunnelForwarderError
-
-            client = paramiko.SSHClient()
-            client.load_system_host_keys()
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            if srv.server_address[0] == '0.0.0.0':
-                target = (socket.gethostname(), srv.server_address[1])
-            else:
-                target = srv.server_address
-                
-            client.connect(*target,
-                           timeout=REMOTE_CHECK_TIMEOUT)
-            reachable = True
-        except HandlerSSHTunnelForwarderError:  # local is down
-            reachable = False
-        except socket.error:  # remote is down
-            reachable = False
-        except (paramiko.AuthenticationException,
-                paramiko.BadHostKeyException,
-                paramiko.SSHException):
-            reachable = True        
-        client.close()
-        self.logger.debug('Remote side of the tunnel (%s:%s) is %s',
-                          srv.remote_host,
-                          srv.remote_port,
-                          'UP' if reachable else 'DOWN')
-        srv.timeout = None
-        return reachable
+#    def remote_is_up(self, srv):  # ????? DOESNT MAKE SENSE, GET RID OF THIS?
+#        """
+#        Check if remote target host:port is reachable
+#        Returns: Boolean
+#        """
+#        try:
+#            return self.local_is_up(srv.server_address)
+#            if not self.local_is_up(srv.server_address):
+#                raise HandlerSSHTunnelForwarderError
+#
+#            client = paramiko.SSHClient()
+#            client.load_system_host_keys()
+#            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+#            if srv.server_address[0] == '0.0.0.0':
+#                target = (socket.gethostname(), srv.server_address[1])
+#            else:
+#                target = srv.server_address
+#                
+#            client.connect(*target,
+#                           timeout=REMOTE_CHECK_TIMEOUT)
+#            reachable = True
+#        except HandlerSSHTunnelForwarderError:  # local is down
+#            reachable = False
+#        except socket.error:  # remote is down
+#            reachable = False
+#        except (paramiko.AuthenticationException,
+#                paramiko.BadHostKeyException,
+#                paramiko.SSHException):
+#            reachable = True        
+#        client.close()
+#        self.logger.debug('Remote side of the tunnel (%s:%s) is %s',
+#                          srv.remote_host,
+#                          srv.remote_port,
+#                          'UP' if reachable else 'DOWN')
+#        srv.timeout = None
+#        return reachable
 
     def make_ssh_forward_server(self, remote_address, local_bind_address,
                                 ssh_transport, is_threading=False):
@@ -501,10 +500,13 @@ class SSHTunnelForwarder(threading.Thread):
         # if a key file was specified, override configuration (if found)
         identityfile = ssh_arguments.get('ssh_private_key_file',
                                          locals().get('identityfile', None))
+        if identityfile:
+            identityfile = expanduser(identityfile)
+
         self._ssh_private_key = \
             paramiko.RSAKey.from_private_key_file(identityfile) \
             if identityfile and isfile(identityfile) else None
-
+        
         self._ssh_password = ssh_arguments.get('ssh_password', None)
 
         if not self._ssh_password and not self._ssh_private_key:
@@ -553,7 +555,7 @@ class SSHTunnelForwarder(threading.Thread):
         self.logger.debug('Server is %sstarted.',
                           '' if self.is_started else '*NOT* ')        
         for _srv in self._server_list:
-            self.tunnel_is_up[_srv.server_address[1]] = self.remote_is_up(_srv)
+            self.tunnel_is_up[_srv.server_address[1]] = self.local_is_up(_srv)
 
         super(SSHTunnelForwarder, self).start()
 #            self._transport.open_session()
