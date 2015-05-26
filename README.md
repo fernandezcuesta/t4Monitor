@@ -9,4 +9,4 @@ T4-Format2 CSV to Pandas dataframe
 
 ## Build for windows
 
-    $ nuitka html.py --recurse-to=pysmscmon --recurse-to=sftpsession --recurse-to=sshtunnel --recurse-to=calculations
+    $ nuitka __init__.py --recurse-to=pysmscmon --recurse-to=sftpsession --recurse-to=sshtunnel --recurse-to=calculations
