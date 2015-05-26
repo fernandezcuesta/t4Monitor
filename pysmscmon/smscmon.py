@@ -237,7 +237,7 @@ def init_tunnels(config, logger, system=None):
         rbal.append((config.get(_sys, 'ip_or_hostname'),
                      int(config.get(_sys, 'ssh_port'))))
         lbal.append(('', int(config.get(_sys, 'tunnel_port')) or
-                     randint(20000, 50000)))  # if local port==0, random port
+                     randint(61001, 65535)))  # if local port==0, random port
         tunnelports[_sys] = lbal[-1][-1]
         config.set(_sys, 'tunnel_port', str(tunnelports[_sys]))
     try:
