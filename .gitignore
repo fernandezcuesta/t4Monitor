@@ -24,3 +24,7 @@ docs/log_howto*
 *.swp
 id_rsa*
 *egg*
+test_local/
+build/
+dist/
+
