@@ -3,25 +3,34 @@
 """
 Main methods for pysmscmon
 """
-
+from __future__ import absolute_import
 import sys
 import datetime as dt
 import argparse
-import pandas as pd
 import threading
-import ConfigParser
-from pysmscmon import smscmon
-from pysmscmon.gen_report import gen_report
-from os import path, makedirs
+# Set matplotlib's backend before first import of pyplot or pylab,
+# Qt4 doesn't like threads
+import os
+import matplotlib
+if os.name == 'posix':
+    matplotlib.use('Cairo')
+else:
+    matplotlib.use('TkAgg')
+# Required by matplotlib when using TkAgg backend
+#    import FileDialog
+
 from matplotlib import pylab as pylab, pyplot as plt
 
-__version_info__ = (0, 6, 3)
+from . import smscmon
+from .gen_report import gen_report
+from . import logger
+
+__version_info__ = (0, 6, 3, 2)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
-
+# Default figure size
 pylab.rcParams['figure.figsize'] = 13, 10
-
 
 
 class Container(object):
@@ -37,7 +46,7 @@ class Container(object):
     logs = {}
     year = dt.date.today().year
     date_time = dt.date.strftime(dt.datetime.today(), "%d/%m/%Y %H:%M:%S")
-    data = pd.DataFrame()
+    data = smscmon.pd.DataFrame()
     system = ''
     logger = None
     html_template = ''
@@ -47,20 +56,19 @@ class Container(object):
 
     def __init__(self, loglevel=None):
         if loglevel != 'keep':
-            self.logger = smscmon.init_logger(loglevel)
+            self.logger = logger.init_logger(loglevel)
 
     def __str__(self):
-        return 'Container created on {} for system: {}\nLoglevel: {}\n' + \
-               'graphs_file: {}\nhtml_template: {}\ndata size: {}\n' + \
-               'store folder: {}\nreports folder: {}'.format(self.year,
-                                                             self.system,
-                                                             self.logger.level,
-                                                             self.graphs_file,
-                                                             self.html_template,
-                                                             self.data.shape,
-                                                             self.store_folder,
-                                                             self.reports_folder
-                                                             )
+        return 'Container created on {0} for system: {1}\nLoglevel: {2}\n' \
+               'graphs_file: {3}\nhtml_template: {4}\nreports folder: {5}\n' \
+               'store folder: {6}\ndata size: {7}'.format(self.year,
+                                                          self.system,
+                                                          self.logger.level,
+                                                          self.graphs_file,
+                                                          self.html_template,
+                                                          self.reports_folder,
+                                                          self.store_folder,
+                                                          self.data.shape)
 
     def clone(self, system):
         """ Makes a copy of the data container where the system is filled in,
@@ -80,18 +88,88 @@ class Container(object):
 
         return my_clone
 
+    def th_reports(self, system):
+        """  Handler for rendering jinja2 reports with threads.
+             Called from threaded_main()
+        """
+        # Specify which system in container, passed to get_html_output
+        container_clone = self.clone(system)
+        self.logger.debug('%s| Generating HTML report', system)
+        with open('{1}/Report_{0}_{2}.html'.
+                  format(dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M"),
+                         self.reports_folder, system), 'w') as output:
+            output.writelines(gen_report(container=container_clone))
 
-def th_reports(container, system):
-    """  Handler for rendering jinja2 reports with threads.
-         Called from threaded_main()
-    """
-    # Specify which system in container, passed to get_html_output for render
-    container_clone = container.clone(system)
-    container.logger.debug('%s| Generating HTML report', system)
-    with open('{1}/Report_{0}_{2}.html'.
-              format(dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M"),
-                     container.reports_folder, system), 'w') as output:
-        output.writelines(gen_report(container=container_clone))
+    def check_files(self):
+        """
+        Runtime test that checks if all required files exist and are readable:
+
+        - settings file
+        - calculations file (settings/MISC/calculations_file)
+        - Jinja template (settings/MISC/html_template)
+        - graphs definition file (settings/MISC/graphs_definition_file)
+        - reports output folder (container.reports_folder)
+        - CSV and DAT store folder (container.store_folder)
+
+        Returns: Boolean (whether or not everything is in place)
+        """
+
+        if not os.path.isfile(smscmon.SETTINGS_FILE):
+            self.logger.error('Settings file not found: %s',
+                              smscmon.SETTINGS_FILE)
+            return False
+
+        relpath = os.path.dirname(os.path.abspath(smscmon.SETTINGS_FILE))
+
+        if not os.path.exists(self.store_folder):
+            self.logger.info('Creating non-existing directory: %s',
+                             os.path.abspath(self.store_folder))
+            os.makedirs(self.store_folder)
+        if not os.path.exists(self.reports_folder):
+            self.logger.info('Creating non-existing directory: %s',
+                             os.path.abspath(self.reports_folder))
+            os.makedirs(self.reports_folder)
+
+        try:
+            conf = smscmon.read_config(smscmon.SETTINGS_FILE)
+            if conf.has_option('MISC', 'store_folder'):
+                self.store_folder = '{}/{}'.format(relpath,
+                                                   conf.get('MISC',
+                                                            'store_folder'))
+            if conf.has_option('MISC', 'reports_folder'):
+                self.store_folder = '{}/{}'.format(relpath,
+                                                   conf.get('MISC',
+                                                            'reports_folder'))
+            calc_file = conf.get('MISC', 'calculations_file')
+            graphs_file = conf.get('MISC', 'graphs_definition_file')
+            html_template = conf.get('MISC', 'html_template')
+
+            if not os.path.isabs(calc_file):
+                calc_file = '{}/{}'.format(relpath, calc_file)
+            if not os.path.isabs(graphs_file):
+                self.graphs_file = '{}/{}'.format(relpath, graphs_file)
+            if not os.path.isabs(html_template):
+                self.html_template = '{}/{}'.format(relpath, html_template)
+
+        except (smscmon.ConfigReadError, smscmon.ConfigParser.Error) as _exc:
+            self.logger.error(repr(_exc))
+            return False
+
+        if not calc_file or not os.path.isfile(calc_file):
+            self.logger.error('Calculation file not found: %s', calc_file)
+            return False
+
+        if not self.html_template or not os.path.isfile(self.html_template):
+            self.logger.error('HTML template not found: %s',
+                              self.html_template)
+            return False
+
+        if not self.graphs_file or not os.path.isfile(self.graphs_file):
+            self.logger.error('Graph definitions file not found: %s',
+                              self.graphs_file)
+            return False
+
+        return True
 
 
 def main(alldays=False, nologs=False, noreports=False, threaded=False,
@@ -101,7 +179,7 @@ def main(alldays=False, nologs=False, noreports=False, threaded=False,
     """
     container = Container(loglevel=kwargs.get('loglevel'))
 
-    if not check_files(container):  # check everything's in place
+    if not container.check_files():  # check everything's in place
         return
 
     pylab.rcParams['figure.figsize'] = 13, 10
@@ -147,8 +225,8 @@ def main(alldays=False, nologs=False, noreports=False, threaded=False,
         # Doing this with threads throws many errors with Qt (when acting as
         # matplotlib backend out from main thread)
         if threaded:
-            threads = [threading.Thread(target=th_reports,
-                                        args=(container, system),
+            threads = [threading.Thread(target=container.th_reports,
+                                        args=(system, ),
                                         name=system) for system in all_systems]
             for thread_item in threads:
                 thread_item.daemon = True
@@ -167,79 +245,6 @@ def main(alldays=False, nologs=False, noreports=False, threaded=False,
     else:
         container.logger.info('Skipped report generation')
     container.logger.info('Done!')
-
-
-def check_files(container):
-    """
-    Runtime test that checks if all required files exist and are readable:
-
-    - settings file
-    - calculations file (settings/MISC/calculations_file)
-    - Jinja template (settings/MISC/html_template)
-    - graphs definition file (settings/MISC/graphs_definition_file)
-    - reports output folder (container.reports_folder)
-    - CSV and DAT store folder (container.store_folder)
-
-    Returns: Boolean (whether or not everything is in place)
-    """
-
-    if not path.isfile(smscmon.SETTINGS_FILE):
-        container.logger.error('Settings file not found: %s',
-                               smscmon.SETTINGS_FILE)
-        return False
-
-    relpath = path.dirname(path.abspath(smscmon.SETTINGS_FILE))
-
-    if not path.exists(container.store_folder):
-        container.logger.info('Creating non-existing directory: %s',
-                              path.abspath(container.store_folder))
-        makedirs(container.store_folder)
-    if not path.exists(container.reports_folder):
-        container.logger.info('Creating non-existing directory: %s',
-                              path.abspath(container.reports_folder))
-        makedirs(container.reports_folder)
-
-    try:
-        conf = smscmon.read_config(smscmon.SETTINGS_FILE)
-        if conf.has_option('MISC', 'store_folder'):
-            container.store_folder = '{}/{}'.format(relpath,
-                                                    conf.get('MISC',
-                                                             'store_folder'))
-        if conf.has_option('MISC', 'reports_folder'):
-            container.store_folder = '{}/{}'.format(relpath,
-                                                    conf.get('MISC',
-                                                             'reports_folder'))
-        calc_file = conf.get('MISC', 'calculations_file')
-        graphs_file = conf.get('MISC', 'graphs_definition_file')
-        html_template = conf.get('MISC', 'html_template')
-
-        if not path.isabs(calc_file):
-            calc_file = '{}/{}'.format(relpath, calc_file)
-        if not path.isabs(graphs_file):
-            container.graphs_file = '{}/{}'.format(relpath, graphs_file)
-        if not path.isabs(html_template):
-            container.html_template = '{}/{}'.format(relpath, html_template)
-
-    except (smscmon.ConfigReadError, ConfigParser.Error) as _exc:
-        container.logger.error(repr(_exc))
-        return False
-
-    if not calc_file or not path.isfile(calc_file):
-        container.logger.error('Calculation file not found: %s', calc_file)
-        return False
-
-    if not container.html_template or not path.isfile(container.html_template):
-        container.logger.error('HTML template not found: %s',
-                               container.html_template)
-        return False
-
-    if not container.graphs_file or not path.isfile(container.graphs_file):
-        container.logger.error('Graph definitions file not found: %s',
-                               container.graphs_file)
-        return False
-
-    return True
-
 
 
 def dump_config():
@@ -269,16 +274,16 @@ def argument_parse():
     parser.add_argument('--nologs', action='store_true',
                         help='Skip log information collection from SMSCs')
     parser.add_argument('--settings', default=smscmon.SETTINGS_FILE,
-                        help='Settings file (default {})'.format(path.relpath( \
-                        smscmon.SETTINGS_FILE)))
-    parser.add_argument('--loglevel', const=smscmon.DEFAULT_LOGLEVEL,
+                        help='Settings file (default {})'
+                        .format(os.path.relpath(smscmon.SETTINGS_FILE)))
+    parser.add_argument('--loglevel', const=logger.DEFAULT_LOGLEVEL,
                         choices=['DEBUG',
                                  'INFO',
                                  'WARNING',
                                  'ERROR',
                                  'CRITICAL'],
                         help='Debug level (default: %s)' %
-                        smscmon.DEFAULT_LOGLEVEL,
+                        logger.DEFAULT_LOGLEVEL,
                         nargs='?')
     userargs = vars(parser.parse_args())
 

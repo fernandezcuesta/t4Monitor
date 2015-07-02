@@ -24,12 +24,10 @@
 
   ** Format 2: **
 
-  line0: Header information containing T4 revision info and system information.
-
-  line1: <delim> START COLUMN HEADERS  <delim>  where <delim> is a triple $
-
-  line2: parameter headings (comma separated)
-   ...
+ line0: Header information containing T4 revision info and system information.
+ line1: <delim> START COLUMN HEADERS  <delim>  where <delim> is a triple $
+ line2: parameter headings (comma separated)
+ ...
 
   line 'n': <delim> END COLUMN HEADERS  <delim>  where <delim> is a triple $
 
@@ -52,50 +50,36 @@
      |                \
      v                 \
     get_system_data()   `---> get_system_logs()
-     |                 
+     |
      v
     get_stats_from_hosts()
-
+Created on Mon May 25 11:11:38 2015
 
 """
+from __future__ import absolute_import
 
-# Set backend before first import of pyplot or pylab
 import os
-import sys
-import matplotlib
-# Set matplotlib's backend, Qt4 doesn't like threads
-if os.name == 'posix':
-    matplotlib.use('Cairo')
-else:
-    matplotlib.use('TkAgg')
-# Required by matplotlib when using TkAgg backend
-#    import FileDialog
-
-from pysmscmon import df_tools
 import ConfigParser
-import calculations
-from sshtunnels import sshtunnel
-import pandas as pd
 import threading
 import datetime as dt
-import Queue as queue
-import logging
+import Queue
 import getpass
-from sshtunnels.sftpsession import SftpSession, SFTPSessionError
 
+import pandas as pd
 from random import randint
 from paramiko import SSHException
 
-__version_info__ = (0, 6, 3, 0)
-__version__ = '.'.join(str(i) for i in __version_info__)
-__author__ = 'fernandezjm'
+from . import logger
+from . import df_tools
+from . import calculations
+from .sshtunnels import sshtunnel
+from .sshtunnels.sftpsession import SftpSession, SFTPSessionError
+
 
 __all__ = ('main', 'collect_system_data',
            'get_stats_from_host', 'init_tunnels')
 
-
 # CONSTANTS
-DEFAULT_LOGLEVEL = 'INFO'
 SETTINGS_FILE = '{}/conf/settings.cfg'.format(\
                 os.path.dirname(os.path.abspath(__file__)))
 # Avoid using locale in Linux+Windows environments, keep these lowercase
@@ -151,9 +135,10 @@ class SData(object):
         return my_clone
 
     def __str__(self):
-        return 'System: {}\nalldays/nologs: {}/{}'.format(self.system,
-                                                          self.alldays,
-                                                          self.nologs)
+        return 'System: {0}\nalldays/nologs: {1}/{2}'.format(self.system,
+                                                             self.alldays,
+                                                             self.nologs)
+
 
 # ADD METHODS TO PANDAS DATAFRAME
 def _custom_finalize(self, other, method=None):
@@ -176,7 +161,8 @@ def _custom_finalize(self, other, method=None):
                     _el_meta if isinstance(_el_meta, set) else set([_el_meta]))
     for name in self._metadata:
         if method == 'concat':
-            map(lambda element: _wrapper(element, name), other.objs)
+            # map(lambda element: _wrapper(element, name), other.objs)
+            [_wrapper(element, name) for element in other.objs]
         else:
             setattr(self, name, getattr(other, name, ''))
     return self
@@ -191,6 +177,7 @@ pd.DataFrame.oper_wrapper = calculations.oper_wrapper
 pd.DataFrame.recursive_lis = calculations.recursive_lis
 pd.DataFrame.apply_calcs = calculations.apply_calcs
 pd.DataFrame.clean_calcs = calculations.clean_calculations
+pd.DataFrame.logger = logger.init_logger()
 # END OF ADD METHODS TO PANDAS DATAFRAME
 
 
@@ -299,7 +286,7 @@ def collect_system_data(sdata):
         pandas dataframe as outcome
     """
     data = pd.DataFrame()
-    logger = sdata.logger or init_logger()
+    logger = sdata.logger or logger.init_logger()
     tunn_port = sdata.conf.get(sdata.system, 'tunnel_port')
     logger.info('%s| Connecting to tunel port %s', sdata.system, tunn_port)
 
@@ -338,7 +325,7 @@ def get_system_logs(session, system, log_cmd=None, logger=None):
     """ Get log info from the remote system, assumes an already established
         ssh tunnel.
     """
-    logger = logger or init_logger()
+    logger = logger or logger.init_logger()
     if not log_cmd:
         logger.error('No command was specified for log collection')
         return
@@ -360,7 +347,7 @@ def get_system_logs(session, system, log_cmd=None, logger=None):
 
 def get_system_data(sdata, session):
     """ Create pandas DF from current session CSV files downloaded via SFTP """
-    logger = sdata.logger or init_logger()
+    logger = sdata.logger or logger.init_logger()
     system_addr = sdata.conf.get(sdata.system, 'ip_or_hostname')
     data = pd.DataFrame()
 
@@ -405,12 +392,12 @@ def get_system_data(sdata, session):
         if not os.path.isabs(calc_file):
             calc_file = os.path.dirname(os.path.abspath(SETTINGS_FILE))\
                         + '/%s' % calc_file
-        data.apply_calcs(calc_file, logger)
+        data.apply_calcs(calc_file)
         logger.info('%s| Dataframe shape after calculations: %s',
                     sdata.system, data.shape)
-        
+
     return data
-    
+
 def get_stats_from_host(hostname, tag_list, **kwargs):
     """
     Connects to a remote system via SFTP and reads the CSV files, then calls
@@ -425,7 +412,7 @@ def get_stats_from_host(hostname, tag_list, **kwargs):
     files_folder: folder where files are located, either on sftp srv or localfs
     Otherwise: checks ~/.ssh/config
     """
-    logger = kwargs.get('logger', '') or init_logger()
+    logger = kwargs.get('logger', '') or logger.init_logger()
     sftp_session = kwargs.pop('sftp_client', '')
     files_folder = kwargs.pop('files_folder', './')
     _df = pd.DataFrame()
@@ -445,12 +432,12 @@ def get_stats_from_host(hostname, tag_list, **kwargs):
                 close_me = True
         else:
             logger.debug('Using established sftp session...')
-        
+
         if not sftp_session:
             filesystem = os  # for localfs mode
         else:
             filesystem = sftp_session
-            
+
         # get file list by filtering with taglist (case insensitive)
         try:
             files = ['{}{}'.format(files_folder, f)
@@ -465,16 +452,16 @@ def get_stats_from_host(hostname, tag_list, **kwargs):
                          hostname)
             return _df
         _df = pd.concat([df_tools.dataframize(a_file, sftp_session, logger)
-                        for a_file in files], axis=0)
+                         for a_file in files], axis=0)
         if close_me:
             logger.debug('Closing sftp session')
             session.close()
 
 #        _tmp_df = df_tools.copy_metadata(_df)
-##       properly merge the columns and restore the metadata
+#       properly merge the columns and restore the metadata
 #        _df = _df.groupby(_df.index).last()
 #        df_tools.restore_metadata(_tmp_df, _df)
-        
+
         _df = df_tools.consolidate_data(_df)
 
     except SFTPSessionError as _exc:
@@ -485,33 +472,7 @@ def get_stats_from_host(hostname, tag_list, **kwargs):
 #        exc_typ, _, exc_tb = sys.exc_info()
 #        print 'Unexpected error ({2}@line {0}): {1}'.format(exc_tb.tb_lineno,
 #                                 exc_typ, exc_tb.tb_frame.f_code.co_filename)
-    finally:
-        return _df
-
-
-def init_logger(loglevel=None, name=__name__):
-    """ Initialize logger, sets the appropriate level and attaches a console
-        handler.
-    """
-    logger = logging.getLogger(name)
-    logger.setLevel(loglevel or DEFAULT_LOGLEVEL)
-
-    # If no console handlers yet, add a new one
-    if not any(isinstance(x, logging.StreamHandler) for x in logger.handlers):
-        console_handler = logging.StreamHandler()
-        if logging.getLevelName(logger.level) == 'DEBUG':
-            _fmt = '%(asctime)s| %(levelname)-4.3s|%(threadName)10.9s/' \
-                   '%(lineno)04d@%(module)-10.9s| %(message)s'
-            console_handler.setFormatter(logging.Formatter(_fmt))
-        else:
-            console_handler.setFormatter(
-                logging.Formatter('%(asctime)s| %(levelname)-8s| %(message)s'))
-        logger.addHandler(console_handler)
-
-    logger.info('Initialized logger with level: %s',
-                logging.getLevelName(logger.level))
-    return logger
-
+    return _df
 
 
 def start_server(server, logger):
@@ -532,14 +493,17 @@ def main(alldays=False, nologs=False, logger=None, threads=False):
               nologs (Boolean): if true, skip log info collection
     """
     # TODO: review exceptions and comment where they may come from
-    logger = logger or init_logger()
+    # logger = logger or logger.init_logger()
     data = pd.DataFrame()
     logs = {}
 
     _sd = SData()
-    setattr(_sd, 'logger', logger)
-    setattr(_sd, 'alldays', alldays)
-    setattr(_sd, 'nologs', nologs)
+    _sd.logger = logger or logger.init_logger()
+    _sd.alldays = alldays
+    _sd.nologs = nologs
+    # setattr(_sd, 'logger', logger)
+    # setattr(_sd, 'alldays', alldays)
+    # setattr(_sd, 'nologs', nologs)
 
     try:
         setattr(_sd, 'conf', read_config())
@@ -547,61 +511,56 @@ def main(alldays=False, nologs=False, logger=None, threads=False):
                        if item not in ['GATEWAY', 'MISC']]
         if threads:
             setattr(_sd, 'server', init_tunnels(_sd.conf, logger))
-            results_queue = queue.Queue()
             start_server(_sd.server, logger)
+            results_queue = Queue.Queue()
             for item in [threading.Thread(target=thread_wrapper,
-                                          name=_sd.system,
-                                          args=(_sd, results_queue, _sd.system)
-                                         )
-                         for _sd.system in all_systems]:
+                                          name=sys,
+                                          args=(_sd, results_queue, sys))
+                         for sys in all_systems]:
                 item.daemon = True
                 item.start()
 
             for item in range(len(all_systems)):
-                res_sys, res_data, res_log = results_queue.get()
-                logger.debug('%s| Consolidating results', res_sys)
+                sys, res_data, res_log = results_queue.get()
+                _sd.logger.debug('%s| Consolidating results', sys)
                 data = df_tools.consolidate_data(data, res_data)
-                logs[res_sys] = res_log
-                logger.info('%s| Done collecting data!', res_sys)
+                logs[sys] = res_log
+                _sd.logger.info('%s| Done collecting data!', sys)
                 _sd.server.stop()
         else:
             for _sd.system in all_systems:
-                logger.info('%s| Initializing tunnel', _sd.system)
+                _sd.logger.info('%s| Initializing tunnel', _sd.system)
                 try:
                     setattr(_sd, 'server', init_tunnels(_sd.conf,
                                                         logger,
                                                         _sd.system))
                     start_server(_sd.server, logger)
                     tunnelport = _sd.server.tunnelports[_sd.system]
-                    if tunnelport not in _sd.server.tunnel_is_up \
-                    or not _sd.server.tunnel_is_up[tunnelport]:
-                        logger.error('Cannot download data from %s.',
-                                     _sd.system)
+                    if tunnelport not in _sd.server.tunnel_is_up or \
+                      not _sd.server.tunnel_is_up[tunnelport]:
+                        _sd.logger.error('Cannot download data from %s.',
+                                         _sd.system)
                         raise IOError
                     res_data, logs[_sd.system] = collect_system_data(_sd)
                     data = df_tools.consolidate_data(data, res_data)
-                    logger.info('Done for %s', _sd.system)
+                    _sd.logger.info('Done for %s', _sd.system)
                     _sd.server.stop()
                 except (sshtunnel.BaseSSHTunnelForwarderError,
                         IOError,
                         SFTPSessionError):
-#                    _sd.server.stop()
-                    logger.warning('Continue to next system')
+                    # _sd.server.stop()
+                    _sd.logger.warning('Continue to next system')
                     continue
 
     except (sshtunnel.BaseSSHTunnelForwarderError, AttributeError) as exc:
-        logger.error('Could not initialize the SSH tunnels, aborting (%s)',
-                     repr(exc))
+        _sd.logger.error('Could not initialize the SSH tunnels, aborting (%s)',
+                         repr(exc))
     except ConfigReadError:
-        logger.error('Could not read settings file: %s', SETTINGS_FILE)
+        _sd.logger.error('Could not read settings file: %s', SETTINGS_FILE)
     except SSHException:
-        logger.error('Could not open remote connection')
-    except Exception as _ex:
-        exc_typ, _, exc_tb = sys.exc_info()
-        logger.error('Unexpected error (%s@%s): %s)',
-                     exc_tb.tb_lineno,
-                     exc_tb.tb_frame.f_code.co_filename,
-                     repr(_ex))
-
+        _sd.logger.error('Could not open remote connection')
+    except Exception as exc:
+        _sd.logger.error('Unexpected error: %s)',
+                         repr(exc))
 
     return data, logs

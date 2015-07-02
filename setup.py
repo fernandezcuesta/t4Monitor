@@ -19,7 +19,7 @@ CHANGELOG = open('docs/changelog.md').read()
 
 setup(
     name="pysmscmon",
-    version="0.6.3",
+    version="0.6.3.1",
     url='https://github.com/fernandezcuesta/pySMSCMon',
     author='JM Fernandez',
     author_email='fernandez.cuesta@gmail.com',

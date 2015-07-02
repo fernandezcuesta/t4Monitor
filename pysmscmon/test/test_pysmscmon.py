@@ -3,21 +3,27 @@
 """
 *pysmscmon* - SMSC monitoring **test functions**
 """
+from __future__ import absolute_import
 
 import unittest
-from pysmscmon import smscmon as smsc, df_tools, gen_plot
 import ConfigParser
+import logging
+
 import pandas as pd
 import numpy as np
-import logging
 from pandas.util.testing import assert_frame_equal
+
+from pysmscmon import smscmon as smsc
+from pysmscmon import df_tools
+from pysmscmon import gen_plot
+from pysmscmon import logger
 
 TEST_DATAFRAME = pd.DataFrame(np.random.randn(100, 4),
                               columns=['test1',
                                        'test2',
                                        'test3',
                                        'test4'])
-LOGGER = smsc.init_logger(loglevel='DEBUG', name='test-pysmscmon')
+LOGGER = logger.init_logger(loglevel='DEBUG', name='test-pysmscmon')
 TEST_CSV = 'test/test_data.csv'
 TEST_PKL = 'test/test_data.pkl'
 TEST_CONFIG = 'test/test_settings.cfg'
@@ -39,10 +45,10 @@ class TestSmscmon(unittest.TestCase):
     def test_initlogger(self):
         """ Test function for init_logger """
         # Default options, loglevel is 20 (INFO)
-        my_logger = smsc.init_logger()
+        my_logger = logger.init_logger()
         self.assertEqual(my_logger.level, 20)
-        self.assertEqual(my_logger.name, smsc.__name__)
-        my_logger = smsc.init_logger(loglevel='DEBUG', name='testset')
+        self.assertEqual(my_logger.name, logger.__name__)
+        my_logger = logger.init_logger(loglevel='DEBUG', name='testset')
         self.assertEqual('DEBUG', logging.getLevelName(my_logger.level))
         self.assertEqual('testset', my_logger.name)
 

@@ -5,9 +5,11 @@ Created on Mon May 25 11:11:38 2015
 
 @author: fernandezjm
 """
+from __future__ import absolute_import
 import __builtin__
 import pandas as pd
-import smscmon as smsc
+import numpy as np
+
 import gzip
 
 try:
@@ -19,7 +21,8 @@ from itertools import takewhile
 from re import split
 from cStringIO import StringIO
 from paramiko import SFTPClient
-from numpy import unique
+
+from .logger import init_logger
 
 SEPARATOR = ','                                # CSV separator, usually a comma
 START_HEADER_TAG = "$$$ START COLUMN HEADERS $$$"    # Start of Format-2 header
@@ -30,10 +33,12 @@ DATETIME_TAG = 'Sample Time'                # Column containing sample datetime
 __all__ = ('select_var', 'copy_metadata', 'restore_metadata',
            'extract_df', 'to_dataframe', 'dataframize')
 
+
 class ToDfError(Exception):
 
     """Exception raised while converting a CSV into a pandas dataframe"""
     pass
+
 
 class ExtractCSVException(Exception):
 
@@ -56,14 +61,19 @@ def consolidate_data(data, tmp_data=None):
 
 
 def metadata_from_cols(data):
-    """ Restores metadata from CSV, where metadata was saved as extra columns"""
+    """
+    Restores metadata from CSV, where metadata was saved as extra columns
+    """
     for item in data._metadata:
-        setattr(data, item, set(unique(data[item])))
+        setattr(data, item, set(np.unique(data[item])))
+
 
 def reload_from_csv(csv_filename):
+    """ Load a CSV into a dataframe and synthesize its metadata """
     data = pd.read_csv(csv_filename)
     metadata_from_cols(data)  # restore metadata fields
     return data
+
 
 def select_var(dataframe, *var_names, **optional):
     """
@@ -163,8 +173,6 @@ def extract_df(dataframe, *var_names, **optional):
     return _df
 
 
-
-
 def copy_metadata(source):
     """ Copies metadata from source columns to a list of dictionaries of type
         [{('column name', key): value}]
@@ -249,7 +257,7 @@ def dataframize(a_file, sftp_session=None, logger=None):
     If sftp_session is not a valid session, work with local filesystem
     """
 
-    logger = logger or smsc.init_logger()
+    logger = logger or init_logger()
     logger.info('Loading file %s...', a_file)
     try:
         if not isinstance(sftp_session, SFTPClient):
@@ -311,4 +319,3 @@ def read_pickle(name, compress=False):
         except EOFError:
             pass
         return dataframe if 'dataframe' in locals() else pd.DataFrame()
-

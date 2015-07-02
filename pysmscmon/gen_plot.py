@@ -4,11 +4,14 @@ Created on Mon May 25 11:10:57 2015
 
 @author: fernandezjm
 """
+from __future__ import absolute_import
 import sys
 from cStringIO import StringIO
-import smscmon as smsc
-import df_tools
 from matplotlib import pyplot as plt, dates as md
+
+from .logger import init_logger
+from . import df_tools
+
 
 def plot_var(dataframe, *var_names, **optional):
     """
@@ -23,7 +26,7 @@ def plot_var(dataframe, *var_names, **optional):
                can have wildcards ('*') like 'str1*str2'; in that case the
                column name must contain both 'str1' and 'str2'.
     """
-    logger = optional.pop('logger', '') or smsc.init_logger()
+    logger = optional.pop('logger', '') or init_logger()
     if 'system' not in dataframe:
         dataframe['system'] = 'no-system'
 
@@ -33,9 +36,9 @@ def plot_var(dataframe, *var_names, **optional):
 
         system_filter = optional.pop('system', '').upper()
         selected = df_tools.select_var(dataframe,
-                              *var_names,
-                              system=system_filter,
-                              logger=logger)
+                                       *var_names,
+                                       system=system_filter,
+                                       logger=logger)
         if system_filter:
             sel = list(*selected)
             if not sel:

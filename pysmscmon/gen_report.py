@@ -3,11 +3,13 @@
 """
 Report generator module based on Jinja2
 """
-
+from __future__ import absolute_import
 import jinja2
 from os import path
-from pysmscmon import gen_plot
 from ast import literal_eval
+
+from . import gen_plot
+
 
 def gen_report(container):
     """ Create the jinja2 environment.
@@ -47,7 +49,7 @@ def get_graphs(container):
         with open(container.graphs_file, 'r') as graphs_txt:
             for line in graphs_txt:
                 line = line.strip()
-                
+
                 if not len(line) or line[0] == '#':
                     continue
                 info = line.split(';')
@@ -60,7 +62,7 @@ def get_graphs(container):
                                       if len(info) == 3 else {'ylim': 0.0}
                 except ValueError:
                     optional_kwargs = {'ylim': 0.0}
-    
+
                 container.logger.debug('%s|  Plotting %s',
                                        container.system,
                                        info[0])
