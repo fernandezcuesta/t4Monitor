@@ -5,14 +5,17 @@
 """
 from __future__ import absolute_import
 
+import os
 import unittest
 import ConfigParser
 import logging
+import tempfile
 
 import pandas as pd
 import numpy as np
 from pandas.util.testing import assert_frame_equal
 
+import pysmscmon as init_func
 from pysmscmon import smscmon as smsc
 from pysmscmon import df_tools
 from pysmscmon import gen_plot
@@ -42,6 +45,7 @@ class TestSmscmon(unittest.TestCase):
                              for key in ['ssh_port', 'ssh_timeout',
                                          'username', 'tunnel_port',
                                          'folder', 'ip_or_hostname']]))
+
     def test_initlogger(self):
         """ Test function for init_logger """
         # Default options, loglevel is 20 (INFO)
@@ -55,27 +59,93 @@ class TestSmscmon(unittest.TestCase):
     def test_getstats(self):
         """ Test function for get_stats_from_host """
         df1 = smsc.get_stats_from_host('localfs',
-                                        TEST_CSV,
-                                        logger=LOGGER)
+                                       TEST_CSV,
+                                       logger=LOGGER)
         df2 = df_tools.read_pickle(TEST_PKL)
+
+        self.assertIsInstance(df1, pd.DataFrame)
+        self.assertIsInstance(df2, pd.DataFrame)
         assert_frame_equal(df1, df2)
 
     def test_inittunnels(self):
         """ Test function for init_tunnels """
+        pass
 
     def test_collectsysdata(self):
         """ Test function for collect_system_data """
+        pass
+
     def test_getsyslogs(self):
         """ Test function for get_system_logs """
+        pass
 
     def test_getsysdata(self):
         """ Test function for get_system_data """
+        pass
 
     def test_serialmain(self):
         """ Test function for main (serial mode) """
+        pass
 
     def test_threadedmain(self):
         """ Test function for main (threaded mode) """
+        pass
+
+
+class TestInit(unittest.TestCase):
+    """ Set of test functions for __init__.py """
+
+    def test_get_absolute_path(self):
+        """ Test auxiliary function get_absolute_path """
+        filename = __file__
+        filepath = init_func.get_absolute_path(filename)
+        self.assertEqual(init_func.get_absolute_path(),
+                         os.path.dirname(smsc.DEFAULT_SETTINGS_FILE) + os.sep)
+
+    def test_container(self):
+        """ Check that Container has the correct fields by default """
+        container = init_func.Container()
+        self.assertDictEqual(container.graphs, {})
+        self.assertDictEqual(container.graphs, container.logs)
+        self.assertIs(container.system, '')
+        self.assertEqual(container.html_template, '')
+        self.assertEqual(container.graphs_file, '')
+        self.assertNotEqual(container.store_folder, '')
+        self.assertNotEqual(container.reports_folder, container.store_folder)
+        self.assertIsInstance(container.__str__(), str)
+
+        # Now check that no logger is created when loglevel is 'keep', so
+        # trying to get the representation of the object raises an error,
+        # since container.logger.level doesn't exist yet.
+        container = init_func.Container(loglevel='keep')
+        self.assertIsNone(container.logger)
+        self.assertRaises(AttributeError, container.__str__)
+
+    def test_check_config(self):
+        """ Test function for check_config """
+        pass
+
+    def test_check_files(self):
+        """ Test check_files"""
+        # First of all, check with default settings
+        container = init_func.Container()
+        self.assertTrue(container.check_files())
+
+    def test_dump_config(self):
+        """ Test function for dump_config """
+        with tempfile.SpooledTemporaryFile() as temp_file:
+            init_func.dump_config(temp_file)
+            temp_file.seek(0)
+            config_dump = temp_file.readlines()
+
+        self.assertGreater(len(config_dump), 0)
+        self.assertTrue(any(['DEFAULT' in line for line in config_dump]))
+
+    def test_clone(self):
+        """ Test function for Container.clone() """
+        container = init_func.Container()
+        container_clone = container.clone()
+        self.assertEqual(container.date_time, container_clone.date_time)
 
 
 class TestDFTools(unittest.TestCase):
@@ -97,7 +167,6 @@ class TestDFTools(unittest.TestCase):
         self.assertIn('Sample Time', fields)
         self.assertIn('[DISK_BCK0]%Used', fields)
         self.assertIn('Counter01_message_External_Failure', fields)
-
 
     def test_select_var(self):
         """ Test function for select_var """

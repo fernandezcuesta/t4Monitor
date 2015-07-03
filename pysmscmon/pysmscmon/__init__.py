@@ -3,7 +3,7 @@
 """
 Main methods for pysmscmon
 """
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 import sys
 import datetime as dt
 import argparse
@@ -25,12 +25,25 @@ from . import smscmon
 from .gen_report import gen_report
 from . import logger
 
-__version_info__ = (0, 6, 3, 2)
+__version_info__ = (0, 6, 3, 3)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
 # Default figure size
 pylab.rcParams['figure.figsize'] = 13, 10
+
+
+def get_absolute_path(filename='', settings_file=''):
+    """ Returns the absolute path if relative to the settings file location """
+    if not settings_file:
+        settings_file = smscmon.DEFAULT_SETTINGS_FILE
+    relpath = os.path.dirname(os.path.abspath(settings_file))
+    if not os.path.isabs(filename):
+        return '{}{}{}'.format(relpath,
+                               os.sep if relpath != os.sep else '',
+                               filename)
+    else:
+        return filename
 
 
 class Container(object):
@@ -55,7 +68,7 @@ class Container(object):
     reports_folder = './reports'
 
     def __init__(self, loglevel=None):
-        if loglevel != 'keep':
+        if loglevel != 'keep':  # to use an existing logger, or during clone
             self.logger = logger.init_logger(loglevel)
 
     def __str__(self):
@@ -70,7 +83,7 @@ class Container(object):
                                                           self.store_folder,
                                                           self.data.shape)
 
-    def clone(self, system):
+    def clone(self, system=''):
         """ Makes a copy of the data container where the system is filled in,
             data is shared with the original (note in pandas we need to do a
             pandas.DataFrame.copy(), otherwise it's just a view), date_time is
@@ -100,7 +113,7 @@ class Container(object):
                          self.reports_folder, system), 'w') as output:
             output.writelines(gen_report(container=container_clone))
 
-    def check_files(self):
+    def check_files(self, settings_file=None):
         """
         Runtime test that checks if all required files exist and are readable:
 
@@ -113,14 +126,13 @@ class Container(object):
 
         Returns: Boolean (whether or not everything is in place)
         """
+        if not settings_file:
+            settings_file = smscmon.DEFAULT_SETTINGS_FILE
 
-        if not os.path.isfile(smscmon.SETTINGS_FILE):
+        if not os.path.isfile(settings_file):
             self.logger.error('Settings file not found: %s',
-                              smscmon.SETTINGS_FILE)
+                              settings_file)
             return False
-
-        relpath = os.path.dirname(os.path.abspath(smscmon.SETTINGS_FILE))
-
         if not os.path.exists(self.store_folder):
             self.logger.info('Creating non-existing directory: %s',
                              os.path.abspath(self.store_folder))
@@ -131,32 +143,41 @@ class Container(object):
             os.makedirs(self.reports_folder)
 
         try:
-            conf = smscmon.read_config(smscmon.SETTINGS_FILE)
+            conf = smscmon.read_config(settings_file)
             if conf.has_option('MISC', 'store_folder'):
-                self.store_folder = '{}/{}'.format(relpath,
-                                                   conf.get('MISC',
-                                                            'store_folder'))
+                self.store_folder = get_absolute_path(conf.get('MISC',
+                                                               'store_folder'))
+                # self.store_folder = '{}/{}'.format(relpath,
+                #                                    conf.get('MISC',
+                #                                             'store_folder'))
             if conf.has_option('MISC', 'reports_folder'):
-                self.store_folder = '{}/{}'.format(relpath,
-                                                   conf.get('MISC',
-                                                            'reports_folder'))
+                self.store_folder = get_absolute_path(conf.get('MISC',
+                                                               'reports_folder'
+                                                               ))
+                # self.store_folder = '{}/{}'.format(relpath,
+                #                                    conf.get('MISC',
+                #                                             'reports_folder'))
             calc_file = conf.get('MISC', 'calculations_file')
             graphs_file = conf.get('MISC', 'graphs_definition_file')
             html_template = conf.get('MISC', 'html_template')
 
-            if not os.path.isabs(calc_file):
-                calc_file = '{}/{}'.format(relpath, calc_file)
-            if not os.path.isabs(graphs_file):
-                self.graphs_file = '{}/{}'.format(relpath, graphs_file)
-            if not os.path.isabs(html_template):
-                self.html_template = '{}/{}'.format(relpath, html_template)
+            calc_file = get_absolute_path(calc_file)
+            self.html_template = get_absolute_path(html_template)
+            self.graphs_file = get_absolute_path(graphs_file)
+
+            # if not os.path.isabs(calc_file):
+            #     calc_file = '{}/{}'.format(relpath, calc_file)
+            # if not os.path.isabs(graphs_file):
+            #     self.graphs_file = '{}/{}'.format(relpath, graphs_file)
+            # if not os.path.isabs(html_template):
+            #     self.html_template = '{}/{}'.format(relpath, html_template)
 
         except (smscmon.ConfigReadError, smscmon.ConfigParser.Error) as _exc:
             self.logger.error(repr(_exc))
             return False
 
         if not calc_file or not os.path.isfile(calc_file):
-            self.logger.error('Calculation file not found: %s', calc_file)
+            self.logger.error('Calculations file not found: %s', calc_file)
             return False
 
         if not self.html_template or not os.path.isfile(self.html_template):
@@ -165,7 +186,7 @@ class Container(object):
             return False
 
         if not self.graphs_file or not os.path.isfile(self.graphs_file):
-            self.logger.error('Graph definitions file not found: %s',
+            self.logger.error('Graphs definitions file not found: %s',
                               self.graphs_file)
             return False
 
@@ -177,9 +198,10 @@ def main(alldays=False, nologs=False, noreports=False, threaded=False,
     """ Main method, gets data and logs, store and render the HTML output
         Threaded version (fast, error prone)
     """
-    container = Container(loglevel=kwargs.get('loglevel'))
+    container = Container(loglevel=kwargs.pop('loglevel'))
 
-    if not container.check_files():  # check everything's in place
+    # check everything's in place before doing anything
+    if not container.check_files(kwargs.get('settings_file')):
         return
 
     pylab.rcParams['figure.figsize'] = 13, 10
@@ -190,7 +212,9 @@ def main(alldays=False, nologs=False, noreports=False, threaded=False,
     container.data, container.logs = smscmon.main(alldays=alldays,
                                                   nologs=nologs,
                                                   logger=container.logger,
-                                                  threads=threaded)
+                                                  threads=threaded,
+                                                  settings_file=kwargs.get(
+                                                      'settings_file'))
     if container.data.empty:
         container.logger.error('Could not retrieve data!!! Aborting.')
         return
@@ -247,11 +271,11 @@ def main(alldays=False, nologs=False, noreports=False, threaded=False,
     container.logger.info('Done!')
 
 
-def dump_config():
+def dump_config(output=None):
     """ Dump current configuration to screen, useful for creating a new
     settings.cfg file """
     conf = smscmon.read_config()
-    conf.write(sys.stdout)
+    conf.write(output or sys.stdout)
 
 
 def argument_parse():
@@ -273,9 +297,11 @@ def argument_parse():
                              'and stored locally')
     parser.add_argument('--nologs', action='store_true',
                         help='Skip log information collection from SMSCs')
-    parser.add_argument('--settings', default=smscmon.SETTINGS_FILE,
+    parser.add_argument('--settings',
+                        default=smscmon.DEFAULT_SETTINGS_FILE,
                         help='Settings file (default {})'
-                        .format(os.path.relpath(smscmon.SETTINGS_FILE)))
+                        .format(os.path.relpath(smscmon.DEFAULT_SETTINGS_FILE))
+                        )
     parser.add_argument('--loglevel', const=logger.DEFAULT_LOGLEVEL,
                         choices=['DEBUG',
                                  'INFO',
@@ -287,22 +313,19 @@ def argument_parse():
                         nargs='?')
     userargs = vars(parser.parse_args())
 
-    smscmon.SETTINGS_FILE = userargs.pop('settings')
     # Default for smscmon is 'settings.cfg' in /conf
     if len(sys.argv) == 1:
         parser.print_help()
-        print ''
+        print('')
         while True:
             ans = raw_input('No arguments were specified, continue with '
-                            'defaults (check with smscmon-config)? (y|n) ')
-            if ans not in ['y', 'Y', 'n', 'N']:
-                print 'Please enter y or n.'
-                continue
-            if not ans or ans == 'y' or ans == 'Y':
-                print ''
+                            'defaults (check with smscmon-config)? ([Y]|n) ')
+            if not ans or ans in ('y', 'Y'):
+                print('')
                 break
-            if ans == 'n' or ans == 'N':
+            elif ans in ('n', 'N'):
                 sys.exit('Aborting')
+            print('Please enter y or n.')
     main(**userargs)
 
 

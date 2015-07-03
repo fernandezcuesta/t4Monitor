@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from setuptools import setup
+import pysmscmon
 
 requires = ['cairocffi >= 0.6', 'Jinja2 >= 2.7.3', 'matplotlib >= 1.4.3', 'numpy >= 1.9.2',
             'pandas == 0.15.2', 'paramiko == 1.15.2', 'python-dateutil', 'pyzmq', 'six',
@@ -19,8 +20,9 @@ CHANGELOG = open('docs/changelog.md').read()
 
 setup(
     name="pysmscmon",
-    version="0.6.3.1",
+    version=pysmscmon.__version__,
     url='https://github.com/fernandezcuesta/pySMSCMon',
+    license='MIT license',
     author='JM Fernandez',
     author_email='fernandez.cuesta@gmail.com',
     description="A tool to monitor Acision SMSC without AMS_PMS",
@@ -29,14 +31,15 @@ setup(
     include_package_data=True,
     install_requires=requires,
     entry_points=entry_points,
+    platforms='any',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
          'Environment :: Console',
-         'License :: OSI Approved :: GNU Affero General Public License v3',
+         'License :: OSI Approved :: MIT License',
          'Operating System :: OS Independent',
          'Programming Language :: Python :: 2',
          'Programming Language :: Python :: 2.7',
          'Topic :: Software Development :: Libraries :: Python Modules',
     ],
-    test_suite='pysmscmon.tests',
+    test_suite='pysmscmon.tests.test_pysmscmon',
 )

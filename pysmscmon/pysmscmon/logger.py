@@ -5,7 +5,6 @@ Created on Mon May 24 19:12:58 2015
 
 @author: fernandezjm
 """
-from __future__ import absolute_import
 import logging
 
 DEFAULT_LOGLEVEL = 'INFO'

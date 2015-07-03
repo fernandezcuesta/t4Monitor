@@ -80,8 +80,8 @@ __all__ = ('main', 'collect_system_data',
            'get_stats_from_host', 'init_tunnels')
 
 # CONSTANTS
-SETTINGS_FILE = '{}/conf/settings.cfg'.format(\
-                os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_SETTINGS_FILE = '{}/conf/settings.cfg'.\
+                        format(os.path.dirname(os.path.abspath(__file__)))
 # Avoid using locale in Linux+Windows environments, keep these lowercase
 MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
           'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
@@ -121,6 +121,7 @@ class SData(object):
         self.alldays = False
         self.nologs = False
         self.logger = None
+        self.settings_file = None
 
     def clone(self, system):
         """ Makes a copy of SData
@@ -132,12 +133,15 @@ class SData(object):
         my_clone.alldays = self.alldays
         my_clone.nologs = self.nologs
         my_clone.logger = self.logger
+        my_clone.settings_file = self.settings_file
         return my_clone
 
     def __str__(self):
-        return 'System: {0}\nalldays/nologs: {1}/{2}'.format(self.system,
-                                                             self.alldays,
-                                                             self.nologs)
+        return 'System: {0}\nalldays/nologs: {1}/{2}\n' \
+               'Settings file: {3}'.format(self.system,
+                                           self.alldays,
+                                           self.nologs,
+                                           self.settings_file)
 
 
 # ADD METHODS TO PANDAS DATAFRAME
@@ -186,14 +190,14 @@ def read_config(*settings_file):
     config = ConfigParser.SafeConfigParser()
     try:
         settings = config.read(settings_file) if settings_file \
-                                              else config.read(SETTINGS_FILE)
+                   else config.read(DEFAULT_SETTINGS_FILE)
     except ConfigParser.Error as _exc:
         raise ConfigReadError(repr(_exc))
 
     if not settings or not config.sections():
         raise ConfigReadError('Could not read configuration %s!' %
                               settings_file if settings_file
-                              else SETTINGS_FILE)
+                              else DEFAULT_SETTINGS_FILE)
     # If no 'username' was set in DEFAULT, override with current user's
     try:
         username = config.get('DEFAULT', 'username')
@@ -390,8 +394,9 @@ def get_system_data(sdata, session):
                     sdata.system, data.shape)
         calc_file = sdata.conf.get('MISC', 'calculations_file')
         if not os.path.isabs(calc_file):
-            calc_file = os.path.dirname(os.path.abspath(SETTINGS_FILE))\
-                        + '/%s' % calc_file
+            calc_file = '%s/%s' % (os.path.dirname(os.path.abspath(\
+                                   sdata.settings_file)),
+                                   calc_file)
         data.apply_calcs(calc_file)
         logger.info('%s| Dataframe shape after calculations: %s',
                     sdata.system, data.shape)
@@ -487,7 +492,8 @@ def start_server(server, logger):
         raise sshtunnel.BaseSSHTunnelForwarderError
 
 
-def main(alldays=False, nologs=False, logger=None, threads=False):
+def main(alldays=False, nologs=False, logger=None, threads=False,
+         settings_file = None):
     """ Here comes the main function
     Optional: alldays (Boolean): if true, do not filter on today's date
               nologs (Boolean): if true, skip log info collection
@@ -501,6 +507,7 @@ def main(alldays=False, nologs=False, logger=None, threads=False):
     _sd.logger = logger or logger.init_logger()
     _sd.alldays = alldays
     _sd.nologs = nologs
+    _sd.settings_file = settings_file
     # setattr(_sd, 'logger', logger)
     # setattr(_sd, 'alldays', alldays)
     # setattr(_sd, 'nologs', nologs)
@@ -556,7 +563,7 @@ def main(alldays=False, nologs=False, logger=None, threads=False):
         _sd.logger.error('Could not initialize the SSH tunnels, aborting (%s)',
                          repr(exc))
     except ConfigReadError:
-        _sd.logger.error('Could not read settings file: %s', SETTINGS_FILE)
+        _sd.logger.error('Could not read settings file: %s', _sd.settings_file)
     except SSHException:
         _sd.logger.error('Could not open remote connection')
     except Exception as exc:

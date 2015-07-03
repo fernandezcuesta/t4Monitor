@@ -39,25 +39,27 @@ def plot_var(dataframe, *var_names, **optional):
                                        *var_names,
                                        system=system_filter,
                                        logger=logger)
+        # If we filter by system: only first column in var_names will be
+        # selected, dataframe.plot() function will be used.
         if system_filter:
             sel = list(*selected)
             if not sel:
                 raise TypeError
             plotaxis = dataframe[dataframe['system'] == system_filter][sel].\
                 dropna(axis=1, how='all').plot(**optional)
+        # Otherwise, var_names columns are selected for system in the dataframe
+        # and matplotlib.pyplot's plot function is used once for each column.
         else:
             plt.set_cmap(optional.pop('cmap',
                                       optional.pop('colormap', 'Reds')))
             optional['title'] = optional.pop('title', var_names[0].upper())
             plotaxis = plt.gca()
             for key in optional:
-                # eval('plt.%s(optional[key])' % key)
                 getattr(plt, key)(optional[key])
-
             for key, grp in dataframe.groupby(['system']):
                 sel = list(selected.next())
                 if not sel:
-                    # other systems may have this
+                    # other systems may have this column with some data
                     continue
                 for item in sel:
                     logger.debug('Drawing item: %s (%s)' % (item, key))
@@ -71,7 +73,6 @@ def plot_var(dataframe, *var_names, **optional):
         # Style the resulting plot
         plotaxis.xaxis.set_major_formatter(md.DateFormatter('%d/%m/%y\n%H:%M'))
         plotaxis.legend(loc='best')
-        # rstyle(plotaxis)
         return plotaxis
 
     except TypeError:

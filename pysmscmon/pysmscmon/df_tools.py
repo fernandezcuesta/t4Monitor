@@ -79,13 +79,13 @@ def select_var(dataframe, *var_names, **optional):
     """
     Yields selected variables that match columns from the dataframe.
     var_names: Filter column names that match any var_names; each individual
-               var_item in var_names (first one if we also filter on system)
+               var_item in var_names (1st one only if not filtering on system)
                can have wildcards ('*') like 'str1*str2'; in that case the
                column name must contain both 'str1' and 'str2'.
     optional: system (filter or not based on the system)
               logger (logging.Logger instance)
     """
-    logger = optional.get('logger', '') or smsc.init_logger()
+    logger = optional.get('logger', '') or logger.init_logger()
     system_filter = optional.get('system', '').upper()
     if 'system' not in dataframe:
         dataframe['system'] = 'no-system'
@@ -142,7 +142,7 @@ def extract_df(dataframe, *var_names, **optional):
     - When no system is selected, work only with the first element of var_names
     and return: COLUMN_NAME == *VAR_NAMES[0]* (wildmarked)
     """
-    logger = optional.get('logger', '') or smsc.init_logger()
+    logger = optional.get('logger', '') or logger.init_logger()
     if dataframe.empty:
         return dataframe
     system_filter = optional.get('system', '').upper()
