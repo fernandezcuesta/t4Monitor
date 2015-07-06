@@ -1,0 +1,86 @@
+actionid: tox
+msg: packaging
+cmdargs: ['/data/virtualenv/pySMSCMon/bin/python', local('/data/virtualenv/pySMSCMon/pysmscmon/setup.py'), 'sdist', '--formats=zip', '--dist-dir', local('/data/virtualenv/pySMSCMon/pysmscmon/.tox/dist')]
+env: None
+
+2015-07-06 16:10:44,618| INFO    | Initialized logger with level: INFO
+running sdist
+running egg_info
+writing requirements to pysmscmon.egg-info/requires.txt
+writing pysmscmon.egg-info/PKG-INFO
+writing top-level names to pysmscmon.egg-info/top_level.txt
+writing dependency_links to pysmscmon.egg-info/dependency_links.txt
+writing entry points to pysmscmon.egg-info/entry_points.txt
+reading manifest file 'pysmscmon.egg-info/SOURCES.txt'
+reading manifest template 'MANIFEST.in'
+writing manifest file 'pysmscmon.egg-info/SOURCES.txt'
+warning: sdist: standard file not found: should have one of README, README.rst, README.txt
+
+running check
+creating pysmscmon-0.6.3.3
+creating pysmscmon-0.6.3.3/pysmscmon
+creating pysmscmon-0.6.3.3/pysmscmon.egg-info
+creating pysmscmon-0.6.3.3/pysmscmon/conf
+creating pysmscmon-0.6.3.3/pysmscmon/sshtunnels
+making hard links in pysmscmon-0.6.3.3...
+hard linking MANIFEST.in -> pysmscmon-0.6.3.3
+hard linking README.md -> pysmscmon-0.6.3.3
+hard linking TODO.md -> pysmscmon-0.6.3.3
+hard linking changelog.md -> pysmscmon-0.6.3.3
+hard linking requirements.txt -> pysmscmon-0.6.3.3
+hard linking setup.py -> pysmscmon-0.6.3.3
+hard linking pysmscmon/__init__.py -> pysmscmon-0.6.3.3/pysmscmon
+hard linking pysmscmon/calculations.py -> pysmscmon-0.6.3.3/pysmscmon
+hard linking pysmscmon/df_tools.py -> pysmscmon-0.6.3.3/pysmscmon
+hard linking pysmscmon/gen_plot.py -> pysmscmon-0.6.3.3/pysmscmon
+hard linking pysmscmon/gen_report.py -> pysmscmon-0.6.3.3/pysmscmon
+hard linking pysmscmon/logger.py -> pysmscmon-0.6.3.3/pysmscmon
+hard linking pysmscmon/smscmon.py -> pysmscmon-0.6.3.3/pysmscmon
+hard linking pysmscmon.egg-info/PKG-INFO -> pysmscmon-0.6.3.3/pysmscmon.egg-info
+hard linking pysmscmon.egg-info/SOURCES.txt -> pysmscmon-0.6.3.3/pysmscmon.egg-info
+hard linking pysmscmon.egg-info/dependency_links.txt -> pysmscmon-0.6.3.3/pysmscmon.egg-info
+hard linking pysmscmon.egg-info/entry_points.txt -> pysmscmon-0.6.3.3/pysmscmon.egg-info
+hard linking pysmscmon.egg-info/requires.txt -> pysmscmon-0.6.3.3/pysmscmon.egg-info
+hard linking pysmscmon.egg-info/top_level.txt -> pysmscmon-0.6.3.3/pysmscmon.egg-info
+hard linking pysmscmon/conf/calc.cfg -> pysmscmon-0.6.3.3/pysmscmon/conf
+hard linking pysmscmon/conf/graphs_list.cfg -> pysmscmon-0.6.3.3/pysmscmon/conf
+hard linking pysmscmon/conf/settings.cfg -> pysmscmon-0.6.3.3/pysmscmon/conf
+hard linking pysmscmon/conf/template.html -> pysmscmon-0.6.3.3/pysmscmon/conf
+hard linking pysmscmon/sshtunnels/__init__.py -> pysmscmon-0.6.3.3/pysmscmon/sshtunnels
+hard linking pysmscmon/sshtunnels/sftpsession.py -> pysmscmon-0.6.3.3/pysmscmon/sshtunnels
+hard linking pysmscmon/sshtunnels/sftpsession_old.py -> pysmscmon-0.6.3.3/pysmscmon/sshtunnels
+hard linking pysmscmon/sshtunnels/sshserver.py -> pysmscmon-0.6.3.3/pysmscmon/sshtunnels
+hard linking pysmscmon/sshtunnels/sshtunnel.py -> pysmscmon-0.6.3.3/pysmscmon/sshtunnels
+Writing pysmscmon-0.6.3.3/setup.cfg
+creating '.tox/dist/pysmscmon-0.6.3.3.zip' and adding 'pysmscmon-0.6.3.3' to it
+adding 'pysmscmon-0.6.3.3/changelog.md'
+adding 'pysmscmon-0.6.3.3/PKG-INFO'
+adding 'pysmscmon-0.6.3.3/MANIFEST.in'
+adding 'pysmscmon-0.6.3.3/TODO.md'
+adding 'pysmscmon-0.6.3.3/README.md'
+adding 'pysmscmon-0.6.3.3/requirements.txt'
+adding 'pysmscmon-0.6.3.3/setup.cfg'
+adding 'pysmscmon-0.6.3.3/setup.py'
+adding 'pysmscmon-0.6.3.3/pysmscmon.egg-info/PKG-INFO'
+adding 'pysmscmon-0.6.3.3/pysmscmon.egg-info/entry_points.txt'
+adding 'pysmscmon-0.6.3.3/pysmscmon.egg-info/top_level.txt'
+adding 'pysmscmon-0.6.3.3/pysmscmon.egg-info/requires.txt'
+adding 'pysmscmon-0.6.3.3/pysmscmon.egg-info/dependency_links.txt'
+adding 'pysmscmon-0.6.3.3/pysmscmon.egg-info/SOURCES.txt'
+adding 'pysmscmon-0.6.3.3/pysmscmon/gen_plot.py'
+adding 'pysmscmon-0.6.3.3/pysmscmon/logger.py'
+adding 'pysmscmon-0.6.3.3/pysmscmon/calculations.py'
+adding 'pysmscmon-0.6.3.3/pysmscmon/smscmon.py'
+adding 'pysmscmon-0.6.3.3/pysmscmon/df_tools.py'
+adding 'pysmscmon-0.6.3.3/pysmscmon/gen_report.py'
+adding 'pysmscmon-0.6.3.3/pysmscmon/__init__.py'
+adding 'pysmscmon-0.6.3.3/pysmscmon/sshtunnels/sftpsession.py'
+adding 'pysmscmon-0.6.3.3/pysmscmon/sshtunnels/sftpsession_old.py'
+adding 'pysmscmon-0.6.3.3/pysmscmon/sshtunnels/sshserver.py'
+adding 'pysmscmon-0.6.3.3/pysmscmon/sshtunnels/sshtunnel.py'
+adding 'pysmscmon-0.6.3.3/pysmscmon/sshtunnels/__init__.py'
+adding 'pysmscmon-0.6.3.3/pysmscmon/conf/settings.cfg'
+adding 'pysmscmon-0.6.3.3/pysmscmon/conf/graphs_list.cfg'
+adding 'pysmscmon-0.6.3.3/pysmscmon/conf/calc.cfg'
+adding 'pysmscmon-0.6.3.3/pysmscmon/conf/template.html'
+removing 'pysmscmon-0.6.3.3' (and everything under it)

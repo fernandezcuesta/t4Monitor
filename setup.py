@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 from setuptools import setup
+from setuptools.command.test import test as TestCommand
+from pip.req import parse_requirements
+from pip.download import PipSession
+
+import sys
 import pysmscmon
 
-requires = ['cairocffi >= 0.6', 'Jinja2 >= 2.7.3', 'matplotlib >= 1.4.3', 'numpy >= 1.9.2',
-            'pandas == 0.15.2', 'paramiko == 1.15.2', 'python-dateutil', 'pyzmq', 'six',
-            'pytz >= 0a', 'cffi', 'ecdsa', 'MarkupSafe', 'mock', 'pycparser', 'pyparsing']
+
+requires = [str(ir.req) for ir in parse_requirements('requirements.txt', session=PipSession)]
 
 entry_points = {
     'console_scripts': [
@@ -15,8 +19,18 @@ entry_points = {
 
 
 README = open('README.md').read()
-CHANGELOG = open('docs/changelog.md').read()
+CHANGELOG = open('changelog.md').read()
 
+class Tox(TestCommand):
+    def finalize_options(self):
+        TestCommand.finalize_options(self)
+        self.test_args = []
+        self.test_suite = True
+    def run_tests(self):
+        #import here, cause outside the eggs aren't loaded
+        import tox
+        errcode = tox.cmdline(self.test_args)
+        sys.exit(errcode)
 
 setup(
     name="pysmscmon",
@@ -41,5 +55,7 @@ setup(
          'Programming Language :: Python :: 2.7',
          'Topic :: Software Development :: Libraries :: Python Modules',
     ],
+    tests_require=['tox'],
+    cmdclass = {'test': Tox},
     test_suite='pysmscmon.tests.test_pysmscmon',
 )
