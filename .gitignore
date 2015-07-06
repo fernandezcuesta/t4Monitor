@@ -1,8 +1,9 @@
 *.pyc
 *.*~
 *old*.*
-pySMSCMon/store/*
-pySMSCMon/reports/*
+pysmscmon/store/*
+pysmscmon/reports/*
+pysmscmon/htmlcov/*
 *cache*
 reports/
 store/
