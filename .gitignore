@@ -11,6 +11,7 @@ store/
 share/
 bin/
 include/
+*htmlcov/
 lib/
 man/
 *sublime-*

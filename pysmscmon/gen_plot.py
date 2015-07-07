@@ -35,14 +35,13 @@ def plot_var(dataframe, *var_names, **optional):
             raise TypeError
 
         system_filter = optional.pop('system', '').upper()
-        selected = df_tools.select_var(dataframe,
-                                       *var_names,
-                                       system=system_filter,
-                                       logger=logger)
         # If we filter by system: only first column in var_names will be
         # selected, dataframe.plot() function will be used.
         if system_filter:
-            sel = list(*selected)
+            sel = df_tools.select_var(dataframe,
+                                      *var_names,
+                                      system=system_filter,
+                                      logger=logger)
             if not sel:
                 raise TypeError
             plotaxis = dataframe[dataframe['system'] == system_filter][sel].\
@@ -57,7 +56,10 @@ def plot_var(dataframe, *var_names, **optional):
             for key in optional:
                 getattr(plt, key)(optional[key])
             for key, grp in dataframe.groupby(['system']):
-                sel = list(selected.next())
+                sel = df_tools.select_var(dataframe,
+                                          *var_names,
+                                          system=key,
+                                          logger=logger)
                 if not sel:
                     # other systems may have this column with some data
                     continue
@@ -68,8 +70,8 @@ def plot_var(dataframe, *var_names, **optional):
                              for ts in grp[item].dropna().index]
                     plt.plot(my_ts,
                              grp[item].dropna(), label='%s@%s' % (item, key))
-            if not sel:  # nothing at all was found
-                raise TypeError
+            # if not sel:  # nothing at all was found
+            #     raise TypeError
         # Style the resulting plot
         plotaxis.xaxis.set_major_formatter(md.DateFormatter('%d/%m/%y\n%H:%M'))
         plotaxis.legend(loc='best')

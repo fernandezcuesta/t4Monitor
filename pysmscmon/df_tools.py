@@ -65,76 +65,133 @@ def metadata_from_cols(data):
     Restores metadata from CSV, where metadata was saved as extra columns
     """
     for item in data._metadata:
-        setattr(data, item, set(np.unique(data[item])))
+        metadata_values = np.unique(data[item])
+        if len(metadata_values) > 1:
+            setattr(data, item, set(metadata_values))
+        else:
+            setattr(data, item, metadata_values[0])
 
 
 def reload_from_csv(csv_filename):
     """ Load a CSV into a dataframe and synthesize its metadata """
     data = pd.read_csv(csv_filename)
+
     metadata_from_cols(data)  # restore metadata fields
-    return data
+    if 'datetime' in data:
+        return data.set_index('datetime')
+    else:
+        return data
 
 
 def select_var(dataframe, *var_names, **optional):
     """
-    Yields selected variables that match columns from the dataframe.
+    Returns selected variables that match columns from the dataframe.
+
     var_names: Filter column names that match any var_names; each individual
                var_item in var_names (1st one only if not filtering on system)
                can have wildcards ('*') like 'str1*str2'; in that case the
                column name must contain both 'str1' and 'str2'.
-    optional: system (filter or not based on the system)
-              logger (logging.Logger instance)
+    optional: - split_by (filter or not based on that column name and content),
+                only one filter allowed. Example: system='SYSTEM1'
+              - logger (logging.Logger instance)
     """
-    logger = optional.get('logger', '') or logger.init_logger()
-    system_filter = optional.get('system', '').upper()
-    if 'system' not in dataframe:
-        dataframe['system'] = 'no-system'
+    logger = optional.pop('logger', '') or init_logger()
+    (column_name, column_filter) = optional.popitem() if optional else (None,
+                                                                        None)
+    # Work with a case insensitive copy of the column names
+    colnames = [colname.upper() for colname in dataframe.columns]
+    if column_name:
+        column_name = column_name.upper()
+        column_index = dataframe.columns[colnames.index(column_name)]
 
-    if system_filter:
-        if len(var_names) > 0:
-            # Filter column names that match any var_names;
-            # each individual var_item in var_names can have wildcards ('*')
-            # like 'str1*str2'; in that case the column name must contain both
-            # 'str1' and 'str2'.
-            # Dropping all columns where all items are NA (axis=1, how='all').
-            selected = [s for s in dataframe.dropna(axis=1, how='all').columns
-                        for var_item in var_names
-                        if all([k in s.upper()
-                                for k in var_item.upper().strip().split('*')])]
+    def return_matching_columns(dataframe):
+        """ Filter column names that match first item in var_names, which can
+            have wildcards ('*'), like 'str1*str2'; in that case the column
+            name must contain both 'str1' and 'str2'. """
+        if dataframe.empty:
+            return []
         else:
-            selected = dataframe.columns
-        if not selected:  # if var_names were not found in dataframe columns
-            logger.warning('%s| %s not found for this system, '
-                           'nothing selected.', system_filter, var_names)
-        yield selected
-    else:  # no system selected, work only with first variable for all systems
-        if len(var_names) == 0:
-            logger.warning('No variables were selected, returning all columns')
-            yield dataframe.columns
-        my_var = var_names[0].upper()
-        if len(var_names) > 1:
-            logger.warning('Only first match will be extracted when no system '
-                           'is selected: %s', my_var)
+            return [dataframe.columns[i] for i, col in enumerate(colnames)
+                    for var_item in var_names
+                    if all((k in col for k in
+                            var_item.upper().strip().split('*')))]
 
-        for _, grp in dataframe.groupby(['system']):
-            # Filter column names that match first item in var_names, which can
-            # have wildcards ('*'), like 'str1*str2'; in that case the column
-            # name must contain both 'str1' and 'str2'.
-            selected = [s for s in grp.columns
-                        if all([k in s.upper() for k in
-                                my_var.strip().split('*')])]
-            if selected:
-                yield selected
-            else:
-                logger.warning('%s not found for system/s: %s, nothing was '
-                               'selected.',
-                               var_names[0],
-                               dataframe.system)
-#                               [str(item) for item in set(dataframe.system)])
-                yield []
+    if not column_filter and len(var_names) > 1:
+        logger.warning('Only first match will be extracted when no filter '
+                       'is applied: %s', var_names[0])
+        var_names = var_names[0]
+
+    if column_filter:
+        my_filter = [k == column_filter
+                     for k in dataframe[column_index]]
+    else:
+        my_filter = dataframe.columns
+    if len(var_names) == 0:
+        logger.warning('No variables were selected, returning all '
+                       'columns for filter %s=%s',
+                       column_index,
+                       column_filter)
+        return dataframe[my_filter].dropna(axis=1, how='all').columns
+    return return_matching_columns(dataframe[my_filter].dropna(axis=1,
+                                                               how='all'))
+    # else:
+    #     if len(var_names) == 0:
+    #         logger.warning('No variables were selected, returning all columns')
+    #         yield dataframe.columns
+    #     if column_name not in colnames:
+    #         logger.warning('Filter %s=%s not found, nothing was selected',
+    #                        column_index, column_filter)
+    #         yield []
+    #     for _, grp in dataframe.groupby([column_index]):
+    #         selected = return_matching_columns(grp.dropna(axis=1, how='all'))
+    #         if selected:
+    #             yield selected
+    #         else:
+    #             logger.warning('%s not found for filter: "%s=%s", nothing was '
+    #                            'selected.',
+    #                            var_names,
+    #                            column_index, column_filter)
+    #             yield []
 
 
-def extract_df(dataframe, *var_names, **optional):
+    # if system_filter:
+    #     # Filter column names that match any var_names;
+    #     # each individual var_item in var_names can have wildcards ('*')
+    #     # like 'str1*str2'; in that case the column name must contain both
+    #     # 'str1' and 'str2'.
+    #     # Dropping all columns where all items are NA (axis=1, how='all').
+    #     selected = [s for s in dataframe.dropna(axis=1, how='all').columns
+    #                 for var_item in var_names
+    #                 if all([k in s.upper()
+    #                         for k in var_item.upper().strip().split('*')])]
+    #     if not selected:  # if var_names were not found in dataframe columns
+    #         logger.warning('%s| %s not found for this system, '
+    #                        'nothing selected.', system_filter, var_names)
+    #     yield selected
+    # else:  # no system selected, work only with first variable for all systems
+    #     my_vars = var_names[0].upper()
+    #     if len(var_names) > 1:
+    #         logger.warning('Only first match will be extracted when no system '
+    #                        'is selected: %s', my_var)
+    #
+    #     for _, grp in dataframe.groupby(['system']):
+    #         # Filter column names that match first item in var_names, which can
+    #         # have wildcards ('*'), like 'str1*str2'; in that case the column
+    #         # name must contain both 'str1' and 'str2'.
+    #         selected = [s for s in grp.dropna(axis=1, how='all').columns
+    #                     if all([k in s.upper() for k in
+    #                             my_vars.strip().split('*')])]
+    #         if selected:
+    #             yield selected
+    #         else:
+    #             logger.warning('%s not found for system/s: %s, nothing was '
+    #                            'selected.',
+    #                            var_names[0],
+    #                            dataframe.system)
+    #             yield []
+
+
+def extract_df(dataframe, *var_names, **kwargs):
     """
     Returns dataframe which columns meet the criteria:
     - When a system is selected, return all columns whose names have(not case
@@ -142,34 +199,35 @@ def extract_df(dataframe, *var_names, **optional):
     - When no system is selected, work only with the first element of var_names
     and return: COLUMN_NAME == *VAR_NAMES[0]* (wildmarked)
     """
-    logger = optional.get('logger', '') or logger.init_logger()
+    logger = kwargs.pop('logger') or init_logger()
     if dataframe.empty:
         return dataframe
-    system_filter = optional.get('system', '').upper()
+    col_name, col_filter = kwargs.iteritems().next() if kwargs \
+        else (None, None)
+    # if not col_name:
+    #     logger.warning('No filter applied, returning original dataframe')
+    #     return dataframe
     selected = select_var(dataframe,
                           *var_names,
-                          system=system_filter,
-                          logger=logger)
-    if system_filter:
-        sel_list = list(*selected)
-        if sel_list:
-            _df = dataframe[dataframe['system'] == system_filter][sel_list]
-#            _df['system'] = system_filter
-            _df['system'] = pd.Series([system_filter]*len(_df),
-                                      index=_df.index)
+                          logger=logger,
+                          **kwargs)
+    if len(selected):
+        if col_filter:
+            _df = dataframe[dataframe[col_name] == col_filter][selected]
         else:
-            _df = pd.DataFrame()
+            _df = dataframe[selected]
     else:
-        for _, grp in dataframe.groupby(['system']):
-            sel_list = list(selected.next())
-            if sel_list:
-                # Filterer column names that match first item in var_names,
-                # which can have wildcards ('*'), like 'str1*str2'; in that
-                # case the column name must contain both 'str1' and 'str2'.
-                _df = pd.concat([_df, grp[sel_list]]) \
-                      if '_df' in locals() else grp[sel_list]
-            else:
-                _df = pd.DataFrame()
+        _df = pd.DataFrame()
+    #
+    # else:
+    #     for _, grp in dataframe.groupby([col_filter]):
+    #         sel_list = selected.next()
+    #         if sel_list:
+    #             # Filterer column names that match first item in var_names,
+    #             # which can have wildcards ('*'), like 'str1*str2'; in that
+    #             # case the column name must contain both 'str1' and 'str2'.
+    #             _df = pd.concat([_df, grp[sel_list]]) \
+    #                   if '_df' in locals() else grp[sel_list]
     return _df
 
 
@@ -184,7 +242,6 @@ def copy_metadata(source):
 
 def restore_metadata(metadata, dataframe):
     """ Restores previously retrieved metadata into the dataframe
-        It is assumed that metadata was taken from a dataframe with same size
     """
     assert isinstance(metadata, dict)
     assert isinstance(dataframe, pd.DataFrame)
@@ -192,7 +249,6 @@ def restore_metadata(metadata, dataframe):
         setattr(dataframe, keyvalue, metadata[keyvalue])
         if keyvalue not in dataframe._metadata:
             dataframe._metadata.append(keyvalue)
-    return dataframe
 
 
 def extract_t4csv(file_descriptor):
@@ -235,15 +291,16 @@ def to_dataframe(field_names, data, metadata):
         fbuffer.seek(0)
         if field_names and data:  # else return empty dataframe
             # Multiple columns may have a sample time, parse dates from all
-            df_timecol = [s for s in field_names if DATETIME_TAG in s][0]
+            df_timecol = (s for s in field_names if DATETIME_TAG in s).next()
             if df_timecol == '':
                 raise ToDfError
             _df = pd.read_csv(fbuffer, names=field_names,
                               parse_dates={'datetime': [df_timecol]},
                               index_col='datetime')
+            _df._metadata = []  # WHY IS THIS LINE AFFECTING L305?????????????????????
         for item in metadata:
-            _df[item] = pd.Series([metadata[item]]*len(_df), index=_df.index)
             setattr(_df, item, metadata[item])
+            _df[item] = pd.Series([metadata[item]]*len(_df), index=_df.index)
             if item not in _df._metadata:
                 _df._metadata.append(item)
     except Exception as exc:

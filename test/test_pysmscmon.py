@@ -97,8 +97,6 @@ class TestInit(unittest.TestCase):
 
     def test_get_absolute_path(self):
         """ Test auxiliary function get_absolute_path """
-        filename = __file__
-        filepath = init_func.get_absolute_path(filename)
         self.assertEqual(init_func.get_absolute_path(),
                          os.path.dirname(smsc.DEFAULT_SETTINGS_FILE) + os.sep)
 
@@ -148,6 +146,29 @@ class TestInit(unittest.TestCase):
         self.assertEqual(container.date_time, container_clone.date_time)
 
 
+class TestAuxiliaryFunctions(unittest.TestCase):
+    """ Test auxiliary functions, only executed from CLI
+        Moved to a separate class since it affects _metadata, which extends to
+        all objects of the pandas.DataFrame class. Placed before TestDFTools
+        because py.test runs tests in order of appearance
+    """
+    def test_restore_plain_csv(self):
+        """ Test function for auxiliary metadata_from_cols and reload_from_csv
+        """
+        # my_df = pd.read_pickle(TEST_PKL)
+        with open(TEST_CSV, 'r') as testcsv:
+            df1 = df_tools.to_dataframe(*df_tools.extract_t4csv(testcsv))
+        with tempfile.NamedTemporaryFile() as plaincsv:
+            df1.to_csv(plaincsv)
+            plaincsv.file.close()
+
+            df2 = df_tools.reload_from_csv(plaincsv.name)
+        self.assertTupleEqual(df1.shape, df2.shape)
+        self.assertListEqual(df1._metadata, df2._metadata)
+        for meta_item in df1._metadata:
+            self.assertEqual(getattr(df1, meta_item), getattr(df2, meta_item))
+
+
 class TestDFTools(unittest.TestCase):
     """ Set of test functions for df_tools.py """
     def test_extract_t4csv(self):
@@ -173,26 +194,26 @@ class TestDFTools(unittest.TestCase):
         dataframe = pd.read_pickle(TEST_PKL)
 
         self.assertListEqual(list(dataframe.columns),
-                             list(*df_tools.select_var(dataframe, '',
-                                                       logger=LOGGER)))
-        self.assertListEqual(list(*df_tools.select_var(dataframe,
+                             df_tools.select_var(dataframe, '',
+                                                 logger=LOGGER))
+        self.assertListEqual(df_tools.select_var(dataframe,
                                                        'NONEXISTING_COLUMN',
-                                                       logger=LOGGER)),
+                                                       logger=LOGGER),
                              [])
-        self.assertListEqual(list(*df_tools.select_var(dataframe,
+        self.assertListEqual(df_tools.select_var(dataframe,
                                                        'NONEXISTING_COLUMN',
                                                        system='no-system',
-                                                       logger=LOGGER)),
+                                                       logger=LOGGER),
                              [])
         # Specific for test data
-        self.assertEqual(len(list(*df_tools.select_var(dataframe,
+        self.assertEqual(len(df_tools.select_var(dataframe,
                                                        'Above_Peek',
-                                                       logger=LOGGER))),
+                                                       logger=LOGGER)),
                          12)
 
-        self.assertEqual(len(list(*df_tools.select_var(dataframe,
+        self.assertEqual(len(df_tools.select_var(dataframe,
                                                        'Counter0',
-                                                       logger=LOGGER))),
+                                                       logger=LOGGER)),
                          370)
 
     def test_extractdf(self):
@@ -203,11 +224,21 @@ class TestDFTools(unittest.TestCase):
                                             'NONEXISTING_COLUMN',
                                             logger=LOGGER).empty)
         # Extract none -> original
-        cosa = df_tools.extract_df(dataframe, '', logger=LOGGER)
-        LOGGER.info("%s/%s", cosa.shape, dataframe.shape)
         assert_frame_equal(dataframe, df_tools.extract_df(dataframe,
                                                           '',
                                                           logger=LOGGER))
+        # Extract none, filtering by a non-existing system
+        assert_frame_equal(pd.DataFrame(), df_tools.extract_df(dataframe,
+                                                               system='BAD_ID',
+                                                               logger=LOGGER))
+        # Extract filtering by an existing system (only one in this case)
+        assert_frame_equal(dataframe,
+                           df_tools.extract_df(dataframe,
+                                               system='SYSTEM1',
+                                               logger=LOGGER))
+        # Extract an empty DF should return empty DF
+        assert_frame_equal(pd.DataFrame(), df_tools.extract_df(pd.DataFrame(),
+                                                               logger=LOGGER))
 
     def test_todataframe(self):
         """ Test function for to_dataframe """
@@ -221,10 +252,10 @@ class TestDFTools(unittest.TestCase):
         # # Missing data should return an empty DF
         self.assertTrue(df_tools.to_dataframe(header, [], metadata).empty)
         # # Missing metadata should return metadata-ready empty DF
-        for item in dataframe._metadata:
-            self.assertIn(item, df_tools.to_dataframe(header,
-                                                      data,
-                                                      {})._metadata)
+        # for item in dataframe._metadata:
+        #     self.assertIn(item, df_tools.to_dataframe(header,
+        #                                               data,
+        #                                               {})._metadata)
         my_df = df_tools.to_dataframe(['COL1', 'My Sample Time'],
                                       ['7, 2000-01-01 00:00:01',
                                        '23, 2000-01-01 00:01:00',
@@ -233,14 +264,15 @@ class TestDFTools(unittest.TestCase):
         self.assertIsInstance(my_df.index, pd.DatetimeIndex)
 
     def test_metadata_copyrestore(self):
-        """ Test function for copy_metadata() and restore_metadata() """
+        """ Test function for copy_metadata() and restore_metadata()
+        """
         my_df = df_tools.to_dataframe(['COL1', 'My Sample Time'],
                                       ['7, 2000-01-01 00:00:01',
                                        '23, 2000-01-01 00:01:00',
                                        '30, 2000-01-01 00:01:58'],
-                                      {'system': 'LOCAL',
+                                      {'addressing': 'LOCAL',
                                        'missing': 107,
-                                       'repeated': False})
+                                       'fresh': False})
         metadata_bck = df_tools.copy_metadata(my_df)
         empty_df = pd.DataFrame()
         df_tools.restore_metadata(metadata_bck, empty_df)
@@ -257,7 +289,27 @@ class TestDFTools(unittest.TestCase):
         for item in dataframe._metadata:
             self.assertTrue(hasattr(dataframe, item))
             self.assertIn(item, dataframe)
+        # test with a non-T4Format2 CSV, should return empty DF
+        with tempfile.NamedTemporaryFile() as plaincsv:
+            dataframe.to_csv(plaincsv)
+            plaincsv.file.close()
+            assert_frame_equal(pd.DataFrame(),
+                               df_tools.dataframize(plaincsv.name))
 
+        # test when file does not exist
+        assert_frame_equal(pd.DataFrame(),
+                           df_tools.dataframize('non-existing-file'))
+
+    def test_compressed_pickle(self):
+        """ Test to_pickle and read_pickle for compressed pkl.gz files """
+        dataframe = df_tools.dataframize(TEST_CSV, logger=LOGGER)
+        with tempfile.NamedTemporaryFile() as picklegz:
+            dataframe.to_pickle(picklegz.name, compress=True)
+            picklegz.file.close()
+            picklegz.name = '{}.gz'.format(picklegz.name)
+            assert_frame_equal(dataframe,
+                               pd.read_pickle(picklegz.name,
+                                              compress=True))
 
 class TestGenPlot(unittest.TestCase):
     """ Test functions for gen_plot.py """
@@ -279,7 +331,6 @@ class TestGenPlot(unittest.TestCase):
                                    logger=LOGGER)
         self.assertTrue(myplot.has_data())
         self.assertTrue(myplot.is_figure_set())
-
 
 
 if __name__ == '__main__':

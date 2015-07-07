@@ -69,9 +69,9 @@ import pandas as pd
 from random import randint
 from paramiko import SSHException
 
-from . import logger
 from . import df_tools
 from . import calculations
+from .logger import init_logger
 from .sshtunnels import sshtunnel
 from .sshtunnels.sftpsession import SftpSession, SFTPSessionError
 
@@ -172,7 +172,7 @@ def _custom_finalize(self, other, method=None):
     return self
 
 
-pd.DataFrame._metadata = ['system']
+pd.DataFrame._metadata = ['system']  # default metadata
 pd.DataFrame.__finalize__ = _custom_finalize
 pd.DataFrame.to_pickle = pd.to_pickle = df_tools.to_pickle
 pd.DataFrame.read_pickle = pd.read_pickle = df_tools.read_pickle
@@ -181,7 +181,7 @@ pd.DataFrame.oper_wrapper = calculations.oper_wrapper
 pd.DataFrame.recursive_lis = calculations.recursive_lis
 pd.DataFrame.apply_calcs = calculations.apply_calcs
 pd.DataFrame.clean_calcs = calculations.clean_calculations
-pd.DataFrame.logger = logger.init_logger()
+# pd.DataFrame.logger = init_logger()
 # END OF ADD METHODS TO PANDAS DATAFRAME
 
 
@@ -250,7 +250,7 @@ def init_tunnels(config, logger, system=None):
                                               threaded=False,
                                               logger=logger,
                                               ssh_private_key_file=pkey
-                                             )
+                                              )
         # Add the system<>port bindings to the return object
         server.tunnelports = tunnelports
         return server
@@ -290,7 +290,7 @@ def collect_system_data(sdata):
         pandas dataframe as outcome
     """
     data = pd.DataFrame()
-    logger = sdata.logger or logger.init_logger()
+    logger = sdata.logger or init_logger()
     tunn_port = sdata.conf.get(sdata.system, 'tunnel_port')
     logger.info('%s| Connecting to tunel port %s', sdata.system, tunn_port)
 
@@ -351,7 +351,7 @@ def get_system_logs(session, system, log_cmd=None, logger=None):
 
 def get_system_data(sdata, session):
     """ Create pandas DF from current session CSV files downloaded via SFTP """
-    logger = sdata.logger or logger.init_logger()
+    logger = sdata.logger or init_logger()
     system_addr = sdata.conf.get(sdata.system, 'ip_or_hostname')
     data = pd.DataFrame()
 
@@ -403,6 +403,7 @@ def get_system_data(sdata, session):
 
     return data
 
+
 def get_stats_from_host(hostname, tag_list, **kwargs):
     """
     Connects to a remote system via SFTP and reads the CSV files, then calls
@@ -417,7 +418,7 @@ def get_stats_from_host(hostname, tag_list, **kwargs):
     files_folder: folder where files are located, either on sftp srv or localfs
     Otherwise: checks ~/.ssh/config
     """
-    logger = kwargs.get('logger', '') or logger.init_logger()
+    logger = kwargs.get('logger', '') or init_logger()
     sftp_session = kwargs.pop('sftp_client', '')
     files_folder = kwargs.pop('files_folder', './')
     _df = pd.DataFrame()
@@ -493,7 +494,7 @@ def start_server(server, logger):
 
 
 def main(alldays=False, nologs=False, logger=None, threads=False,
-         settings_file = None):
+         settings_file=None):
     """ Here comes the main function
     Optional: alldays (Boolean): if true, do not filter on today's date
               nologs (Boolean): if true, skip log info collection
@@ -544,7 +545,7 @@ def main(alldays=False, nologs=False, logger=None, threads=False,
                     start_server(_sd.server, logger)
                     tunnelport = _sd.server.tunnelports[_sd.system]
                     if tunnelport not in _sd.server.tunnel_is_up or \
-                      not _sd.server.tunnel_is_up[tunnelport]:
+                    not _sd.server.tunnel_is_up[tunnelport]:
                         _sd.logger.error('Cannot download data from %s.',
                                          _sd.system)
                         raise IOError

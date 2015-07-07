@@ -17,11 +17,11 @@ TTAG = '_tmp'
 def oper(self, oper1, funct, oper2):
     """ Returns funct(oper1, oper2) """
     try:
-        if funct == '+':
+        if funct is '+':
             return oper1 + oper2
-        elif funct == '-':
+        elif funct is '-':
             return oper1 - oper2
-        elif funct == '/':
+        elif funct is '/':
             return oper1 / oper2
         else:
             return oper1 * oper2
@@ -94,9 +94,9 @@ def recursive_lis(self, sign_pattern, parn_pattern, res, c_list):
         return
 
     try:
-        if len(c_list) == 3:
+        if len(c_list) is 3:
             self[res] = self.oper_wrapper(*c_list)
-        elif len(c_list) == 1:
+        elif len(c_list) is 1:
             return c_list
         else:
             self[res.strip()] = self.oper_wrapper(
