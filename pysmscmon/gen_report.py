@@ -16,7 +16,7 @@ def gen_report(container):
     Notice the use of trim_blocks, which greatly helps control whitespace. """
 
     try:
-        assert container.system != ''  # Check a system was specified
+        assert container.system  # Check a system was specified
         assert not container.data.empty  # Check that data isn't empty
         env_dir = path.dirname(path.abspath(container.html_template))
         j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader(env_dir),
@@ -28,13 +28,15 @@ def gen_report(container):
         return j2_tpl.render(data=container)
     except AssertionError:
         container.logger.error('Data container error!')
-        return ['']
-    except Exception as unexpected:
-        container.logger.error('%s| Unexpected exception found while '
-                               'rendering report: %s',
+    except IOError:
+        container.logger.error('Template file (%s) not found.',
+                               container.html_template)
+    except jinja2.TemplateError as msg:
+        container.logger.error('%s| Error in html template (%s): %s',
                                container.system,
-                               repr(unexpected))
-        return ['']
+                               container.html_template,
+                               repr(msg))
+    return ''
 
 
 def get_graphs(container):
@@ -54,8 +56,8 @@ def get_graphs(container):
                     continue
                 info = line.split(';')
                 if len(info) == 1:
-                    container.logger.warning('Bad format in current line: "%s"',
-                                             line)
+                    container.logger.warning('Bad format in current line: '
+                                             '"%s"...', line[1:20])
                     continue
                 try:
                     optional_kwargs = literal_eval("dict(%s)" % info[2]) \
@@ -68,23 +70,24 @@ def get_graphs(container):
                                        info[0])
                 try:
                     _b64figure = gen_plot.to_base64(getattr(gen_plot,
-                                                            "plot_var")\
-                        (container.data,
-                         *[x.strip() for x in info[0].split(',')],
-                         system=container.system.upper(),
-                         logger=container.logger,
-                         **optional_kwargs))
-                    if not _b64figure:
-                        yield False
-                    else:
-                        yield (info[1], _b64figure)
+                                                            "plot_var")(
+                        container.data,
+                        *[x.strip() for x in info[0].split(',')],
+                        system=container.system.upper(),
+                        logger=container.logger,
+                        **optional_kwargs)
+                                                    )
+                    if _b64figure:
+                        yield (info[1].strip(), _b64figure)
                 except Exception as exc:
                     container.logger.error('Unexpected error while '
                                            'rendering graph: %s', repr(exc))
-                    yield False
+    except IOError:
+        container.logger.error('Graphs definition file not found: %s',
+                               container.graphs_file)
     except Exception as unexpected:
         container.logger.error('%s| Unexpected exception found while '
                                'creating graphs: %s',
                                container.system,
                                repr(unexpected))
-        yield None
+    yield None

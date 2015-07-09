@@ -55,8 +55,9 @@ def consolidate_data(data, tmp_data=None):
     tmp_meta = copy_metadata(data)
     data = data.groupby(data.index).last()
     restore_metadata(tmp_meta, data)
-    # we are only interested in first 5 chars of the system name
-    data.system = set([i[0:5] for i in data.system])
+    if isinstance(data.system, set):
+        # we are only interested in first 5 chars of the system name
+        data.system = set([i[0:5] for i in data.system])
     return data
 
 
@@ -102,7 +103,12 @@ def select_var(dataframe, *var_names, **optional):
     colnames = [colname.upper() for colname in dataframe.columns]
     if column_name:
         column_name = column_name.upper()
-        column_index = dataframe.columns[colnames.index(column_name)]
+        if column_name in colnames:
+            column_index = dataframe.columns[colnames.index(column_name)]
+        else:
+            logger.warning('Bad filter found: %s not found (case insensitive)',
+                           column_name)
+            column_name = column_filter = None
 
     def return_matching_columns(dataframe):
         """ Filter column names that match first item in var_names, which can
@@ -128,67 +134,67 @@ def select_var(dataframe, *var_names, **optional):
         my_filter = dataframe.columns
     if len(var_names) == 0:
         logger.warning('No variables were selected, returning all '
-                       'columns for filter %s=%s',
-                       column_index,
-                       column_filter)
+                       'columns %s',
+                       'for filter {}={}'.format(column_index, column_filter)
+                       if column_filter else '')
         return dataframe[my_filter].dropna(axis=1, how='all').columns
     return return_matching_columns(dataframe[my_filter].dropna(axis=1,
                                                                how='all'))
-    # else:
-    #     if len(var_names) == 0:
-    #         logger.warning('No variables were selected, returning all columns')
-    #         yield dataframe.columns
-    #     if column_name not in colnames:
-    #         logger.warning('Filter %s=%s not found, nothing was selected',
-    #                        column_index, column_filter)
-    #         yield []
-    #     for _, grp in dataframe.groupby([column_index]):
-    #         selected = return_matching_columns(grp.dropna(axis=1, how='all'))
-    #         if selected:
-    #             yield selected
-    #         else:
-    #             logger.warning('%s not found for filter: "%s=%s", nothing was '
-    #                            'selected.',
-    #                            var_names,
-    #                            column_index, column_filter)
-    #             yield []
+# else:
+#     if len(var_names) == 0:
+#         logger.warning('No variables were selected, returning all columns')
+#         yield dataframe.columns
+#     if column_name not in colnames:
+#         logger.warning('Filter %s=%s not found, nothing was selected',
+#                        column_index, column_filter)
+#         yield []
+#     for _, grp in dataframe.groupby([column_index]):
+#         selected = return_matching_columns(grp.dropna(axis=1, how='all'))
+#         if selected:
+#             yield selected
+#         else:
+#             logger.warning('%s not found for filter: "%s=%s", nothing was '
+#                            'selected.',
+#                            var_names,
+#                            column_index, column_filter)
+#             yield []
 
 
-    # if system_filter:
-    #     # Filter column names that match any var_names;
-    #     # each individual var_item in var_names can have wildcards ('*')
-    #     # like 'str1*str2'; in that case the column name must contain both
-    #     # 'str1' and 'str2'.
-    #     # Dropping all columns where all items are NA (axis=1, how='all').
-    #     selected = [s for s in dataframe.dropna(axis=1, how='all').columns
-    #                 for var_item in var_names
-    #                 if all([k in s.upper()
-    #                         for k in var_item.upper().strip().split('*')])]
-    #     if not selected:  # if var_names were not found in dataframe columns
-    #         logger.warning('%s| %s not found for this system, '
-    #                        'nothing selected.', system_filter, var_names)
-    #     yield selected
-    # else:  # no system selected, work only with first variable for all systems
-    #     my_vars = var_names[0].upper()
-    #     if len(var_names) > 1:
-    #         logger.warning('Only first match will be extracted when no system '
-    #                        'is selected: %s', my_var)
-    #
-    #     for _, grp in dataframe.groupby(['system']):
-    #         # Filter column names that match first item in var_names, which can
-    #         # have wildcards ('*'), like 'str1*str2'; in that case the column
-    #         # name must contain both 'str1' and 'str2'.
-    #         selected = [s for s in grp.dropna(axis=1, how='all').columns
-    #                     if all([k in s.upper() for k in
-    #                             my_vars.strip().split('*')])]
-    #         if selected:
-    #             yield selected
-    #         else:
-    #             logger.warning('%s not found for system/s: %s, nothing was '
-    #                            'selected.',
-    #                            var_names[0],
-    #                            dataframe.system)
-    #             yield []
+# if system_filter:
+#     # Filter column names that match any var_names;
+#     # each individual var_item in var_names can have wildcards ('*')
+#     # like 'str1*str2'; in that case the column name must contain both
+#     # 'str1' and 'str2'.
+#     # Dropping all columns where all items are NA (axis=1, how='all').
+#     selected = [s for s in dataframe.dropna(axis=1, how='all').columns
+#                 for var_item in var_names
+#                 if all([k in s.upper()
+#                         for k in var_item.upper().strip().split('*')])]
+#     if not selected:  # if var_names were not found in dataframe columns
+#         logger.warning('%s| %s not found for this system, '
+#                        'nothing selected.', system_filter, var_names)
+#     yield selected
+# else:  # no system selected, work only with first variable for all systems
+#     my_vars = var_names[0].upper()
+#     if len(var_names) > 1:
+#         logger.warning('Only first match will be extracted when no system '
+#                        'is selected: %s', my_var)
+#
+#     for _, grp in dataframe.groupby(['system']):
+#         # Filter column names that match first item in var_names, which can
+#         # have wildcards ('*'), like 'str1*str2'; in that case the column
+#         # name must contain both 'str1' and 'str2'.
+#         selected = [s for s in grp.dropna(axis=1, how='all').columns
+#                     if all([k in s.upper() for k in
+#                             my_vars.strip().split('*')])]
+#         if selected:
+#             yield selected
+#         else:
+#             logger.warning('%s not found for system/s: %s, nothing was '
+#                            'selected.',
+#                            var_names[0],
+#                            dataframe.system)
+#             yield []
 
 
 def extract_df(dataframe, *var_names, **kwargs):
@@ -297,7 +303,7 @@ def to_dataframe(field_names, data, metadata):
             _df = pd.read_csv(fbuffer, names=field_names,
                               parse_dates={'datetime': [df_timecol]},
                               index_col='datetime')
-            _df._metadata = []  # WHY IS THIS LINE AFFECTING L305?????????????????????
+            # _df._metadata = []  # may affect while running in parallel?
         for item in metadata:
             setattr(_df, item, metadata[item])
             _df[item] = pd.Series([metadata[item]]*len(_df), index=_df.index)

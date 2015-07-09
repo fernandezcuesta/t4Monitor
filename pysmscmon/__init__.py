@@ -25,7 +25,7 @@ from . import smscmon
 from .gen_report import gen_report
 from . import logger
 
-__version_info__ = (0, 6, 3, 4)
+__version_info__ = (0, 7)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
@@ -55,21 +55,23 @@ class Container(object):
         - data: dataframe passed to get_graphs()
         - system: string containing current system-id being rendered
     """
-    graphs = {}  # will be filled by calls from within jinja for loop
-    logs = {}
-    year = dt.date.today().year
-    date_time = dt.date.strftime(dt.datetime.today(), "%d/%m/%Y %H:%M:%S")
-    data = smscmon.pd.DataFrame()
-    system = ''
-    logger = None
-    html_template = ''
-    graphs_file = ''
-    store_folder = './store'
-    reports_folder = './reports'
 
     def __init__(self, loglevel=None):
         if loglevel != 'keep':  # to use an existing logger, or during clone
             self.logger = logger.init_logger(loglevel)
+        else:
+            self.logger = None
+        self.graphs = {}  # will be filled by calls from within jinja for loop
+        self.logs = {}
+        self.year = dt.date.today().year
+        self.date_time = dt.date.strftime(dt.datetime.today(),
+                                          "%d/%m/%Y %H:%M:%S")
+        self.data = smscmon.pd.DataFrame()
+        self.system = ''
+        self.html_template = ''
+        self.graphs_file = ''
+        self.store_folder = './store'
+        self.reports_folder = './reports'
 
     def __str__(self):
         return 'Container created on {0} for system: {1}\nLoglevel: {2}\n' \
@@ -93,7 +95,7 @@ class Container(object):
         my_clone.date_time = self.date_time
         my_clone.data = self.data
         if system in self.logs:
-            my_clone.logs = {system: self.logs[system]}
+            my_clone.logs[system] = self.logs[system]
         my_clone.system = system
         my_clone.logger = self.logger
         my_clone.html_template = self.html_template
@@ -147,16 +149,10 @@ class Container(object):
             if conf.has_option('MISC', 'store_folder'):
                 self.store_folder = get_absolute_path(conf.get('MISC',
                                                                'store_folder'))
-                # self.store_folder = '{}/{}'.format(relpath,
-                #                                    conf.get('MISC',
-                #                                             'store_folder'))
             if conf.has_option('MISC', 'reports_folder'):
                 self.store_folder = get_absolute_path(conf.get('MISC',
                                                                'reports_folder'
                                                                ))
-                # self.store_folder = '{}/{}'.format(relpath,
-                #                                    conf.get('MISC',
-                #                                             'reports_folder'))
             calc_file = conf.get('MISC', 'calculations_file')
             graphs_file = conf.get('MISC', 'graphs_definition_file')
             html_template = conf.get('MISC', 'html_template')
@@ -164,13 +160,6 @@ class Container(object):
             calc_file = get_absolute_path(calc_file)
             self.html_template = get_absolute_path(html_template)
             self.graphs_file = get_absolute_path(graphs_file)
-
-            # if not os.path.isabs(calc_file):
-            #     calc_file = '{}/{}'.format(relpath, calc_file)
-            # if not os.path.isabs(graphs_file):
-            #     self.graphs_file = '{}/{}'.format(relpath, graphs_file)
-            # if not os.path.isabs(html_template):
-            #     self.html_template = '{}/{}'.format(relpath, html_template)
 
         except (smscmon.ConfigReadError, smscmon.ConfigParser.Error) as _exc:
             self.logger.error(repr(_exc))

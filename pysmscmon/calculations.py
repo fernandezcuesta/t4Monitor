@@ -5,11 +5,8 @@ Make the calculations on pd.DataFrame columns as defined in calc_file
 """
 from __future__ import absolute_import
 
-import pandas as pd
 import re
 import sys
-
-from .logger import init_logger
 
 TTAG = '_tmp'
 
@@ -36,18 +33,19 @@ def oper_wrapper(self, oper1, funct, oper2):
     """
     try:
         oper1 = float(oper1)
-    except ValueError:
+    except (ValueError, TypeError):
         pass
     try:
         oper2 = float(oper2)
-    except ValueError:
+    except (ValueError, TypeError):
         pass
 
     try:
         if funct not in '+-*/':
             self.logger.warning("Might be an error in the equation, "
                                 "returning NaN")
-            return float('NaN')
+        elif isinstance(oper1, float) and isinstance(oper2, float):
+            return self.oper(oper1, funct, oper2)
         elif isinstance(oper1, float):
             return self.oper(oper1, funct, self[oper2])
         elif isinstance(oper2, float):
@@ -55,22 +53,21 @@ def oper_wrapper(self, oper1, funct, oper2):
         else:
             return self.oper(self[oper1], funct, self[oper2])
     except KeyError as exc:
-        self.logger.warning('%s not found in dataset, returnin NaN', repr(exc))
+        self.logger.warning('%s not found in dataset, returning NaN',
+                            repr(exc))
     except Exception as exc:
         self.logger.error('Returning NaN. Unexpected error during '
                           'calculations: %s', repr(exc))
-        return float('NaN')
+    return float('NaN')
 
 
 def recursive_lis(self, sign_pattern, parn_pattern, res, c_list):
     """
     Recursively solve equation passed as c_list and store in self[res]
     """
-
-# Get rid of trailing spaces in result name
+    # Get rid of trailing spaces in result name
     res = res.strip()
-#    print "Equation: %s = %s" % (res, c_list)
-# Breaking into a list of strings when done, if string we've some work to do
+    # Breaking into a list of strings when done, if string we've some work to do
     if isinstance(c_list, str):
         # text inside the parenthesis
         par = re.findall(parn_pattern, c_list)
@@ -81,8 +78,6 @@ def recursive_lis(self, sign_pattern, parn_pattern, res, c_list):
             self.recursive_lis(sign_pattern, parn_pattern, tmp_tag, par[0])
             # Update c_list by replacing the solved equation by 'TTAGN'
             c_list = c_list.strip().replace('(%s)' % par[0], tmp_tag)
-#            print "PAR = ", par
-#            print "clist = ", c_list
             # Solve the rest of the equation (yet another parenthesis?)
             self.recursive_lis(sign_pattern, parn_pattern, res, c_list)
         else:
@@ -92,14 +87,16 @@ def recursive_lis(self, sign_pattern, parn_pattern, res, c_list):
     # Break the recursive loop if we already have the result
     if res in self:
         return
-
     try:
         if len(c_list) is 3:
             self[res] = self.oper_wrapper(*c_list)
         elif len(c_list) is 1:
-            return c_list
+            if re.match('^[\w\d\.]+$', c_list[0]) is None:
+                self[res] = float('NaN')
+            else:
+                self[res] = c_list[0]
         else:
-            self[res.strip()] = self.oper_wrapper(
+            self[res] = self.oper_wrapper(
                 self.recursive_lis(sign_pattern,
                                    parn_pattern,
                                    res,
@@ -115,17 +112,19 @@ def recursive_lis(self, sign_pattern, parn_pattern, res, c_list):
         return
 
 
-def clean_calculations(self, calc_file):
+def clean_calcs(self, calc_file):
     """ Delete columns added by apply_lis """
     try:
         self.logger.info('Dataframe shape before cleanup: %s', self.shape)
         with open(calc_file, 'r') as calcfile:
             colnames = [line.split('=')[0].strip() for line in calcfile
                         if line[0] not in ';#!/%[ ' and len(line) > 3]
-            for col in colnames:
-                self.logger.debug('Deleting column: %s', col)
             self.drop(colnames, axis=1, inplace=True)
+            for col in colnames:
+                self.logger.debug('Deleted column: %s', col)
         self.logger.info('Dataframe shape after cleanup: %s', self.shape)
+    except ValueError:
+        self.logger.debug('Error while processing line in clean_calcs')
     except IOError:
         self.logger.error("Could not process calculation file: %s", calc_file)
 
@@ -141,8 +140,9 @@ def apply_calcs(self, calc_file):
         with open(calc_file, 'r') as calcfile:
             for line in calcfile:
                 if line[0] not in ';#!/%[ ' and len(line) > 3:
-                    self.logger.debug('%s | Processing: %s',
-                                      list(self.system)[0],
+                    self.logger.debug('%sProcessing: %s',
+                                      '%s | ' % list(self.system)[0]
+                                      if 'system' in self else '',
                                       line.strip())
                     self.recursive_lis(sign_pattern,
                                        parn_pattern,
@@ -152,11 +152,3 @@ def apply_calcs(self, calc_file):
             del self[colname]
     except IOError:
         self.logger.error("Could not process calculation file: %s", calc_file)
-
-
-if __name__ == "__main__":
-    pd.DataFrame.logger = init_logger()
-    pd.DataFrame.oper = oper
-    pd.DataFrame.oper_wrapper = oper_wrapper
-    pd.DataFrame.recursive_lis = recursive_lis
-    pd.DataFrame.apply_calcs = apply_calcs

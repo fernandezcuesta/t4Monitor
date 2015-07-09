@@ -27,14 +27,12 @@ def plot_var(dataframe, *var_names, **optional):
                column name must contain both 'str1' and 'str2'.
     """
     logger = optional.pop('logger', '') or init_logger()
-    if 'system' not in dataframe:
-        dataframe['system'] = 'no-system'
-
+    # if 'system' not in dataframe:
+    #     dataframe['system'] = 'no-system'
     try:
+        system_filter = optional.pop('system', '').upper()
         if dataframe.empty:
             raise TypeError
-
-        system_filter = optional.pop('system', '').upper()
         # If we filter by system: only first column in var_names will be
         # selected, dataframe.plot() function will be used.
         if system_filter:
@@ -52,7 +50,7 @@ def plot_var(dataframe, *var_names, **optional):
             plt.set_cmap(optional.pop('cmap',
                                       optional.pop('colormap', 'Reds')))
             optional['title'] = optional.pop('title', var_names[0].upper())
-            plotaxis = plt.gca()
+            plotaxis = plt.figure().gca()
             for key in optional:
                 getattr(plt, key)(optional[key])
             for key, grp in dataframe.groupby(['system']):
@@ -76,19 +74,18 @@ def plot_var(dataframe, *var_names, **optional):
         plotaxis.xaxis.set_major_formatter(md.DateFormatter('%d/%m/%y\n%H:%M'))
         plotaxis.legend(loc='best')
         return plotaxis
-
     except TypeError:
         logger.error('%s%s not drawn%s',
                      '{}| '.format(system_filter) if system_filter else '',
                      var_names,
                      ' for this system' if system_filter else '')
-        item = plt.plot()
-        return plt.gca()
     except Exception as exc:
         item, item, exc_tb = sys.exc_info()
         logger.error('Exception at plot_var (line %s): %s',
                      exc_tb.tb_lineno,
                      repr(exc))
+    item = plt.figure()
+    return item.gca()
 
 
 def to_base64(dataframe_plot):
