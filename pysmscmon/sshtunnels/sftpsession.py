@@ -4,11 +4,13 @@
 Open the sftp session to the destination
 """
 
-import paramiko
-from os.path import expanduser
-from socket import timeout as socket_timeout, error as socket_error
 import logging
 import time
+import getpass
+from os.path import expanduser
+from socket import timeout as socket_timeout, error as socket_error
+
+import paramiko
 
 
 class SFTPSessionError(Exception):
@@ -20,45 +22,16 @@ class SftpSession(object):
     """
     Defines methods for opening a SFTP session to a remote system
     """
+
     def connect(self):
         """
         Opens a secure shell session and returns the SSH client object.
         This is the main method and expects self to have a ssharguments dict
         with all keys as described in init.
         """
-        ssh_config = paramiko.SSHConfig()
-        cfg_file = expanduser(self.ssh_arguments.get('ssh_configfile',
-                                                     '~/.ssh/config'))
-
-        try:
-            # open the ssh config file
-            ssh_config.parse(open(cfg_file, 'r'))
-            # looks for information for the destination system
-            hostname_info = ssh_config.lookup(self.hostname)
-            # gather settings for user, port and identity file
-            username = hostname_info.get('user', '')
-            identityfile = hostname_info.get('identityfile', '')[0]
-            tcp_port = hostname_info.get('port', '22')
-        except IOError:
-            self.logger.warning('Could not read SSH configuration file: %s',
-                                cfg_file)
-
-        # if a username was specified, override configuration file's (if any)
-        username = self.ssh_arguments.get('ssh_user',
-                                          locals().get('username', ''))
-
+        (username, identityfile, tcp_port) = self._load_ssh_config()
         # if a password was not specified, send an empty string
         password = self.ssh_arguments.get('ssh_pass', '')
-
-        # if a public key file was specified, override configuration (if found)
-        identityfile = self.ssh_arguments.get('ssh_key',
-                                              locals().get('identityfile',
-                                                           ''))
-
-        # if a TCP port was specified, override configuration (if found)
-        self.tcp_port = int(self.ssh_arguments.get('ssh_port',
-                                                   locals().get('tcp_port',
-                                                                self.tcp_port)))
         # if a ssh timeout is not specified, set it to 10 seconds
         ssh_timeout = float(self.ssh_arguments.get('ssh_timeout', 10.0))
 
@@ -66,15 +39,12 @@ class SftpSession(object):
                           username, self.hostname, self.tcp_port)
         client = paramiko.SSHClient()
 
-       
-        # Load ~/.ssh/config - like file
         try:  # This is somehow required with paramiko 1.15.2
             client.load_system_host_keys()
+            # Automatically add new hostkeys if not found in ssh config file
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         except TypeError:
-            self.logger.debug('ssh config file could not be loaded')
-
-        # Automatically add new hostkeys if not found in ssh config file
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            self.logger.debug('ssh known hosts file could not be loaded')
 
         try:
             # Actually open the ssh session
@@ -149,12 +119,52 @@ class SftpSession(object):
         """ Close an existing SSH connection """
         self.__exit__(None)  # (self.Break)
 
+    def _load_ssh_config(self):
+        """
+        Check ~/.ssh/config for username, port or identityfile, return values
+        passed as arguments if not found.
+        """
+        ssh_config = paramiko.SSHConfig()
+        # Load ~/.ssh/config - like file
+        cfg_file = expanduser(self.ssh_arguments.get('ssh_configfile',
+                                                     '~/.ssh/config'))
+        try:
+            # open the ssh config file
+            ssh_config.parse(open(cfg_file, 'r'))
+            # looks for information for the destination system
+            hostname_info = ssh_config.lookup(self.hostname)
+            # gather settings for user, port and identity file
+            username = hostname_info.get('user',
+                                         getpass.getuser())  # Current username
+            identityfile = hostname_info.get('identityfile', '')[0]
+            tcp_port = hostname_info.get('port', '22')
+
+            # if a username was specified, override settings (if any)
+            username = self.ssh_arguments.get('ssh_user',
+                                              locals().get('username'))
+            # if a public key file was specified, override settings (if found)
+            identityfile = self.ssh_arguments.get(
+                'ssh_key',
+                locals().get('identityfile', '')
+                                                  )
+            # if a TCP port was specified, override configuration (if found)
+            self.tcp_port = int(self.ssh_arguments.get(
+                'ssh_port',
+                locals().get('tcp_port', self.tcp_port))
+                                                       )
+            return (username, identityfile, tcp_port)
+        except IOError:
+            self.logger.warning('Could not read SSH configuration file: %s',
+                                cfg_file)
+
     def __init__(self, hostname, **ssh_arguments):
         """
         Initialize sftp session. Optional ssh argument list:
         ssh_user, ssh_pass, ssh_key, ssh_configfile, ssh_port, ssh_timeout
         Otherwise: open method will check ~/.ssh/config
         """
+        list(map(ssh_arguments.pop,
+             [item for item in ssh_arguments if not ssh_arguments[item]]))
         self.hostname = hostname
         self.logger = ssh_arguments.pop('logger') if 'logger' in \
             ssh_arguments else logging.getLogger(__name__)
@@ -190,10 +200,3 @@ class SftpSession(object):
             raise SFTPSessionError
         else:
             return None
-
-#if __name__ == "__main__":
-#   print 'Testing connection to localhost'
-#   _ = SftpSession('localhost',
-#                   ssh_user='',
-#                   ssh_pass='')
-#   print 'Done'

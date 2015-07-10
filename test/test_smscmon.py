@@ -7,8 +7,9 @@ from __future__ import absolute_import, print_function
 
 import unittest
 import ConfigParser
-import logging
 import socket
+import Queue
+import logging
 from os import path
 
 import paramiko
@@ -19,6 +20,7 @@ from pandas.util.testing import assert_frame_equal
 from pysmscmon import smscmon as smsc
 from pysmscmon import df_tools
 from pysmscmon import logger
+from pysmscmon.sshtunnels.sftpsession import SftpSession, SFTPSessionError
 
 TEST_DATAFRAME = pd.DataFrame(np.random.randn(100, 4),
                               columns=['test1',
@@ -29,6 +31,8 @@ LOGGER = logger.init_logger(loglevel='DEBUG', name='test-pysmscmon')
 TEST_CSV = 'test/test_data.csv'
 TEST_PKL = 'test/test_data.pkl'
 TEST_CONFIG = 'test/test_settings.cfg'
+MY_DIR = path.dirname(path.abspath(__file__))
+
 
 class TestSmscmon(unittest.TestCase):
     """ Set of test functions for smscmon.py """
@@ -49,47 +53,36 @@ class TestSmscmon(unittest.TestCase):
         # Trying to read a bad formatted config file should raise an exception
         self.assertRaises(smsc.ConfigReadError, smsc.read_config, TEST_CSV)
 
-    def test_initlogger(self):
-        """ Test function for init_logger """
-        # Default options, loglevel is 20 (INFO)
-        my_logger = logger.init_logger()
-        self.assertEqual(my_logger.level, 20)
-        self.assertEqual(my_logger.name, logger.__name__)
-        my_logger = logger.init_logger(loglevel='DEBUG', name='testset')
-        self.assertEqual('DEBUG', logging.getLevelName(my_logger.level))
-        self.assertEqual('testset', my_logger.name)
-
     def test_getstats(self):
         """ Test function for get_stats_from_host """
-        df1 = smsc.get_stats_from_host('localfs',
-                                       TEST_CSV,
-                                       logger=LOGGER)
+        monitor = smsc.SMSCMonitor()
+        df1 = monitor.get_stats_from_host('localfs', TEST_CSV)
         df2 = df_tools.read_pickle(TEST_PKL)
 
         self.assertIsInstance(df1, pd.DataFrame)
         self.assertIsInstance(df2, pd.DataFrame)
         assert_frame_equal(df1, df2)
 
-    def test_sdata(self):
-        """ Test methods related to SData class """
-        sdata = smsc.SData()
+    def test_SMSCMonitor_class(self):
+        """ Test methods related to SMSCMonitor class """
+        sdata = smsc.SMSCMonitor()
         # first of all, check default values
         self.assertIsNone(sdata.server)
-        self.assertEqual(sdata.system, '')
-        self.assertIsNone(sdata.conf)
+        self.assertIsInstance(sdata.results_queue, Queue.Queue)
+        self.assertIsInstance(sdata.conf, ConfigParser.SafeConfigParser)
         self.assertFalse(sdata.alldays)
         self.assertFalse(sdata.nologs)
-        self.assertIsNone(sdata.logger)
-        self.assertIsNone(sdata.settings_file)
+        self.assertIsInstance(sdata.logger, logging.Logger)
+        self.assertEqual(sdata.settings_file, smsc.DEFAULT_SETTINGS_FILE)
+        self.assertIsInstance(sdata.data, pd.DataFrame)
+        self.assertDictEqual(sdata.logs, {})
 
         # fill it with some data, clone and test contents of copy
-        sdata.system = 'TEST'
         sdata.alldays = True
         sdata.logger = LOGGER
-        sdata.settings_file = 'test/test_settings.cfg'
+        sdata.settings_file = TEST_CONFIG
 
-        clone = sdata.clone(system='SYSTEM2')
-        self.assertIs(clone.system, 'SYSTEM2')
+        clone = sdata.clone()
         self.assertEqual(sdata.server, clone.server)
         self.assertEqual(sdata.conf, clone.conf)
         self.assertEqual(sdata.alldays, clone.alldays)
@@ -123,34 +116,86 @@ class TestSmscmon_Ssh(unittest.TestCase):
 
     def test_inittunnels(self):
         """ Test function for init_tunnels """
-        my_dir = path.dirname(path.abspath(__file__))
-        my_config = smsc.read_config(TEST_CONFIG)
-        my_config.set('DEFAULT', 'folder', my_dir)
-        my_tunnels = smsc.init_tunnels(my_config, LOGGER)
+        monitor = smsc.SMSCMonitor(settings_file=TEST_CONFIG, logger=LOGGER)
+        monitor.conf.set('DEFAULT', 'folder', MY_DIR)
+        monitor.init_tunnels()
         # before start, tunnel should not be started
-        self.assertFalse(my_tunnels.is_started)
+        self.assertFalse(monitor.server.is_started)
         # Stopping it should not do any harm
-        self.assertIsNone(my_tunnels.stop())
+        self.assertIsNone(monitor.stop_server())
         # Start and check tunnel ports
-        self.assertIsNone(my_tunnels.start())
-        self.assertTrue(my_tunnels.is_started)
-        self.assertIsInstance(my_tunnels.tunnel_is_up, dict)
-        for port in my_tunnels.tunnel_is_up:
-            self.assertTrue(my_tunnels.tunnel_is_up[port])
+        self.assertIsNone(monitor.start_server())  # starting should be silent
+        self.assertTrue(monitor.server.is_started)
+        self.assertIsInstance(monitor.server.tunnel_is_up, dict)
+        for port in monitor.server.tunnel_is_up:
+            self.assertTrue(monitor.server.tunnel_is_up[port])
 
-        my_tunnels.stop()
-
-    def test_collectsysdata(self):
-        """ Test function for collect_system_data """
-        pass
+        monitor.stop_server()
 
     def test_getsyslogs(self):
         """ Test function for get_system_logs """
         pass
 
+    def test_getstatsfromhost(self):
+        """ Test function for get_stats_from_host """
+        test_system_id = 'System_1'
+        monitor = smsc.SMSCMonitor(settings_file=TEST_CONFIG, logger=LOGGER)
+        monitor.init_tunnels()
+        monitor.start_server()
+        monitor.conf.set('DEFAULT', 'folder', MY_DIR)
+        with SftpSession(
+            hostname='127.0.0.1',
+            ssh_port=monitor.server.tunnelports[test_system_id]
+                         ) as s:
+            data = monitor.get_stats_from_host(
+                monitor.conf.get(test_system_id, 'ip_or_hostname'),
+                ['.csv'],
+                sftp_client=s.sftp_session,
+                logger=LOGGER,
+                files_folder=monitor.conf.get(test_system_id, 'folder')
+                                                )
+
+            should_be_empty_data = monitor.get_stats_from_host(
+                monitor.conf.get(test_system_id, 'ip_or_hostname'),
+                ['i_do_not_exist'],
+                sftp_client=s.sftp_session,
+                logger=LOGGER,
+                files_folder=monitor.conf.get(test_system_id, 'folder')
+                                                )
+
+        self.assertIsInstance(data, pd.DataFrame)
+        self.assertFalse(data.empty)
+        self.assertTrue(should_be_empty_data.empty)
+        monitor.stop_server()
+#TODO: Test with the other connection method (not giving a session)
+#TODO: Test with localfs access
+
     def test_getsysdata(self):
         """ Test function for get_system_data """
-        pass
+        test_system_id = 'System_1'
+        with smsc.SMSCMonitor(settings_file=TEST_CONFIG,
+                              logger=LOGGER) as monitor:
+            monitor.alldays = True  # Ignore timestamp on test data
+            monitor.conf.set('DEFAULT', 'folder', MY_DIR)
+            with SftpSession(
+                hostname='127.0.0.1',
+                ssh_port=monitor.server.tunnelports[test_system_id]
+                             ) as s:
+                data = monitor.get_system_data(system=test_system_id,
+                                               session=s.sftp_session)
+        self.assertIsInstance(data, pd.DataFrame)
+        self.assertFalse(data.empty)
+        # monitor.stop_server()
+
+    # def test_collectsysdata(self):
+    #     """ Test function for collect_system_data """
+    #     monitor = smsc.SMSCMonitor(settings_file=TEST_CONFIG, logger=LOGGER)
+    #     monitor.alldays = True  # Ignore timestamp on test data
+    #     monitor.init_tunnels()
+    #     monitor.start_server()
+    #     (data, logs) = monitor.collect_system_data(system='System_1')
+    #     monitor.stop_server()
+    #     pass
 
     def test_serialmain(self):
         """ Test function for main (serial mode) """

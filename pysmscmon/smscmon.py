@@ -52,7 +52,7 @@
     get_system_data()   `---> get_system_logs()
      |
      v
-    get_stats_from_hosts()
+    get_stats_from_host()
 Created on Mon May 25 11:11:38 2015
 
 """
@@ -128,6 +128,15 @@ class SMSCMonitor(object):
         self.data = pd.DataFrame()
         self.logs = {}
 
+    def __enter__(self):
+        self.init_tunnels()
+        self.start_server()
+        return self
+
+    def __exit__(self, etype, *args):
+        self.stop_server()
+        return None
+
     def consolidate_data(self, partial_dataframe):
         """
         Consolidates partial_dataframe with self.data by calling
@@ -135,18 +144,18 @@ class SMSCMonitor(object):
         """
         self.data = df_tools.consolidate_data(self.data, partial_dataframe)
 
-    def clone(self, system):
+    def clone(self):
         """ Makes a copy of SData
         """
         my_clone = SMSCMonitor()
         my_clone.server = self.server
-        my_clone.system = system
+        my_clone.results_queue = Queue.Queue()  # make a brand new results queue
         my_clone.conf = self.conf
         my_clone.alldays = self.alldays
         my_clone.nologs = self.nologs
         my_clone.logger = self.logger
         my_clone.settings_file = self.settings_file
-        my_clone.data = self.data #.copy()  # required in pandas ???????????
+        my_clone.data = self.data.copy()  # required in pandas
         my_clone.logs = self.logs
         return my_clone
 
@@ -197,6 +206,7 @@ class SMSCMonitor(object):
                                                        )
             # Add the system<>port bindings to the return object
             self.server.tunnelports = tunnelports
+            self.logger.debug('Registered tunnels: %s', self.server.tunnelports)
         except AssertionError:
             self.logger.error('Local tunnel ports MUST be different: %s',
                               tunnelports)
@@ -213,32 +223,29 @@ class SMSCMonitor(object):
         """ Open an sftp session to system and collects the CSVs, generating a
             pandas dataframe as outcome
         """
-        tunn_port = self.conf.get(system, 'tunnel_port')
+        if system not in self.conf.sections():
+            return (None, None)
         self.logger.info('%s| Connecting to tunel port %s',
                          system,
-                         tunn_port)
+                         self.server.tunnelports[system])
 
-        ssh_pass = self.conf.get(system,
-                                 'password').strip("\"' ") or None \
-            if self.conf.has_option(system,
-                                    'password') else None
+        ssh_pass = self.conf.get(system, 'password').strip("\"' ") or None \
+            if self.conf.has_option(system, 'password') else None
 
-        ssh_key = self.conf.get(system,
-                                'identity_file').strip("\"' ") or None \
-            if self.conf.has_option(system, 'identity_file') \
-            else None
+        ssh_key = self.conf.get(system, 'identity_file').strip("\"' ") or None \
+            if self.conf.has_option(system, 'identity_file') else None
 
-        with SftpSession(
-            hostname='127.0.0.1',
-            ssh_user=self.conf.get(system, 'username'),
-            ssh_pass=ssh_pass,
-            ssh_key=ssh_key,
-            ssh_timeout=self.conf.get(system, 'ssh_timeout'),
-            ssh_port=tunn_port,
-            logger=self.logger
-                        ) as session:
+        user = self.conf.get('GATEWAY', 'username') or None \
+            if self.conf.has_option('GATEWAY', 'username') else None
+
+        with SftpSession(hostname='127.0.0.1',
+                         ssh_user=user,
+                         ssh_pass=ssh_pass,
+                         ssh_key=ssh_key,
+                         ssh_timeout=self.conf.get(system, 'ssh_timeout'),
+                         ssh_port=self.server.tunnelports[system],
+                         logger=self.logger) as session:
             sftp_session = session.sftp_session
-
             if not sftp_session:
                 raise SftpSession.Break  # break the with statement
             data = self.get_system_data(self, sftp_session, system)
@@ -270,10 +277,7 @@ class SMSCMonitor(object):
         try:  # ignoring stdin and stderr
             (_, stdout, _) = session.\
                              exec_command(log_cmd)
-    #       #remove carriage returns ('\r\n') from the obtained lines
-    #       logs = [_con for _con in \
-    #              [_lin.strip() for _lin in stdout.readlines()] if _con]
-            return stdout.readlines()  # [_lin for _lin in stdout.readlines()]
+            return stdout.readlines()
         except Exception as _exc:
             self.logger.error('%s| Error occurred while getting logs: %s',
                               system, repr(_exc))
@@ -295,6 +299,17 @@ class SMSCMonitor(object):
         except AttributeError as msg:
             raise sshtunnel.BaseSSHTunnelForwarderError(msg)
 
+    def stop_server(self):
+        """
+        Dummy function to stop SSH servers
+        """
+        try:
+            if self.server and self.server.is_started:
+                self.logger.info('Closing connection to gateway')
+                self.server.stop()
+        except AttributeError as msg:
+            raise sshtunnel.BaseSSHTunnelForwarderError(msg)
+
     def get_system_data(self, session, system):
         """
         Create pandas DF from current session CSV files downloaded via SFTP
@@ -305,10 +320,12 @@ class SMSCMonitor(object):
         try:
             session.chdir(self.conf.get(system, 'folder'))
         except IOError:
-            self.logger.error('%s| %s not found at destination',
-                              system,
-                              self.conf.get(system, 'folder'))
-            raise IOError
+            error_msg = '{}| {} not found at destination'.format(
+                system,
+                self.conf.get(system, 'folder')
+                                                                 )
+            self.logger.error(error_msg)
+            raise IOError(error_msg)
 
         # filter remote files on extension and date
         # using MONTHS to avoid problems with locale rather than english
@@ -324,12 +341,12 @@ class SMSCMonitor(object):
         except Exception:
             pass
 
-        data = self.get_stats_from_host(system_addr,
-                                        tag_list,
+        data = self.get_stats_from_host(hostname=system_addr,
+                                        filespec_list=tag_list,
                                         sftp_client=session,
                                         logger=self.logger,
-                                        sftp_folder=self.conf.get(system,
-                                                                  'folder'))
+                                        files_folder=self.conf.get(system,
+                                                                   'folder'))
         if data.empty:
             self.logger.warning('%s| Data size obtained is 0 Bytes, skipping '
                                 'log collection.', system)
@@ -341,7 +358,7 @@ class SMSCMonitor(object):
                              system, data.shape)
             calc_file = self.conf.get('MISC', 'calculations_file')
             if not os.path.isabs(calc_file):
-                calc_file = '%s/%s' % (os.path.dirname(os.path.abspath(\
+                calc_file = '%s/%s' % (os.path.dirname(os.path.abspath(
                                        self.settings_file)),
                                        calc_file)
             data.apply_calcs(calc_file)
@@ -349,8 +366,7 @@ class SMSCMonitor(object):
                              system, data.shape)
         return data
 
-# TODO: break this function into simple pieces
-    def get_stats_from_host(self, hostname, tag_list, **kwargs):
+    def get_stats_from_host(self, hostname=None, filespec_list=None, **kwargs):
         """
         Connects to a remote system via SFTP and reads the CSV files, then
         calls the csv-pandas conversion function.
@@ -365,10 +381,13 @@ class SMSCMonitor(object):
         Otherwise: checks ~/.ssh/config
         """
         sftp_session = kwargs.pop('sftp_client', '')
-        files_folder = kwargs.pop('files_folder', './')
+        files_folder = kwargs.pop('files_folder', '.')
+        if files_folder[-1] == os.sep:
+            files_folder = files_folder[:-1]  # remove trailing separator (/)
         _df = pd.DataFrame()
         close_me = False
-
+        hostname = hostname or 'localfs'  # by default if no hostname given
+        filespec_list = filespec_list or ['.csv']  # default if no filter given
         try:
             if not sftp_session:
                 if hostname == 'localfs':
@@ -384,19 +403,20 @@ class SMSCMonitor(object):
             else:
                 self.logger.debug('Using established sftp session...')
 
-            filesystem = sftp_session if sftp_session else os
+            filesource = sftp_session if sftp_session else os
 
             # get file list by filtering with taglist (case insensitive)
             try:
-                files = ['{}{}'.format(files_folder, f)
-                         for f in filesystem.listdir(files_folder) if
-                         all([val.upper() in f.upper() for val in tag_list])]
-                if not files:
-                    files = [tag_list]  # For absolute paths
+                files = ['{}{}{}'.format(files_folder, os.sep, f)
+                         for f in filesource.listdir(files_folder)
+                         if all([val.upper() in f.upper()
+                                 for val in filespec_list])]
+                if not files and hostname == 'localfs':
+                    files = [filespec_list]  # For absolute paths
             except OSError:
-                files = [tag_list]  # When localfs, specify instead of filter
+                files = [filespec_list]  # When localfs, don't behave as filter
             if not files:
-                self.logger.debug('Nothing gathered from %s, no files were ',
+                self.logger.debug('Nothing gathered from %s, no files were '
                                   'selected', hostname)
                 return _df
             _df = pd.concat([df_tools.dataframize(
@@ -407,7 +427,7 @@ class SMSCMonitor(object):
                 self.logger.debug('Closing sftp session')
                 session.close()
 
-            _df = df_tools.consolidate_data(_df)
+            self.consolidate_data(_df)
 
         except SFTPSessionError as _exc:
             self.logger.error('Error occurred while SFTP session to %s: %s',
@@ -500,10 +520,14 @@ class SMSCMonitor(object):
 
 # TODO: complete str method
     def __str__(self):
-        return 'alldays/nologs: {1}/{2}\n' \
-               'Settings file: {3}'.format(self.alldays,
-                                           self.nologs,
-                                           self.settings_file)
+        return 'alldays/nologs: {}/{}\ndata shape:{}\nlogs (keys): {}' \
+               'server is set up?: {}\n' \
+               'Settings file: {}'.format(self.alldays,
+                                          self.nologs,
+                                          self.data.shape,
+                                          self.logs.keys(),
+                                          'Yes' if self.server else 'No',
+                                          self.settings_file)
 
 
 # ADD METHODS TO PANDAS DATAFRAME
@@ -546,7 +570,6 @@ def add_methods_to_pandas_dataframe(logger=None):
     pd.DataFrame.apply_calcs = calculations.apply_calcs
     pd.DataFrame.clean_calcs = calculations.clean_calcs
     pd.DataFrame.logger = logger or init_logger()
-
 # END OF ADD METHODS TO PANDAS DATAFRAME
 
 
@@ -555,11 +578,11 @@ def read_config(settings_file=None):
     config = ConfigParser.SafeConfigParser()
     try:
         settings_file = settings_file or DEFAULT_SETTINGS_FILE
-        config = config.read(settings_file)
+        settings = config.read(settings_file)
     except ConfigParser.Error as _exc:
         raise ConfigReadError(repr(_exc))
 
-    if not settings_file or not config.sections():
+    if not settings or not config.sections():
         raise ConfigReadError('Could not read configuration %s!' %
                               settings_file)
     return config
