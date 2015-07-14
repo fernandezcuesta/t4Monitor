@@ -37,7 +37,7 @@ class TestGenReport(unittest.TestCase):
         # fill it with some data
         my_container.logger = LOGGER
         my_container.data = df_tools.read_pickle(TEST_PKL)
-        my_container.system = my_container.data.system.upper()
+        my_container.system = list(my_container.data.system)[0].upper()
         my_container.logs[my_container.system] = 'Skip logs here, just a test!'
         my_container.html_template = TEST_HTMLTEMPLATE
         my_container.graphs_file = TEST_GRAPHS_FILE
@@ -75,7 +75,7 @@ class TestGenReport(unittest.TestCase):
         my_container = init_func.Container(loglevel='keep')
         my_container.logger = LOGGER
         my_container.data = df_tools.read_pickle(TEST_PKL)
-        my_container.system = my_container.data.system.upper()
+        my_container.system = list(my_container.data.system)[0].upper()
         my_container.logs[my_container.system] = 'Skip logs here, just a test!'
         my_container.html_template = TEST_HTMLTEMPLATE
         my_container.graphs_file = TEST_GRAPHS_FILE

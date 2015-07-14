@@ -7,9 +7,9 @@ from __future__ import absolute_import
 import jinja2
 from os import path
 from ast import literal_eval
+from matplotlib import pyplot as plt
 
 from . import gen_plot
-
 
 def gen_report(container):
     """ Create the jinja2 environment.
@@ -23,7 +23,7 @@ def gen_report(container):
                                     trim_blocks=True)
         j2_tpl = j2_env.get_template(path.basename(container.html_template))
         j2_tpl.globals['get_graphs'] = get_graphs
-        container.logger.info('%s| Generating graphics and rendering report',
+        container.logger.info('%s | Generating graphics and rendering report',
                               container.system)
         return j2_tpl.render(data=container)
     except AssertionError:
@@ -32,7 +32,7 @@ def gen_report(container):
         container.logger.error('Template file (%s) not found.',
                                container.html_template)
     except jinja2.TemplateError as msg:
-        container.logger.error('%s| Error in html template (%s): %s',
+        container.logger.error('%s | Error in html template (%s): %s',
                                container.system,
                                container.html_template,
                                repr(msg))
@@ -65,18 +65,19 @@ def get_graphs(container):
                 except ValueError:
                     optional_kwargs = {'ylim': 0.0}
 
-                container.logger.debug('%s|  Plotting %s',
+                container.logger.debug('%s |  Plotting %s',
                                        container.system,
                                        info[0])
                 try:
-                    _b64figure = gen_plot.to_base64(getattr(gen_plot,
-                                                            "plot_var")(
+                    plot_axis = gen_plot.plot_var(
                         container.data,
                         *[x.strip() for x in info[0].split(',')],
                         system=container.system.upper(),
                         logger=container.logger,
-                        **optional_kwargs)
-                                                    )
+                        **optional_kwargs
+                                                   )
+                    _b64figure = gen_plot.to_base64(plot_axis)
+                    plt.close(plot_axis.get_figure())
                     if _b64figure:
                         yield (info[1].strip(), _b64figure)
                 except Exception as exc:
@@ -86,7 +87,7 @@ def get_graphs(container):
         container.logger.error('Graphs definition file not found: %s',
                                container.graphs_file)
     except Exception as unexpected:
-        container.logger.error('%s| Unexpected exception found while '
+        container.logger.error('%s | Unexpected exception found while '
                                'creating graphs: %s',
                                container.system,
                                repr(unexpected))

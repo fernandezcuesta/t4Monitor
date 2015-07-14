@@ -109,7 +109,7 @@ class Container(object):
         """
         # Specify which system in container, passed to get_html_output
         container_clone = self.clone(system)
-        self.logger.debug('%s| Generating HTML report', system)
+        self.logger.debug('%s | Generating HTML report', system)
         with open('{1}/Report_{0}_{2}.html'.
                   format(dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M"),
                          self.reports_folder, system), 'w') as output:
@@ -212,14 +212,14 @@ def main(alldays=False, nologs=False, noreports=False, threaded=False,
     datetag = dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M")
 
     # Store the data locally
-    container.logger.info('Making a local copy of data in store folder')
+    container.logger.info('Making a local copy of data in store folder: ')
     destfile = '{0}/data_{1}.pkl'.format(container.store_folder, datetag)
     container.data.to_pickle(destfile,
                              compress=True)
-    container.logger.info('%s.gz', destfile)
+    container.logger.info('  -->  %s.gz', destfile)
     destfile = '{0}/data_{1}.csv'.format(container.store_folder, datetag)
     container.data.to_csv(destfile)
-    container.logger.info(destfile)
+    container.logger.info('  -->  %s', destfile)
 
     # Write logs
     if not nologs:
