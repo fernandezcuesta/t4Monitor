@@ -143,7 +143,7 @@ class SMSCMonitor(object):
         Consolidates partial_dataframe with self.data by calling
         df_tools.consolidate_data
         """
-        return df_tools.consolidate_data(self.data, partial_dataframe)
+        self.data = df_tools.consolidate_data(self.data, partial_dataframe)
 
     def clone(self):
         """ Makes a copy of SData
@@ -430,8 +430,9 @@ class SMSCMonitor(object):
         if close_me:
             self.logger.debug('Closing sftp session')
             sftp_session.close()
-
-        return self.consolidate_data(_df)
+        # calling df_tools.consolidate_data instead of self method to avoid
+        # concatenation with self.data
+        return df_tools.consolidate_data(_df)
 
     def thread_wrapper(self, system):
         """
@@ -465,7 +466,7 @@ class SMSCMonitor(object):
         for item in range(len(systems_list)):
             system, res_data, res_log = self.results_queue.get()
             self.logger.debug('%s | Consolidating results', system)
-            self.data = self.consolidate_data(res_data)
+            self.consolidate_data(res_data)
             self.logs[system] = res_log
             self.logger.info('%s | Done collecting data!', system)
             self.server.stop()
@@ -483,7 +484,7 @@ class SMSCMonitor(object):
                     self.logger.error('Cannot download data from %s.', system)
                     raise IOError
                 res_data, self.logs[system] = self.collect_system_data(system)
-                self.data = self.consolidate_data(res_data)
+                self.consolidate_data(res_data)
                 self.logger.info('Done for %s', system)
                 self.server.stop()
             except (sshtunnel.BaseSSHTunnelForwarderError,
@@ -505,7 +506,6 @@ class SMSCMonitor(object):
                 self.main_threads(all_systems)
             else:
                 self.main_no_threads(all_systems)
-
         except (sshtunnel.BaseSSHTunnelForwarderError, AttributeError) as exc:
             self.logger.error('Could not initialize the SSH tunnels, '
                               'aborting (%s)', repr(exc))
@@ -514,7 +514,6 @@ class SMSCMonitor(object):
         except Exception as exc:
             self.logger.error('Unexpected error: %s)', repr(exc))
 
-# TODO: complete str method
     def __str__(self):
         return 'alldays/nologs: {}/{}\ndata shape:{}\nlogs (keys): {}' \
                'server is set up?: {}\n' \
@@ -591,8 +590,6 @@ def main(alldays=False, nologs=False, logger=None, threads=False,
               nologs (Boolean): if true, skip log info collection
     """
     # TODO: review exceptions and comment where they may come from
-    # data = pd.DataFrame()
-    # logs = {}
     try:
         _sd = SMSCMonitor(settings_file, logger, alldays, nologs)
         add_methods_to_pandas_dataframe(_sd.logger)
