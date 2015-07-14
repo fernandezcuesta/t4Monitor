@@ -25,7 +25,7 @@ from . import smscmon
 from .gen_report import gen_report
 from . import logger
 
-__version_info__ = (0, 7)
+__version_info__ = (0, 8)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
