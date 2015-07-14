@@ -11,6 +11,7 @@ from matplotlib import pyplot as plt
 
 from . import gen_plot
 
+
 def gen_report(container):
     """ Create the jinja2 environment.
     Notice the use of trim_blocks, which greatly helps control whitespace. """
@@ -68,21 +69,18 @@ def get_graphs(container):
                 container.logger.debug('%s |  Plotting %s',
                                        container.system,
                                        info[0])
-                try:
-                    plot_axis = gen_plot.plot_var(
-                        container.data,
-                        *[x.strip() for x in info[0].split(',')],
-                        system=container.system.upper(),
-                        logger=container.logger,
-                        **optional_kwargs
-                                                   )
-                    _b64figure = gen_plot.to_base64(plot_axis)
-                    plt.close(plot_axis.get_figure())
-                    if _b64figure:
-                        yield (info[1].strip(), _b64figure)
-                except Exception as exc:
-                    container.logger.error('Unexpected error while '
-                                           'rendering graph: %s', repr(exc))
+                # Generate figure and encode to base64
+                plot_axis = gen_plot.plot_var(
+                    container.data,
+                    *[x.strip() for x in info[0].split(',')],
+                    system=container.system.upper(),
+                    logger=container.logger,
+                    **optional_kwargs
+                                               )
+                _b64figure = gen_plot.to_base64(plot_axis)
+                plt.close(plot_axis.get_figure())  # close figure
+                if _b64figure:
+                    yield (info[1].strip(), _b64figure)
     except IOError:
         container.logger.error('Graphs definition file not found: %s',
                                container.graphs_file)
