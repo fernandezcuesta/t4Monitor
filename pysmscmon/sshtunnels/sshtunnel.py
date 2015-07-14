@@ -95,16 +95,15 @@ optional arguments:
 
 """
 
-
-import paramiko
-import threading
-import argparse
-import socket
-import logging
 import sys
+import logging
+import argparse
+import threading
+import socket
+import getpass
+import paramiko
 from select import select
 from os.path import expanduser, isfile
-
 
 if sys.version_info.major < 3:
     import SocketServer
@@ -112,7 +111,7 @@ else:
     import socketserver as SocketServer
 
 
-__version_info__ = (0, 0, 3, 6, 0)
+__version_info__ = (0, 0, 3, 6, 2)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'pahaz'
 __author__ = 'cameronmaske'
@@ -255,8 +254,8 @@ def check_bind_list(bind_address_list):
     assert isinstance(bind_address_list, list), 'bind address not a tuple list'
 
     for address in bind_address_list:
-        assert isinstance(address, tuple), \
-        'element in address list not a tuple'
+        assert isinstance(address, tuple),\
+            'element in address list not a tuple'
         assert isinstance(address[1], int), 'port in address list not an int'
 
 
@@ -276,8 +275,8 @@ def create_logger(logger=None, loglevel=DEFAULT_LOGLEVEL):
                    '%(lineno)03d@%(module)-10s| %(message)s'
             console_handler.setFormatter(logging.Formatter(_fmt))
         else:
-            console_handler.setFormatter(\
-            logging.Formatter('%(asctime)s| %(levelname)-8s| %(message)s'))
+            console_handler.setFormatter(
+                logging.Formatter('%(asctime)s| %(levelname)-8s| %(message)s'))
 
         logger.addHandler(console_handler)
 
@@ -329,10 +328,9 @@ class SSHTunnelForwarder(threading.Thread):
 #            self.logger.debug('Checking local side of the tunnel (%s:%s)...',
 #                              *target)
 
-            #fix needed for windows http://tinyurl.com/od6vowk
+            # fix needed for windows http://tinyurl.com/od6vowk
             if target[0] == '0.0.0.0':
                 target = (socket.gethostname(), target[1])
-                 #(socket.gethostbyname_ex(socket.gethostname())[0], target[1])
             conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             conn.settimeout(1.0)
             conn.connect(target)
@@ -354,43 +352,6 @@ class SSHTunnelForwarder(threading.Thread):
             self.logger.warning('Local side of tunnel (%s:%s) is DOWN,'
                                 ' we will not attempt to connect.', *target)
         return reachable
-
-#    def remote_is_up(self, srv):  # ????? DOESNT MAKE SENSE, GET RID OF THIS?
-#        """
-#        Check if remote target host:port is reachable
-#        Returns: Boolean
-#        """
-#        try:
-#            return self.local_is_up(srv.server_address)
-#            if not self.local_is_up(srv.server_address):
-#                raise HandlerSSHTunnelForwarderError
-#
-#            client = paramiko.SSHClient()
-#            client.load_system_host_keys()
-#            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-#            if srv.server_address[0] == '0.0.0.0':
-#                target = (socket.gethostname(), srv.server_address[1])
-#            else:
-#                target = srv.server_address
-#                
-#            client.connect(*target,
-#                           timeout=REMOTE_CHECK_TIMEOUT)
-#            reachable = True
-#        except HandlerSSHTunnelForwarderError:  # local is down
-#            reachable = False
-#        except socket.error:  # remote is down
-#            reachable = False
-#        except (paramiko.AuthenticationException,
-#                paramiko.BadHostKeyException,
-#                paramiko.SSHException):
-#            reachable = True        
-#        client.close()
-#        self.logger.debug('Remote side of the tunnel (%s:%s) is %s',
-#                          srv.remote_host,
-#                          srv.remote_port,
-#                          'UP' if reachable else 'DOWN')
-#        srv.timeout = None
-#        return reachable
 
     def make_ssh_forward_server(self, remote_address, local_bind_address,
                                 ssh_transport, is_threading=False):
@@ -450,7 +411,9 @@ class SSHTunnelForwarder(threading.Thread):
         Use `forwarder.local_bind_ports` for getting local forwarding ports.
         """
         self._server_list = []
-
+        # Remove all ssh_arguments == None
+        list(map(ssh_arguments.pop, [item for item in ssh_arguments
+                                     if not ssh_arguments[item]]))
         # LOGGER - Create a console handler if not passed as argument
         self.logger = create_logger(ssh_arguments.pop('logger')
                                     if 'logger' in ssh_arguments else None)
@@ -465,7 +428,7 @@ class SSHTunnelForwarder(threading.Thread):
             # looks for information for the destination system
             hostname_info = ssh_conf.lookup(ssh_address)
             # gather settings for user, port and identity file
-            ssh_username = hostname_info.get('user', '')
+            ssh_username = hostname_info.get('user', getpass.getuser())
             identityfile = hostname_info.get('identityfile', None)[0]
             tcp_port = hostname_info.get('port', 22)
         except IOError:
@@ -495,8 +458,7 @@ class SSHTunnelForwarder(threading.Thread):
         # AUTHENTICATION
         # if a username was specified, override configuration file's (if any)
         self._ssh_username = ssh_arguments.get('ssh_username',
-                                               locals().get('ssh_username', '')
-                                               )
+                                               locals().get('ssh_username'))
         # if a key file was specified, override configuration (if found)
         identityfile = ssh_arguments.get('ssh_private_key_file',
                                          locals().get('identityfile', None))
@@ -506,7 +468,7 @@ class SSHTunnelForwarder(threading.Thread):
         self._ssh_private_key = \
             paramiko.RSAKey.from_private_key_file(identityfile) \
             if identityfile and isfile(identityfile) else None
-        
+
         self._ssh_password = ssh_arguments.get('ssh_password', None)
 
         if not self._ssh_password and not self._ssh_private_key:
@@ -526,11 +488,11 @@ class SSHTunnelForwarder(threading.Thread):
         try:
             self._transport = paramiko.Transport((ssh_address, tcp_port))
             self._server_list = \
-            [self.make_ssh_forward_server(x,
-                                          self._local_bind_address_list[i],
-                                          self._transport,
-                                          is_threading=self._threaded)
-             for i, x in enumerate(self._remote_bind_address_list)]
+                [self.make_ssh_forward_server(x,
+                                              self._local_bind_address_list[i],
+                                              self._transport,
+                                              is_threading=self._threaded)
+                 for i, x in enumerate(self._remote_bind_address_list)]
             # Only preserve valid ones
             self._server_list = [k for k in self._server_list if k is not None]
 
@@ -548,12 +510,11 @@ class SSHTunnelForwarder(threading.Thread):
         self.logger.debug('Concurrent connections allowed: %s', self._threaded)
         super(SSHTunnelForwarder, self).__init__()
 
-
     def start_tunnels(self):
         """ Marks tunnels are up/down """
         self.is_started = True
         self.logger.debug('Server is %sstarted.',
-                          '' if self.is_started else '*NOT* ')        
+                          '' if self.is_started else '*NOT* ')
         for _srv in self._server_list:
             self.tunnel_is_up[_srv.server_address[1]] = self.local_is_up(_srv)
 
@@ -579,11 +540,11 @@ class SSHTunnelForwarder(threading.Thread):
             try:
                 self._transport.connect(hostkey=self._ssh_host_key,
                                         username=self._ssh_username,
-                                        password=self._ssh_password)                
+                                        password=self._ssh_password)
                 self.start_tunnels()
                 return
             except paramiko.ssh_exception.AuthenticationException:
-                self.logger.warning('Bad password, retrying with public key')            
+                self.logger.warning('Bad password, retrying with public key')
         if hasattr(self, '_ssh_private_key'):
             self.logger.debug('Logging in with RSA key')
             try:
@@ -748,8 +709,8 @@ def open_tunnel(**kwargs):
     list(map(kwargs.pop, [item for item in kwargs if not kwargs[item]]))
 
     # LOGGER - Create a console handler if not passed as argument
-    loglevel = kwargs['debug_level'] \
-               if 'debug_level' in kwargs else DEFAULT_LOGLEVEL
+    loglevel = kwargs['debug_level'] if 'debug_level' in kwargs \
+        else DEFAULT_LOGLEVEL
 
     kwargs['logger'] = create_logger(logger=kwargs.pop('logger')
                                      if 'logger' in kwargs else None,

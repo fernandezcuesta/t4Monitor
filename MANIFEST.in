@@ -1,3 +1,4 @@
 include pysmscmon/conf/*
 include *.md
 include requirements.txt
+include test/*

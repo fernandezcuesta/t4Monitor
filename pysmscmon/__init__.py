@@ -25,7 +25,7 @@ from . import smscmon
 from .gen_report import gen_report
 from . import logger
 
-__version_info__ = (0, 6, 3, 3)
+__version_info__ = (0, 8)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
@@ -33,7 +33,7 @@ __author__ = 'fernandezjm'
 pylab.rcParams['figure.figsize'] = 13, 10
 
 
-def get_absolute_path(filename='', settings_file=''):
+def get_absolute_path(filename='', settings_file=None):
     """ Returns the absolute path if relative to the settings file location """
     if not settings_file:
         settings_file = smscmon.DEFAULT_SETTINGS_FILE
@@ -55,21 +55,23 @@ class Container(object):
         - data: dataframe passed to get_graphs()
         - system: string containing current system-id being rendered
     """
-    graphs = {}  # will be filled by calls from within jinja for loop
-    logs = {}
-    year = dt.date.today().year
-    date_time = dt.date.strftime(dt.datetime.today(), "%d/%m/%Y %H:%M:%S")
-    data = smscmon.pd.DataFrame()
-    system = ''
-    logger = None
-    html_template = ''
-    graphs_file = ''
-    store_folder = './store'
-    reports_folder = './reports'
 
     def __init__(self, loglevel=None):
         if loglevel != 'keep':  # to use an existing logger, or during clone
             self.logger = logger.init_logger(loglevel)
+        else:
+            self.logger = None
+        self.graphs = {}  # will be filled by calls from within jinja for loop
+        self.logs = {}
+        self.year = dt.date.today().year
+        self.date_time = dt.date.strftime(dt.datetime.today(),
+                                          "%d/%m/%Y %H:%M:%S")
+        self.data = smscmon.pd.DataFrame()
+        self.system = ''
+        self.html_template = ''
+        self.graphs_file = ''
+        self.store_folder = './store'
+        self.reports_folder = './reports'
 
     def __str__(self):
         return 'Container created on {0} for system: {1}\nLoglevel: {2}\n' \
@@ -93,7 +95,7 @@ class Container(object):
         my_clone.date_time = self.date_time
         my_clone.data = self.data
         if system in self.logs:
-            my_clone.logs = {system: self.logs[system]}
+            my_clone.logs[system] = self.logs[system]
         my_clone.system = system
         my_clone.logger = self.logger
         my_clone.html_template = self.html_template
@@ -107,7 +109,7 @@ class Container(object):
         """
         # Specify which system in container, passed to get_html_output
         container_clone = self.clone(system)
-        self.logger.debug('%s| Generating HTML report', system)
+        self.logger.debug('%s | Generating HTML report', system)
         with open('{1}/Report_{0}_{2}.html'.
                   format(dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M"),
                          self.reports_folder, system), 'w') as output:
@@ -147,30 +149,17 @@ class Container(object):
             if conf.has_option('MISC', 'store_folder'):
                 self.store_folder = get_absolute_path(conf.get('MISC',
                                                                'store_folder'))
-                # self.store_folder = '{}/{}'.format(relpath,
-                #                                    conf.get('MISC',
-                #                                             'store_folder'))
             if conf.has_option('MISC', 'reports_folder'):
                 self.store_folder = get_absolute_path(conf.get('MISC',
                                                                'reports_folder'
                                                                ))
-                # self.store_folder = '{}/{}'.format(relpath,
-                #                                    conf.get('MISC',
-                #                                             'reports_folder'))
             calc_file = conf.get('MISC', 'calculations_file')
             graphs_file = conf.get('MISC', 'graphs_definition_file')
             html_template = conf.get('MISC', 'html_template')
 
-            calc_file = get_absolute_path(calc_file)
-            self.html_template = get_absolute_path(html_template)
-            self.graphs_file = get_absolute_path(graphs_file)
-
-            # if not os.path.isabs(calc_file):
-            #     calc_file = '{}/{}'.format(relpath, calc_file)
-            # if not os.path.isabs(graphs_file):
-            #     self.graphs_file = '{}/{}'.format(relpath, graphs_file)
-            # if not os.path.isabs(html_template):
-            #     self.html_template = '{}/{}'.format(relpath, html_template)
+            calc_file = get_absolute_path(calc_file, settings_file)
+            self.html_template = get_absolute_path(html_template, settings_file)
+            self.graphs_file = get_absolute_path(graphs_file, settings_file)
 
         except (smscmon.ConfigReadError, smscmon.ConfigParser.Error) as _exc:
             self.logger.error(repr(_exc))
@@ -206,7 +195,7 @@ def main(alldays=False, nologs=False, noreports=False, threaded=False,
 
     pylab.rcParams['figure.figsize'] = 13, 10
     plt.style.use('ggplot')
-    conf = smscmon.read_config()
+    conf = smscmon.read_config(kwargs.get('settings_file'))
 
     # Open the tunnels and gather all data
     container.data, container.logs = smscmon.main(alldays=alldays,
@@ -223,13 +212,14 @@ def main(alldays=False, nologs=False, noreports=False, threaded=False,
     datetag = dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M")
 
     # Store the data locally
-    container.logger.info('Making a local copy of data in store folder')
-
-    container.data.to_pickle('{0}/data_{1}.pkl'.format(container.store_folder,
-                                                       datetag),
+    container.logger.info('Making a local copy of data in store folder: ')
+    destfile = '{0}/data_{1}.pkl'.format(container.store_folder, datetag)
+    container.data.to_pickle(destfile,
                              compress=True)
-    container.data.to_csv('{0}/data_{1}.csv'.format(container.store_folder,
-                                                    datetag))
+    container.logger.info('  -->  %s.gz', destfile)
+    destfile = '{0}/data_{1}.csv'.format(container.store_folder, datetag)
+    container.data.to_csv(destfile)
+    container.logger.info('  -->  %s', destfile)
 
     # Write logs
     if not nologs:
@@ -297,7 +287,7 @@ def argument_parse():
                              'and stored locally')
     parser.add_argument('--nologs', action='store_true',
                         help='Skip log information collection from SMSCs')
-    parser.add_argument('--settings',
+    parser.add_argument('--settings', dest='settings_file',
                         default=smscmon.DEFAULT_SETTINGS_FILE,
                         help='Settings file (default {})'
                         .format(os.path.relpath(smscmon.DEFAULT_SETTINGS_FILE))
