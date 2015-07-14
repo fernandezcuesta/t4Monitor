@@ -215,7 +215,7 @@ class SMSCMonitor(object):
         except sshtunnel.BaseSSHTunnelForwarderError:
             self.logger.error('%sCould not open connection to remote server: '
                               '%s:%s',
-                              '%s| ' % system if system else '',
+                              '%s | ' % system if system else '',
                               jumpbox_addr,
                               jumpbox_port)
             raise sshtunnel.BaseSSHTunnelForwarderError
@@ -226,7 +226,7 @@ class SMSCMonitor(object):
         """
         if system not in self.conf.sections():
             return (None, None)
-        self.logger.info('%s| Connecting to tunel port %s',
+        self.logger.info('%s | Connecting to tunel port %s',
                          system,
                          self.server.tunnelports[system])
 
@@ -253,7 +253,7 @@ class SMSCMonitor(object):
                 # Done gathering data, now get the logs
                 if self.nologs or data.empty \
                    or not self.conf.has_option('MISC', 'smsc_log_cmd'):
-                    logs = '{0}| Log collection omitted'.format(system)
+                    logs = '{0} | Log collection omitted'.format(system)
                     self.logger.info(logs)
                 else:
                     logs = self.get_system_logs(
@@ -261,7 +261,7 @@ class SMSCMonitor(object):
                         system,
                         self.conf.get('MISC', 'smsc_log_cmd')
                                                 ) \
-                        or '{}| Missing logs!'.format(system)
+                        or '{} | Missing logs!'.format(system)
             return (data, logs)
         except SFTPSessionError:
             return (None, None)
@@ -281,7 +281,7 @@ class SMSCMonitor(object):
                              exec_command(log_cmd)
             return stdout.readlines()
         except Exception as _exc:
-            self.logger.error('%s| Error occurred while getting logs: %s',
+            self.logger.error('%s | Error occurred while getting logs: %s',
                               system, repr(_exc))
             return None
 
@@ -324,10 +324,10 @@ class SMSCMonitor(object):
             session.chdir(destdir)
             session.chdir()  # revert back to home folder
         except IOError:
-            error_msg = '{}| Directory "{}" not found at destination'.format(
+            error_msg = '{} | Directory "{}" not found at destination'.format(
                 system,
                 self.conf.get(system, 'folder')
-                                                                             )
+                                                                              )
             self.logger.error(error_msg)
             return data
 
@@ -351,11 +351,11 @@ class SMSCMonitor(object):
                                         files_folder=destdir,
                                         logger=self.logger)
         if data.empty:
-            self.logger.warning('%s| Data size obtained is 0 Bytes, skipping '
+            self.logger.warning('%s | Data size obtained is 0 Bytes, skipping '
                                 'log collection.', system)
 
         else:
-            self.logger.info('%s| Dataframe shape obtained: %s. '
+            self.logger.info('%s | Dataframe shape obtained: %s. '
                              'Now applying calculations...',
                              system, data.shape)
             calc_file = self.conf.get('MISC', 'calculations_file')
@@ -365,7 +365,7 @@ class SMSCMonitor(object):
                                        os.sep,
                                        calc_file)
             data.apply_calcs(calc_file)
-            self.logger.info('%s| Dataframe shape after calculations: %s',
+            self.logger.info('%s | Dataframe shape after calculations: %s',
                              system, data.shape)
         return data
 
@@ -439,13 +439,13 @@ class SMSCMonitor(object):
         """
         # Get data from the remote system
         try:
-            self.logger.info('%s| Collecting statistics...', system)
+            self.logger.info('%s | Collecting statistics...', system)
             tunnelport = self.server.tunnelports[system]
             if not self.server.tunnel_is_up[tunnelport]:
-                self.logger.error('%s| System not reachable!', system)
+                self.logger.error('%s | System not reachable!', system)
                 raise IOError
             data, log = self.collect_system_data(system)
-            self.logger.debug('%s| Putting results in queue', system)
+            self.logger.debug('%s | Putting results in queue', system)
         except (IOError, SFTPSessionError):
             data = pd.DataFrame()
             log = 'Could not get information from this system'
@@ -464,16 +464,16 @@ class SMSCMonitor(object):
 
         for item in range(len(systems_list)):
             system, res_data, res_log = self.results_queue.get()
-            self.logger.debug('%s| Consolidating results', system)
+            self.logger.debug('%s | Consolidating results', system)
             self.data = self.consolidate_data(res_data)
             self.logs[system] = res_log
-            self.logger.info('%s| Done collecting data!', system)
+            self.logger.info('%s | Done collecting data!', system)
             self.server.stop()
 
     def main_no_threads(self, systems_list):
         """ Serial (legacy) method for main() """
         for system in systems_list:
-            self.logger.info('%s| Initializing tunnel', system)
+            self.logger.info('%s | Initializing tunnel', system)
             try:
                 self.init_tunnels(system=system)
                 self.start_server()
@@ -483,7 +483,7 @@ class SMSCMonitor(object):
                     self.logger.error('Cannot download data from %s.', system)
                     raise IOError
                 res_data, self.logs[system] = self.collect_system_data(system)
-                self.consolidate_data(res_data)
+                self.data = self.consolidate_data(res_data)
                 self.logger.info('Done for %s', system)
                 self.server.stop()
             except (sshtunnel.BaseSSHTunnelForwarderError,
