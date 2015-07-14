@@ -213,12 +213,13 @@ def main(alldays=False, nologs=False, noreports=False, threaded=False,
 
     # Store the data locally
     container.logger.info('Making a local copy of data in store folder')
-
-    container.data.to_pickle('{0}/data_{1}.pkl'.format(container.store_folder,
-                                                       datetag),
+    destfile = '{0}/data_{1}.pkl'.format(container.store_folder, datetag)
+    container.data.to_pickle(destfile,
                              compress=True)
-    container.data.to_csv('{0}/data_{1}.csv'.format(container.store_folder,
-                                                    datetag))
+    container.logger.info('%s.gz', destfile)
+    destfile = '{0}/data_{1}.csv'.format(container.store_folder, datetag)
+    container.data.to_csv(destfile)
+    container.logger.info(destfile)
 
     # Write logs
     if not nologs:

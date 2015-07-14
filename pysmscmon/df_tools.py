@@ -50,13 +50,13 @@ def consolidate_data(data, tmp_data=None):
     """
     if isinstance(tmp_data, pd.DataFrame) and not tmp_data.empty:
         data = pd.concat([data, tmp_data])
-        # Group by index while keeping the metadata
-        tmp_meta = copy_metadata(data)
-        data = data.groupby(data.index).last()
-        restore_metadata(tmp_meta, data)
-        if isinstance(data.system, set):
-            # we are only interested in first 5 chars of the system name
-            data.system = set([i[0:5] for i in data.system])
+    # Group by index while keeping the metadata
+    tmp_meta = copy_metadata(data)
+    data = data.groupby(data.index).last()
+    restore_metadata(tmp_meta, data)
+    if isinstance(data.system, set):
+        # we are only interested in first 5 chars of the system name
+        data.system = set([i[0:5] for i in data.system])
     return data
 
 
@@ -109,7 +109,7 @@ def select_var(dataframe, *var_names, **optional):
                            column_name)
             column_name = column_filter = None
 
-    def return_matching_columns(dataframe):
+    def get_matching_columns(dataframe):
         """ Filter column names that match first item in var_names, which can
             have wildcards ('*'), like 'str1*str2'; in that case the column
             name must contain both 'str1' and 'str2'. """
@@ -137,8 +137,8 @@ def select_var(dataframe, *var_names, **optional):
                        'for filter {}={}'.format(column_index, column_filter)
                        if column_filter else '')
         return dataframe[my_filter].dropna(axis=1, how='all').columns
-    return return_matching_columns(dataframe[my_filter].dropna(axis=1,
-                                                               how='all'))
+    return get_matching_columns(dataframe[my_filter].dropna(axis=1,
+                                                            how='all'))
 
 
 def extract_df(dataframe, *var_names, **kwargs):

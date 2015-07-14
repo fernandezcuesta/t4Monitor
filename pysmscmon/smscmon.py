@@ -143,7 +143,7 @@ class SMSCMonitor(object):
         Consolidates partial_dataframe with self.data by calling
         df_tools.consolidate_data
         """
-        self.data = df_tools.consolidate_data(self.data, partial_dataframe)
+        return df_tools.consolidate_data(self.data, partial_dataframe)
 
     def clone(self):
         """ Makes a copy of SData
@@ -319,7 +319,7 @@ class SMSCMonitor(object):
         system_addr = self.conf.get(system, 'ip_or_hostname')
         data = pd.DataFrame()
 
-        try:
+        try:  # Test if destination folder is reachable
             destdir = self.conf.get(system, 'folder') or '.'
             session.chdir(destdir)
             session.chdir()  # revert back to home folder
@@ -329,7 +329,7 @@ class SMSCMonitor(object):
                 self.conf.get(system, 'folder')
                                                                              )
             self.logger.error(error_msg)
-            raise IOError(error_msg)
+            return data
 
         # filter remote files on extension and date
         # using MONTHS to avoid problems with locale rather than english
@@ -360,8 +360,9 @@ class SMSCMonitor(object):
                              system, data.shape)
             calc_file = self.conf.get('MISC', 'calculations_file')
             if not os.path.isabs(calc_file):
-                calc_file = '%s/%s' % (os.path.dirname(os.path.abspath(
+                calc_file = '%s%s%s' % (os.path.dirname(os.path.abspath(
                                        self.settings_file)),
+                                       os.sep,
                                        calc_file)
             data.apply_calcs(calc_file)
             self.logger.info('%s| Dataframe shape after calculations: %s',
@@ -411,7 +412,7 @@ class SMSCMonitor(object):
         try:
             filesource.chdir(files_folder)
             files = ['{}/{}'.format(filesource.getcwd(), f)
-                     for f in filesource.listdir()
+                     for f in filesource.listdir('.')
                      if all([val.upper() in f.upper()
                              for val in filespec_list])]
             if not files and hostname == 'localfs':
@@ -430,8 +431,7 @@ class SMSCMonitor(object):
             self.logger.debug('Closing sftp session')
             sftp_session.close()
 
-        self.consolidate_data(_df)
-        return _df
+        return self.consolidate_data(_df)
 
     def thread_wrapper(self, system):
         """
@@ -465,7 +465,7 @@ class SMSCMonitor(object):
         for item in range(len(systems_list)):
             system, res_data, res_log = self.results_queue.get()
             self.logger.debug('%s| Consolidating results', system)
-            self.consolidate_data(res_data)
+            self.data = self.consolidate_data(res_data)
             self.logs[system] = res_log
             self.logger.info('%s| Done collecting data!', system)
             self.server.stop()
