@@ -1,6 +1,6 @@
 # pySMSCMon
 
-T4-Format2 CSV to Pandas dataframe
+T4-Format 1/2 CSV to Pandas dataframe
 
 - Load files over sftp through optional SSH tunnels over a single gateway.
 - Merges all remote CSVs into a single, plain CSV and a gzipped pickle file
