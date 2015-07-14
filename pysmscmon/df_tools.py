@@ -9,7 +9,6 @@ from __future__ import absolute_import
 import __builtin__
 import pandas as pd
 import numpy as np
-
 import gzip
 
 try:
@@ -51,13 +50,13 @@ def consolidate_data(data, tmp_data=None):
     """
     if isinstance(tmp_data, pd.DataFrame) and not tmp_data.empty:
         data = pd.concat([data, tmp_data])
-    # Group by index while keeping the metadata
-    tmp_meta = copy_metadata(data)
-    data = data.groupby(data.index).last()
-    restore_metadata(tmp_meta, data)
-    if isinstance(data.system, set):
-        # we are only interested in first 5 chars of the system name
-        data.system = set([i[0:5] for i in data.system])
+        # Group by index while keeping the metadata
+        tmp_meta = copy_metadata(data)
+        data = data.groupby(data.index).last()
+        restore_metadata(tmp_meta, data)
+        if isinstance(data.system, set):
+            # we are only interested in first 5 chars of the system name
+            data.system = set([i[0:5] for i in data.system])
     return data
 
 
@@ -117,15 +116,15 @@ def select_var(dataframe, *var_names, **optional):
         if dataframe.empty:
             return []
         else:
-            return [dataframe.columns[i] for i, col in enumerate(colnames)
+            return [col for col in dataframe.columns
                     for var_item in var_names
-                    if all((k in col for k in
-                            var_item.upper().strip().split('*')))]
+                    if all([k in col.upper() for k in
+                            var_item.upper().strip().split('*')])]
 
     if not column_filter and len(var_names) > 1:
         logger.warning('Only first match will be extracted when no filter '
                        'is applied: %s', var_names[0])
-        var_names = var_names[0]
+        var_names = var_names[0:1]
 
     if column_filter:
         my_filter = [k == column_filter
@@ -140,61 +139,6 @@ def select_var(dataframe, *var_names, **optional):
         return dataframe[my_filter].dropna(axis=1, how='all').columns
     return return_matching_columns(dataframe[my_filter].dropna(axis=1,
                                                                how='all'))
-# else:
-#     if len(var_names) == 0:
-#         logger.warning('No variables were selected, returning all columns')
-#         yield dataframe.columns
-#     if column_name not in colnames:
-#         logger.warning('Filter %s=%s not found, nothing was selected',
-#                        column_index, column_filter)
-#         yield []
-#     for _, grp in dataframe.groupby([column_index]):
-#         selected = return_matching_columns(grp.dropna(axis=1, how='all'))
-#         if selected:
-#             yield selected
-#         else:
-#             logger.warning('%s not found for filter: "%s=%s", nothing was '
-#                            'selected.',
-#                            var_names,
-#                            column_index, column_filter)
-#             yield []
-
-
-# if system_filter:
-#     # Filter column names that match any var_names;
-#     # each individual var_item in var_names can have wildcards ('*')
-#     # like 'str1*str2'; in that case the column name must contain both
-#     # 'str1' and 'str2'.
-#     # Dropping all columns where all items are NA (axis=1, how='all').
-#     selected = [s for s in dataframe.dropna(axis=1, how='all').columns
-#                 for var_item in var_names
-#                 if all([k in s.upper()
-#                         for k in var_item.upper().strip().split('*')])]
-#     if not selected:  # if var_names were not found in dataframe columns
-#         logger.warning('%s| %s not found for this system, '
-#                        'nothing selected.', system_filter, var_names)
-#     yield selected
-# else:  # no system selected, work only with first variable for all systems
-#     my_vars = var_names[0].upper()
-#     if len(var_names) > 1:
-#         logger.warning('Only first match will be extracted when no system '
-#                        'is selected: %s', my_var)
-#
-#     for _, grp in dataframe.groupby(['system']):
-#         # Filter column names that match first item in var_names, which can
-#         # have wildcards ('*'), like 'str1*str2'; in that case the column
-#         # name must contain both 'str1' and 'str2'.
-#         selected = [s for s in grp.dropna(axis=1, how='all').columns
-#                     if all([k in s.upper() for k in
-#                             my_vars.strip().split('*')])]
-#         if selected:
-#             yield selected
-#         else:
-#             logger.warning('%s not found for system/s: %s, nothing was '
-#                            'selected.',
-#                            var_names[0],
-#                            dataframe.system)
-#             yield []
 
 
 def extract_df(dataframe, *var_names, **kwargs):
@@ -210,31 +154,17 @@ def extract_df(dataframe, *var_names, **kwargs):
         return dataframe
     col_name, col_filter = kwargs.iteritems().next() if kwargs \
         else (None, None)
-    # if not col_name:
-    #     logger.warning('No filter applied, returning original dataframe')
-    #     return dataframe
     selected = select_var(dataframe,
                           *var_names,
                           logger=logger,
                           **kwargs)
     if len(selected):
         if col_filter:
-            _df = dataframe[dataframe[col_name] == col_filter][selected]
+            return dataframe[dataframe[col_name] == col_filter][selected]
         else:
-            _df = dataframe[selected]
+            return dataframe[selected]
     else:
-        _df = pd.DataFrame()
-    #
-    # else:
-    #     for _, grp in dataframe.groupby([col_filter]):
-    #         sel_list = selected.next()
-    #         if sel_list:
-    #             # Filterer column names that match first item in var_names,
-    #             # which can have wildcards ('*'), like 'str1*str2'; in that
-    #             # case the column name must contain both 'str1' and 'str2'.
-    #             _df = pd.concat([_df, grp[sel_list]]) \
-    #                   if '_df' in locals() else grp[sel_list]
-    return _df
+        return pd.DataFrame()
 
 
 def copy_metadata(source):
@@ -255,7 +185,6 @@ def restore_metadata(metadata, dataframe):
         setattr(dataframe, keyvalue, metadata[keyvalue])
         if keyvalue not in dataframe._metadata:
             dataframe._metadata.append(keyvalue)
-
 
 def extract_t4csv(file_descriptor):
     """ Reads Format1/Format2 T4-CSV and returns:
@@ -289,13 +218,13 @@ def to_dataframe(field_names, data, metadata):
     otherwhise it will interpret it with NaN values.
     Column named DATETIME_TAG (i.e. 'Sample Time') is used as index
     """
-    _df = pd.DataFrame()
+    _df = pd.DataFrame()  # default to be returned if exception is found
     try:
-        fbuffer = StringIO()
-        for i in data:
-            fbuffer.write('%s\n' % i)
-        fbuffer.seek(0)
         if field_names and data:  # else return empty dataframe
+            # put data in a file object and send it to pd.read_csv()
+            fbuffer = StringIO()
+            fbuffer.writelines(('%s\n' % line for line in data))
+            fbuffer.seek(0)
             # Multiple columns may have a sample time, parse dates from all
             df_timecol = (s for s in field_names if DATETIME_TAG in s).next()
             if df_timecol == '':
@@ -303,7 +232,6 @@ def to_dataframe(field_names, data, metadata):
             _df = pd.read_csv(fbuffer, names=field_names,
                               parse_dates={'datetime': [df_timecol]},
                               index_col='datetime')
-            # _df._metadata = []  # may affect while running in parallel?
         for item in metadata:
             setattr(_df, item, metadata[item])
             _df[item] = pd.Series([metadata[item]]*len(_df), index=_df.index)
@@ -343,7 +271,6 @@ def dataframize(a_file, sftp_session=None, logger=None):
 
 def to_pickle(self, name, compress=False):
     """ Allow saving metadata to gzipped pickle """
-#    with open(name, 'wb') as pickleout:
     buffer_object = StringIO()
     pickle.dump(self, buffer_object, protocol=pickle.HIGHEST_PROTOCOL)
     pickle.dump(self._metadata,
@@ -368,7 +295,7 @@ def to_pickle(self, name, compress=False):
 
 def read_pickle(name, compress=False):
     """ Properly restore dataframe plus its metadata from pickle store """
-    if compress:
+    if compress or name.endswith('.gz'):
         mode = gzip
     else:
         mode = __builtin__

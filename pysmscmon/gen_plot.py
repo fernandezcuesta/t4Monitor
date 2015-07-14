@@ -42,6 +42,7 @@ def plot_var(dataframe, *var_names, **optional):
                                       logger=logger)
             if not sel:
                 raise TypeError
+            logger.debug('Drawing selected: %s', sel)
             plotaxis = dataframe[dataframe['system'] == system_filter][sel].\
                 dropna(axis=1, how='all').plot(**optional)
         # Otherwise, var_names columns are selected for system in the dataframe
@@ -99,7 +100,10 @@ def to_base64(dataframe_plot):
         fig = dataframe_plot.get_figure()
         fig.savefig(fbuffer, format='png', bbox_inches='tight')
         plt.close()
-        fbuffer.seek(0)
-        return 'data:image/png;base64,' + fbuffer.getvalue().encode("base64")
+        encoded_plot = 'data:image/png;base64,%s' %\
+                       fbuffer.getvalue().encode("base64")
+        # fbuffer.seek(0)
+        fbuffer.close()
+        return encoded_plot
     except AttributeError:
         return ''

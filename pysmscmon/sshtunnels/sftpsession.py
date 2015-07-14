@@ -9,6 +9,7 @@ import time
 import getpass
 from os.path import expanduser
 from socket import timeout as socket_timeout, error as socket_error
+from . import sshtunnel
 
 import paramiko
 
@@ -21,7 +22,7 @@ class SFTPSessionError(Exception):
 class SftpSession(object):
     """
     Defines methods for opening a SFTP session to a remote system
-    """
+    # """
 
     def connect(self):
         """
@@ -84,8 +85,9 @@ class SftpSession(object):
 
             if self.ssh_transport:
                 self.ssh_transport.sftp_session = self.ssh_transport.open_sftp()
-
-            return self.ssh_transport
+                return self.ssh_transport.sftp_session
+            else:
+                return None
 
         except paramiko.AuthenticationException:
             self.logger.error("Can't log in to the system, bad authentication")
@@ -102,6 +104,9 @@ class SftpSession(object):
             self.logger.error("Server doesn't allow sftp or tunnel forwarding,"
                               " aborting... %s", _exc)
             raise SFTPSessionError
+        except sshtunnel.HandlerSSHTunnelForwarderError as _exc:
+            self.logger.error('Something went wrong with the SSH transport: %s',
+                              repr(_exc))
 
     def run_command(self, command):
         """ Runs the specified command over the SSH session """
@@ -112,8 +117,11 @@ class SftpSession(object):
                     0 if SSH session is up but SFTP is down
                     1 if SSH and SFTP sessions are up
         """
-        return -1 if not self.ssh_transport else 1 \
-            if self.ssh_transport.sftp_session else 0
+        try:
+            return -1 if not self.ssh_transport._transport else 1 \
+                if self.ssh_transport.sftp_session else 0
+        except AttributeError:
+            return -1
 
     def close(self):
         """ Close an existing SSH connection """
@@ -176,11 +184,13 @@ class SftpSession(object):
         """
         Invoked when opening the sftp session (under with statements)
         """
-        ssh_carrier = self.connect()
+        sftp_session = self.connect()
+        sftp_session.run_command = self.run_command
+        sftp_session.ssh_transport = self.ssh_transport
         # if succeeded, return the sftp_session object, else exit
         self.logger.debug('%s > SFTP %sOK', self.hostname,
-                          '' if ssh_carrier.sftp_session else '*NOT* ')
-        return ssh_carrier
+                          '' if sftp_session else '*NOT* ')
+        return sftp_session
 
     class Break(Exception):
         """Break out of the with statement"""
@@ -193,7 +203,7 @@ class SftpSession(object):
             if self.ssh_transport.sftp_session:
                 self.ssh_transport.sftp_session.close()
                 self.logger.debug('Waiting 1/2 second to avoid RST')
-                time.sleep(0.5)  # Gracefully close instead of sending RST
+                time.sleep(0.3)  # Gracefully close instead of sending RST
             self.ssh_transport.close()
         self.logger.info('Closed connection to port %s', self.tcp_port)
         if etype == self.Break:

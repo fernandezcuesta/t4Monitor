@@ -33,7 +33,7 @@ __author__ = 'fernandezjm'
 pylab.rcParams['figure.figsize'] = 13, 10
 
 
-def get_absolute_path(filename='', settings_file=''):
+def get_absolute_path(filename='', settings_file=None):
     """ Returns the absolute path if relative to the settings file location """
     if not settings_file:
         settings_file = smscmon.DEFAULT_SETTINGS_FILE
@@ -157,9 +157,9 @@ class Container(object):
             graphs_file = conf.get('MISC', 'graphs_definition_file')
             html_template = conf.get('MISC', 'html_template')
 
-            calc_file = get_absolute_path(calc_file)
-            self.html_template = get_absolute_path(html_template)
-            self.graphs_file = get_absolute_path(graphs_file)
+            calc_file = get_absolute_path(calc_file, settings_file)
+            self.html_template = get_absolute_path(html_template, settings_file)
+            self.graphs_file = get_absolute_path(graphs_file, settings_file)
 
         except (smscmon.ConfigReadError, smscmon.ConfigParser.Error) as _exc:
             self.logger.error(repr(_exc))
@@ -195,7 +195,7 @@ def main(alldays=False, nologs=False, noreports=False, threaded=False,
 
     pylab.rcParams['figure.figsize'] = 13, 10
     plt.style.use('ggplot')
-    conf = smscmon.read_config()
+    conf = smscmon.read_config(kwargs.get('settings_file'))
 
     # Open the tunnels and gather all data
     container.data, container.logs = smscmon.main(alldays=alldays,
@@ -286,7 +286,7 @@ def argument_parse():
                              'and stored locally')
     parser.add_argument('--nologs', action='store_true',
                         help='Skip log information collection from SMSCs')
-    parser.add_argument('--settings',
+    parser.add_argument('--settings', dest='settings_file',
                         default=smscmon.DEFAULT_SETTINGS_FILE,
                         help='Settings file (default {})'
                         .format(os.path.relpath(smscmon.DEFAULT_SETTINGS_FILE))

@@ -8,7 +8,7 @@ from __future__ import absolute_import
 import re
 import sys
 
-TTAG = '_tmp'
+TTAG = '__calculations_tmp'
 
 
 def oper(self, oper1, funct, oper2):

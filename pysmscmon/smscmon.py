@@ -127,6 +127,7 @@ class SMSCMonitor(object):
         self.settings_file = settings_file or DEFAULT_SETTINGS_FILE
         self.data = pd.DataFrame()
         self.logs = {}
+        self.__str__()
 
     def __enter__(self):
         self.init_tunnels()
@@ -235,36 +236,37 @@ class SMSCMonitor(object):
         ssh_key = self.conf.get(system, 'identity_file').strip("\"' ") or None \
             if self.conf.has_option(system, 'identity_file') else None
 
-        user = self.conf.get('GATEWAY', 'username') or None \
-            if self.conf.has_option('GATEWAY', 'username') else None
+        user = self.conf.get(system, 'username') or None \
+            if self.conf.has_option(system, 'username') else None
+        try:
+            with SftpSession(hostname='127.0.0.1',
+                             ssh_user=user,
+                             ssh_pass=ssh_pass,
+                             ssh_key=ssh_key,
+                             ssh_timeout=self.conf.get(system, 'ssh_timeout'),
+                             ssh_port=self.server.tunnelports[system],
+                             logger=self.logger) as sftp_session:
+                if not sftp_session:
+                    raise SftpSession.Break  # break the with statement
+                data = self.get_system_data(sftp_session, system)
 
-        with SftpSession(hostname='127.0.0.1',
-                         ssh_user=user,
-                         ssh_pass=ssh_pass,
-                         ssh_key=ssh_key,
-                         ssh_timeout=self.conf.get(system, 'ssh_timeout'),
-                         ssh_port=self.server.tunnelports[system],
-                         logger=self.logger) as session:
-            sftp_session = session.sftp_session
-            if not sftp_session:
-                raise SftpSession.Break  # break the with statement
-            data = self.get_system_data(self, sftp_session, system)
+                # Done gathering data, now get the logs
+                if self.nologs or data.empty \
+                   or not self.conf.has_option('MISC', 'smsc_log_cmd'):
+                    logs = '{0}| Log collection omitted'.format(system)
+                    self.logger.info(logs)
+                else:
+                    logs = self.get_system_logs(
+                        sftp_session.ssh_transport,
+                        system,
+                        self.conf.get('MISC', 'smsc_log_cmd')
+                                                ) \
+                        or '{}| Missing logs!'.format(system)
+            return (data, logs)
+        except SFTPSessionError:
+            return (None, None)
 
-            # Done gathering data, now get the logs
-            if self.nologs \
-               or not self.conf.has_option('MISC', 'smsc_log_cmd'):
-                logs = '{0}| Log collection omitted'.format(system)
-                self.logger.info(logs)
-            else:
-                logs = self.get_system_logs(
-                    session,
-                    system,
-                    self.conf.get('MISC', 'smsc_log_cmd')
-                                            ) \
-                    or '{}| Missing logs!'.format(system)
-        return data, logs
-
-    def get_system_logs(self, session, system, log_cmd=None):
+    def get_system_logs(self, ssh_session, system, log_cmd=None):
         """ Get log info from the remote system, assumes an already established
             ssh tunnel.
         """
@@ -275,7 +277,7 @@ class SMSCMonitor(object):
                          system,
                          log_cmd)
         try:  # ignoring stdin and stderr
-            (_, stdout, _) = session.\
+            (_, stdout, _) = ssh_session.\
                              exec_command(log_cmd)
             return stdout.readlines()
         except Exception as _exc:
@@ -318,12 +320,13 @@ class SMSCMonitor(object):
         data = pd.DataFrame()
 
         try:
-            session.chdir(self.conf.get(system, 'folder'))
+            destdir = self.conf.get(system, 'folder') or '.'
+            session.chdir(destdir)
         except IOError:
-            error_msg = '{}| {} not found at destination'.format(
+            error_msg = '{}| Directory "{}" not found at destination'.format(
                 system,
                 self.conf.get(system, 'folder')
-                                                                 )
+                                                                             )
             self.logger.error(error_msg)
             raise IOError(error_msg)
 
@@ -343,14 +346,12 @@ class SMSCMonitor(object):
 
         data = self.get_stats_from_host(hostname=system_addr,
                                         filespec_list=tag_list,
-                                        sftp_client=session,
-                                        logger=self.logger,
-                                        files_folder=self.conf.get(system,
-                                                                   'folder'))
+                                        sftp_session=session,
+                                        files_folder=destdir,
+                                        logger=self.logger)
         if data.empty:
             self.logger.warning('%s| Data size obtained is 0 Bytes, skipping '
                                 'log collection.', system)
-            setattr(self, 'nologs', True)  # COMO TRATAMOS ESTO????
 
         else:
             self.logger.info('%s| Dataframe shape obtained: %s. '
@@ -374,13 +375,13 @@ class SMSCMonitor(object):
         Returns: pandas dataframe
 
         **kwargs (optional):
-        sftp_client: already established sftp session
+        sftp_session: already established sftp session
         ssh_user, ssh_pass, ssh_pkey_file, ssh_configfile, ssh_port
         files_folder: folder where files are located, either on sftp srv or
                       local filesystem
         Otherwise: checks ~/.ssh/config
         """
-        sftp_session = kwargs.pop('sftp_client', '')
+        sftp_session = kwargs.pop('sftp_session', '')
         files_folder = kwargs.pop('files_folder', '.')
         if files_folder[-1] == os.sep:
             files_folder = files_folder[:-1]  # remove trailing separator (/)
@@ -388,56 +389,51 @@ class SMSCMonitor(object):
         close_me = False
         hostname = hostname or 'localfs'  # by default if no hostname given
         filespec_list = filespec_list or ['.csv']  # default if no filter given
-        try:
-            if not sftp_session:
-                if hostname == 'localfs':
-                    self.logger.info('Using local filesystem to get the files')
-                else:
-                    session = SftpSession(hostname, **kwargs).connect()
-                    if not session:
-                        self.logger.debug('Could not establish an SFTP session'
-                                          ' to %s', hostname)
-                        return pd.DataFrame()
-                    sftp_session = session.sftp_session
-                    close_me = True
+        if sftp_session:
+            self.logger.debug('Using established sftp session...')
+        else:
+            if hostname == 'localfs':
+                self.logger.info('Using local filesystem to get the files')
             else:
-                self.logger.debug('Using established sftp session...')
+                try:
+                    sftp_session = SftpSession(hostname, **kwargs).connect()
+                    if sftp_session:
+                        close_me = True
+                    else:
+                        raise SFTPSessionError('connect failed')
+                except SFTPSessionError as _exc:
+                    self.logger.error('Error occurred while SFTP session '
+                                      'to %s: %s', hostname, _exc)
+                    return _df
+        filesource = sftp_session if sftp_session else os
+        # get file list by filtering with taglist (case insensitive)
+        try:
+            files = ['{}{}{}'.format(files_folder, os.sep, f)
+                     for f in filesource.listdir(files_folder)
+                     if all([val.upper() in f.upper()
+                             for val in filespec_list])]
+            if not files and hostname == 'localfs':
+                files = [filespec_list]  # For absolute paths
+        except OSError:
+            files = [filespec_list]  # When localfs, don't behave as filter
+        if not files:
+            self.logger.debug('Nothing gathered from %s, no files were '
+                              'selected', hostname)
+            return _df
+        _df = pd.concat([df_tools.dataframize(
+            a_file,
+            sftp_session,
+            self.logger) for a_file in files], axis=0)
+        if close_me:
+            self.logger.debug('Closing sftp session')
+            sftp_session.close()
 
-            filesource = sftp_session if sftp_session else os
-
-            # get file list by filtering with taglist (case insensitive)
-            try:
-                files = ['{}{}{}'.format(files_folder, os.sep, f)
-                         for f in filesource.listdir(files_folder)
-                         if all([val.upper() in f.upper()
-                                 for val in filespec_list])]
-                if not files and hostname == 'localfs':
-                    files = [filespec_list]  # For absolute paths
-            except OSError:
-                files = [filespec_list]  # When localfs, don't behave as filter
-            if not files:
-                self.logger.debug('Nothing gathered from %s, no files were '
-                                  'selected', hostname)
-                return _df
-            _df = pd.concat([df_tools.dataframize(
-                a_file,
-                sftp_session,
-                self.logger) for a_file in files], axis=0)
-            if close_me:
-                self.logger.debug('Closing sftp session')
-                session.close()
-
-            self.consolidate_data(_df)
-
-        except SFTPSessionError as _exc:
-            self.logger.error('Error occurred while SFTP session to %s: %s',
-                              hostname,
-                              _exc)
+        self.consolidate_data(_df)
         return _df
 
     def thread_wrapper(self, system):
         """
-        Wrapper function for main_threaded
+        Thread method for main_threaded
         """
         # Get data from the remote system
         try:
@@ -467,7 +463,7 @@ class SMSCMonitor(object):
         for item in range(len(systems_list)):
             system, res_data, res_log = self.results_queue.get()
             self.logger.debug('%s| Consolidating results', system)
-            self.consolidate(res_data)
+            self.consolidate_data(res_data)
             self.logs[system] = res_log
             self.logger.info('%s| Done collecting data!', system)
             self.server.stop()
@@ -495,13 +491,11 @@ class SMSCMonitor(object):
                 self.logger.warning('Continue to next system')
                 continue
 
-    def main(self, threads):
+    def main(self, threads=None):
         """
         Main method for SMSCMonitor class
         """
         try:
-            all_systems = [item for item in self.conf.sections()
-                           if item not in ['GATEWAY', 'MISC']]
             self.conf = read_config(self.settings_file)
             all_systems = [item for item in self.conf.sections()
                            if item not in ['GATEWAY', 'MISC']]
