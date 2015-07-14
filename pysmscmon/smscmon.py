@@ -322,6 +322,7 @@ class SMSCMonitor(object):
         try:
             destdir = self.conf.get(system, 'folder') or '.'
             session.chdir(destdir)
+            session.chdir()  # revert back to home folder
         except IOError:
             error_msg = '{}| Directory "{}" not found at destination'.format(
                 system,
@@ -408,8 +409,9 @@ class SMSCMonitor(object):
         filesource = sftp_session if sftp_session else os
         # get file list by filtering with taglist (case insensitive)
         try:
-            files = ['{}{}{}'.format(files_folder, os.sep, f)
-                     for f in filesource.listdir(files_folder)
+            filesource.chdir(files_folder)
+            files = ['{}/{}'.format(filesource.getcwd(), f)
+                     for f in filesource.listdir()
                      if all([val.upper() in f.upper()
                              for val in filespec_list])]
             if not files and hostname == 'localfs':
