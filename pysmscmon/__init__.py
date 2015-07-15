@@ -224,6 +224,32 @@ class Container(object):
 
         return True
 
+    def generate_reports(self, all_systems):
+        """
+        Call jinja2 template, separately to safely store the logs
+        in case of error.
+        Doing this with threads throws many errors with Qt (when acting as
+        matplotlib backend out from main thread)
+        """
+        if self.threaded:
+            threads = [threading.Thread(target=self.th_reports,
+                                        args=(system, ),
+                                        name=system) for system in all_systems]
+            for thread_item in threads:
+                thread_item.daemon = True
+                thread_item.start()
+            for thread_item in threads:
+                thread_item.join()
+        else:
+            for system in all_systems:
+                self.system = system
+                with open('{1}/Report_{0}_{2}.html'.
+                          format(dt.date.strftime(dt.datetime.today(),
+                                                  "%Y%m%d_%H%M"),
+                                 self.reports_folder, self.system),
+                          'w') as output:
+                    output.writelines(gen_report(container=self))
+
 
 def main(alldays=False, nologs=False, noreports=False, threaded=False,
          **kwargs):
@@ -241,12 +267,13 @@ def main(alldays=False, nologs=False, noreports=False, threaded=False,
     conf = smscmon.read_config(kwargs.get('settings_file'))
 
     # Open the tunnels and gather all data
-    container.data, container.logs = smscmon.main(alldays=alldays,
-                                                  nologs=nologs,
-                                                  logger=container.logger,
-                                                  threads=threaded,
-                                                  settings_file=kwargs.get(
-                                                      'settings_file'))
+    container.data, container.logs = smscmon.main(
+        alldays=alldays,
+        nologs=nologs,
+        logger=container.logger,
+        threads=threaded,
+        settings_file=kwargs.get('settings_file')
+                                                  )
     if container.data.empty:
         container.logger.error('Could not retrieve data!!! Aborting.')
         return
@@ -279,35 +306,8 @@ def main(alldays=False, nologs=False, noreports=False, threaded=False,
     if noreports:
         container.logger.info('Skipped report generation')
     else:
-        generate_reports(all_systems, threaded)
+        container.generate_reports(all_systems)
     container.logger.info('Done!')
-
-
-def generate_reports(container, all_systems):
-    """
-    Call jinja2 template, separately to safely store the logs
-    in case of error.
-    Doing this with threads throws many errors with Qt (when acting as
-    matplotlib backend out from main thread)
-    """
-    if container.threaded:
-        threads = [threading.Thread(target=container.th_reports,
-                                    args=(system, ),
-                                    name=system) for system in all_systems]
-        for thread_item in threads:
-            thread_item.daemon = True
-            thread_item.start()
-        for thread_item in threads:
-            thread_item.join()
-    else:
-        for system in all_systems:
-            container.system = system
-            with open('{1}/Report_{0}_{2}.html'.
-                      format(dt.date.strftime(dt.datetime.today(),
-                                              "%Y%m%d_%H%M"),
-                             container.reports_folder, container.system),
-                      'w') as output:
-                output.writelines(gen_report(container=container))
 
 
 def dump_config(output=None):
