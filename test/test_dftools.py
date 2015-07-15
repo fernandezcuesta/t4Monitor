@@ -136,10 +136,10 @@ class TestDFTools(unittest.TestCase):
         # # Missing data should return an empty DF
         self.assertTrue(df_tools.to_dataframe(header, [], metadata).empty)
         # # Missing metadata should return metadata-ready empty DF
-        # for item in dataframe._metadata:
-        #     self.assertIn(item, df_tools.to_dataframe(header,
-        #                                               data,
-        #                                               {})._metadata)
+        for item in dataframe._metadata:
+            self.assertIn(item, df_tools.to_dataframe(header,
+                                                      data,
+                                                      {})._metadata)
         my_df = df_tools.to_dataframe(['COL1', 'My Sample Time'],
                                       ['7, 2000-01-01 00:00:01',
                                        '23, 2000-01-01 00:01:00',
@@ -179,7 +179,6 @@ class TestDFTools(unittest.TestCase):
             plaincsv.file.close()
             assert_frame_equal(pd.DataFrame(),
                                df_tools.dataframize(plaincsv.name))
-
         # test when file does not exist
         assert_frame_equal(pd.DataFrame(),
                            df_tools.dataframize('non-existing-file'))

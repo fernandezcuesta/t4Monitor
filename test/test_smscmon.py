@@ -177,14 +177,12 @@ class TestSmscmon_Ssh(unittest.TestCase):
                              ) as s:
                 data = monitor.get_system_data(system=test_system_id,
                                                session=s)
+                # When the folder does not exist it should return empty df
                 monitor.conf.set('DEFAULT', 'folder', 'do-not-exist')
-                self.assertRaises(IOError,
-                                  monitor.get_system_data,
-                                  system=test_system_id,
-                                  session=s)
+                self.assertTrue(monitor.get_system_data(system=test_system_id,
+                                                        session=s).empty)
         self.assertIsInstance(data, pd.DataFrame)
         self.assertFalse(data.empty)
-        # monitor.stop_server()
 
     def test_getsyslogs(self):
         """ Test function for get_system_logs """

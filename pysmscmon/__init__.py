@@ -1,7 +1,42 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-Main methods for pysmscmon
+ SMSCMon: T4-compliant CSV processor and visualizer for Acision SMSC Monitor
+ ------------------------------------------------------------------------------
+ 2014-2015 (c) J.M. Fernández - fernandez.cuesta@gmail.com
+
+ t4 input_file
+
+ CSV file header may come in 2 different formats:
+
+  ** Format 1: **
+  The first four lines are header data:
+
+  line0: Header information containing T4 revision info and system information.
+
+  line1: Collection date  (optional line)
+
+  line2: Start time       (optional line)
+
+  line3: Parameter Headings (comma separated).
+
+ or
+
+  ** Format 2: **
+
+ line0: Header information containing T4 revision info and system information.
+ line1: <delim> START COLUMN HEADERS  <delim>  where <delim> is a triple $
+ line2: parameter headings (comma separated)
+ ...
+
+  line 'n': <delim> END COLUMN HEADERS  <delim>  where <delim> is a triple $
+
+  The remaining lines are the comma separated values. The first column is the
+  sample time. Each line represents a sample, typically 60 seconds apart.
+  However T4 incorrectly places an extra raw line with the column averages
+  almost at the end of the file. That line will be considered as a closing hash
+  and contents followed by it (sometimes even more samples...) is ignored.
+
 """
 from __future__ import absolute_import, print_function
 import sys
@@ -28,6 +63,10 @@ from . import logger
 __version_info__ = (0, 8)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
+
+__all__ = ('main',
+           'dump_config',
+           'Container')
 
 # Default figure size
 pylab.rcParams['figure.figsize'] = 13, 10
@@ -63,6 +102,7 @@ class Container(object):
             self.logger = None
         self.graphs = {}  # will be filled by calls from within jinja for loop
         self.logs = {}
+        self.threaded = None
         self.year = dt.date.today().year
         self.date_time = dt.date.strftime(dt.datetime.today(),
                                           "%d/%m/%Y %H:%M:%S")
@@ -96,6 +136,7 @@ class Container(object):
         my_clone.data = self.data
         if system in self.logs:
             my_clone.logs[system] = self.logs[system]
+        my_clone.threaded = self.threaded
         my_clone.system = system
         my_clone.logger = self.logger
         my_clone.html_template = self.html_template
@@ -153,14 +194,16 @@ class Container(object):
                 self.store_folder = get_absolute_path(conf.get('MISC',
                                                                'reports_folder'
                                                                ))
-            calc_file = conf.get('MISC', 'calculations_file')
-            graphs_file = conf.get('MISC', 'graphs_definition_file')
-            html_template = conf.get('MISC', 'html_template')
-
-            calc_file = get_absolute_path(calc_file, settings_file)
-            self.html_template = get_absolute_path(html_template, settings_file)
-            self.graphs_file = get_absolute_path(graphs_file, settings_file)
-
+            calc_file = get_absolute_path(conf.get('MISC', 'calculations_file'),
+                                          settings_file)
+            self.graphs_file = get_absolute_path(
+                conf.get('MISC', 'graphs_definition_file'),
+                settings_file
+                                                 )
+            self.html_template = get_absolute_path(
+                conf.get('MISC', 'html_template'),
+                settings_file
+                                                   )
         except (smscmon.ConfigReadError, smscmon.ConfigParser.Error) as _exc:
             self.logger.error(repr(_exc))
             return False
@@ -188,7 +231,7 @@ def main(alldays=False, nologs=False, noreports=False, threaded=False,
         Threaded version (fast, error prone)
     """
     container = Container(loglevel=kwargs.pop('loglevel'))
-
+    container.threaded = threaded
     # check everything's in place before doing anything
     if not container.check_files(kwargs.get('settings_file')):
         return
@@ -233,32 +276,38 @@ def main(alldays=False, nologs=False, noreports=False, threaded=False,
                       'w') as logtxt:
                 logtxt.writelines(container.logs[system])
     # Generate reports
-    if not noreports:
-        # Call jinja2 template, separately to safely store the logs
-        # in case of error.
-        # Doing this with threads throws many errors with Qt (when acting as
-        # matplotlib backend out from main thread)
-        if threaded:
-            threads = [threading.Thread(target=container.th_reports,
-                                        args=(system, ),
-                                        name=system) for system in all_systems]
-            for thread_item in threads:
-                thread_item.daemon = True
-                thread_item.start()
-            for thread_item in threads:
-                thread_item.join()
-        else:
-            for system in all_systems:
-                container.system = system
-                with open('{1}/Report_{0}_{2}.html'.
-                          format(dt.date.strftime(dt.datetime.today(),
-                                                  "%Y%m%d_%H%M"),
-                                 container.reports_folder, container.system),
-                          'w') as output:
-                    output.writelines(gen_report(container=container))
-    else:
+    if noreports:
         container.logger.info('Skipped report generation')
+    else:
+        generate_reports(all_systems, threaded)
     container.logger.info('Done!')
+
+
+def generate_reports(container, all_systems):
+    """
+    Call jinja2 template, separately to safely store the logs
+    in case of error.
+    Doing this with threads throws many errors with Qt (when acting as
+    matplotlib backend out from main thread)
+    """
+    if container.threaded:
+        threads = [threading.Thread(target=container.th_reports,
+                                    args=(system, ),
+                                    name=system) for system in all_systems]
+        for thread_item in threads:
+            thread_item.daemon = True
+            thread_item.start()
+        for thread_item in threads:
+            thread_item.join()
+    else:
+        for system in all_systems:
+            container.system = system
+            with open('{1}/Report_{0}_{2}.html'.
+                      format(dt.date.strftime(dt.datetime.today(),
+                                              "%Y%m%d_%H%M"),
+                             container.reports_folder, container.system),
+                      'w') as output:
+                output.writelines(gen_report(container=container))
 
 
 def dump_config(output=None):
