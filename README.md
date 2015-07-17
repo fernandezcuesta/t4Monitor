@@ -1,5 +1,11 @@
 # pySMSCMon
 
+<a href="https://travis-ci.org/badges/shields">
+    <img src="http://img.shields.io/travis/badges/shields.svg"
+         alt="build status">
+</a>
+
+
 T4-Format 1/2 CSV to Pandas dataframe
 
 - Load files over sftp through optional SSH tunnels over a single gateway.
