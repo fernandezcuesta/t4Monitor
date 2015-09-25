@@ -4,9 +4,11 @@
 Report generator module based on Jinja2
 """
 from __future__ import absolute_import
-import jinja2
-from os import path
+
 from ast import literal_eval
+from os import path
+
+import jinja2
 from matplotlib import pyplot as plt
 
 from . import gen_plot

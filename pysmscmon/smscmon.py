@@ -18,22 +18,20 @@
 """
 from __future__ import absolute_import
 
-import os
 import ConfigParser
-import threading
 import datetime as dt
+import os
 import Queue
+import threading
+from random import randint
 
 import pandas as pd
-from random import randint
 from paramiko import SSHException
 
-from . import df_tools
-from . import calculations
+from . import calculations, df_tools
 from .logger import init_logger
 from .sshtunnels import sshtunnel
 from .sshtunnels.sftpsession import SftpSession, SFTPSessionError
-
 
 __all__ = ('SMSCMonitor',
            'read_config')

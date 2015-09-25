@@ -95,15 +95,16 @@ optional arguments:
 
 """
 
-import sys
-import logging
 import argparse
-import threading
-import socket
 import getpass
-import paramiko
-from select import select
+import logging
+import socket
+import sys
+import threading
 from os.path import expanduser, isfile
+from select import select
+
+import paramiko
 
 if sys.version_info.major < 3:
     import SocketServer

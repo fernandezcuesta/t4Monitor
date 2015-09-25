@@ -4,14 +4,16 @@
 Open the sftp session to the destination
 """
 
+import getpass
 import logging
 import time
-import getpass
 from os.path import expanduser
-from socket import timeout as socket_timeout, error as socket_error
-from . import sshtunnel
+from socket import error as socket_error
+from socket import timeout as socket_timeout
 
 import paramiko
+
+from . import sshtunnel
 
 
 class SFTPSessionError(Exception):

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
  SMSCMon: T4-compliant CSV processor and visualizer for Acision SMSC Monitor
- ------------------------------------------------------------------------------
+ -----------------------------------------------------------------------------
  2014-2015 (c) J.M. Fernández - fernandez.cuesta@gmail.com
 
  t4 input_file
@@ -12,32 +12,33 @@
   ** Format 1: **
   The first four lines are header data:
 
-  line0: Header information containing T4 revision info and system information.
+  line0: Header information containing T4 revision info and system information
 
-  line1: Collection date  (optional line)
+  line1: Collection date   (optional line)
 
-  line2: Start time       (optional line)
+  line2: Start time        (optional line)
 
-  line3: Parameter Headings (comma separated).
+  line3: Parameter Heading (comma separated)
 
  or
 
   ** Format 2: **
 
- line0: Header information containing T4 revision info and system information.
- line1: <delim> START COLUMN HEADERS  <delim>  where <delim> is a triple $
+ line0: Header information containing T4 revision info and system information
+ line1: <delim> START COLUMN HEADERS  <delim>  where <delim> is a triple `$`
  line2: parameter headings (comma separated)
  ...
 
-  line 'n': <delim> END COLUMN HEADERS  <delim>  where <delim> is a triple $
+  line 'n': <delim> END COLUMN HEADERS  <delim>  where <delim> is a triple `$`
 
   The remaining lines are the comma separated values. The first column is the
   sample time. Each line represents a sample, typically 60 seconds apart.
   However T4 incorrectly places an extra raw line with the column averages
-  almost at the end of the file. That line will be considered as a closing hash
-  and contents followed by it (sometimes even more samples...) is ignored.
+  almost at the end of the file. That line will be considered as a closing
+  hash and contents followed by it (sometimes even more samples...) is ignored
 
 """
+
 from __future__ import absolute_import, print_function
 import sys
 import datetime as dt
@@ -73,7 +74,7 @@ pylab.rcParams['figure.figsize'] = 13, 10
 
 
 def get_absolute_path(filename='', settings_file=None):
-    """ Returns the absolute path if relative to the settings file location """
+    """ Return the absolute path if relative to the settings file location """
     if not settings_file:
         settings_file = smscmon.DEFAULT_SETTINGS_FILE
     relpath = os.path.dirname(os.path.abspath(settings_file))
@@ -188,14 +189,17 @@ class Container(object):
         try:
             conf = smscmon.read_config(settings_file)
             if conf.has_option('MISC', 'store_folder'):
-                self.store_folder = get_absolute_path(conf.get('MISC',
-                                                               'store_folder'))
+                self.store_folder = get_absolute_path(
+                    conf.get('MISC', 'store_folder')
+                )
             if conf.has_option('MISC', 'reports_folder'):
-                self.store_folder = get_absolute_path(conf.get('MISC',
-                                                               'reports_folder'
-                                                               ))
-            calc_file = get_absolute_path(conf.get('MISC', 'calculations_file'),
-                                          settings_file)
+                self.store_folder = get_absolute_path(
+                    conf.get('MISC', 'reports_folder')
+                )
+            calc_file = get_absolute_path(
+                conf.get('MISC', 'calculations_file'),
+                settings_file
+            )
             self.graphs_file = get_absolute_path(
                 conf.get('MISC', 'graphs_definition_file'),
                 settings_file
@@ -234,7 +238,8 @@ class Container(object):
         if self.threaded:
             threads = [threading.Thread(target=self.th_reports,
                                         args=(system, ),
-                                        name=system) for system in all_systems]
+                                        name=system) for system in all_systems
+                      ]
             for thread_item in threads:
                 thread_item.daemon = True
                 thread_item.start()
@@ -256,7 +261,8 @@ def main(alldays=False, nologs=False, noreports=False, threaded=False,
     """ Main method, gets data and logs, store and render the HTML output
         Threaded version (fast, error prone)
     """
-    container = Container(loglevel=kwargs.pop('loglevel'))
+    container = Container(loglevel=kwargs.pop('loglevel')
+                          if 'loglevel' in kwargs else None)
     container.threaded = threaded
     # check everything's in place before doing anything
     if not container.check_files(kwargs.get('settings_file')):
@@ -322,9 +328,9 @@ def argument_parse():
     """
     parser = argparse.ArgumentParser(formatter_class=argparse.
                                      RawTextHelpFormatter,
-                                     description='SMSC Monitoring script (run '
-                                                 'smscmon-config to dump the '
-                                                 'configuration defaults)')
+                                     description='SMSC Monitoring script (run'
+                                                 ' smscmon-config to dump the'
+                                                 ' configuration defaults)')
     parser.add_argument('--all', action='store_true', dest='alldays',
                         help='Collect all data available on SMSCs'
                              'not just for today')
@@ -339,8 +345,8 @@ def argument_parse():
     parser.add_argument('--settings', dest='settings_file',
                         default=smscmon.DEFAULT_SETTINGS_FILE,
                         help='Settings file (default {})'
-                        .format(os.path.relpath(smscmon.DEFAULT_SETTINGS_FILE))
-                        )
+                        .format(os.path.relpath(smscmon.DEFAULT_SETTINGS_FILE)
+                                ))
     parser.add_argument('--loglevel', const=logger.DEFAULT_LOGLEVEL,
                         choices=['DEBUG',
                                  'INFO',
