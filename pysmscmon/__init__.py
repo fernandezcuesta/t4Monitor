@@ -374,7 +374,7 @@ def argument_parse(args=None):
 
 
 def main():
-    start(argument_parse(sys.argv[1:]))
+    start(**argument_parse(sys.argv[1:]))
 
 
 if __name__ == "__main__":
