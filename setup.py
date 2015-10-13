@@ -12,7 +12,7 @@ requires = [str(ir.req) for ir in parse_requirements('requirements.txt', session
 
 entry_points = {
     'console_scripts': [
-        'smscmon = pysmscmon:argument_parse',
+        'smscmon = pysmscmon:main',
         'smscmon-config = pysmscmon:dump_config'
     ]
 }

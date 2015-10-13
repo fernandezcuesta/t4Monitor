@@ -6,13 +6,12 @@
 from __future__ import absolute_import
 
 import unittest
+
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from pysmscmon import df_tools
-from pysmscmon import gen_plot
-from pysmscmon import logger
+from pysmscmon import df_tools, gen_plot, logger
 
 TEST_DATAFRAME = pd.DataFrame(np.random.randn(100, 4),
                               columns=['test1',

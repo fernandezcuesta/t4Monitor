@@ -5,16 +5,16 @@
 """
 from __future__ import absolute_import
 
-import unittest
-import numpy as np
-import pandas as pd
 import imghdr
 import tempfile
+import unittest
 
-from pysmscmon import df_tools
+import numpy as np
+import pandas as pd
+
 import pysmscmon as init_func
+from pysmscmon import df_tools, logger
 from pysmscmon.gen_report import gen_report, get_graphs
-from pysmscmon import logger
 
 TEST_DATAFRAME = pd.DataFrame(np.random.randn(100, 4),
                               columns=['test1',

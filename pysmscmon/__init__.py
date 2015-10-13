@@ -61,7 +61,7 @@ from . import smscmon
 from .gen_report import gen_report
 from . import logger
 
-__version_info__ = (0, 8, 1)
+__version_info__ = (0, 8, 2)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
@@ -75,19 +75,19 @@ pylab.rcParams['figure.figsize'] = 13, 10
 
 def get_absolute_path(filename='', settings_file=None):
     """ Return the absolute path if relative to the settings file location """
-    if not settings_file:
-        settings_file = smscmon.DEFAULT_SETTINGS_FILE
-    relpath = os.path.dirname(os.path.abspath(settings_file))
-    if not os.path.isabs(filename):
+    if os.path.isabs(filename):
+        return filename
+    else:
+        if not settings_file:
+            settings_file = smscmon.DEFAULT_SETTINGS_FILE
+        relpath = os.path.dirname(os.path.abspath(settings_file))
         return '{}{}{}'.format(relpath,
                                os.sep if relpath != os.sep else '',
                                filename)
-    else:
-        return filename
 
 
 class Container(object):
-    """ Object passed to jinja2 containg
+    """ Object passed to jinja2 containing:
 
         - graphs: dictionary of key, value -> {system-id, list of graphs}
         - logs: dictionary of key, value -> {system-id, log entries}
@@ -150,12 +150,16 @@ class Container(object):
              Called from threaded_main()
         """
         # Specify which system in container, passed to get_html_output
-        container_clone = self.clone(system)
-        self.logger.debug('%s | Generating HTML report', system)
-        with open('{1}/Report_{0}_{2}.html'.
-                  format(dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M"),
-                         self.reports_folder, system), 'w') as output:
-            output.writelines(gen_report(container=container_clone))
+        self.gen_system_report(system=system, container=self.clone(system))
+
+    def gen_system_report(self, system=None, container=None):
+        self.logger.debug('%s | Generating HTML report', system or self.system)
+        report_name = '{1}/Report_{0}_{2}.html'.format(
+            dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M"),
+            self.reports_folder,
+            system or self.system)
+        with open(report_name, 'w') as output:
+            output.writelines(gen_report(container=container or self))
 
     def check_files(self, settings_file=None):
         """
@@ -236,28 +240,25 @@ class Container(object):
         matplotlib backend out from main thread)
         """
         if self.threaded:
-            threads = [threading.Thread(target=self.th_reports,
-                                        args=(system, ),
-                                        name=system) for system in all_systems
-                      ]
+            threads = [
+                threading.Thread(target=self.th_reports,
+                                 args=(system, ),
+                                 name=system)
+                for system in all_systems
+            ]
             for thread_item in threads:
                 thread_item.daemon = True
                 thread_item.start()
-            for thread_item in threads:
+            # for thread_item in threads:
                 thread_item.join()
         else:
             for system in all_systems:
-                self.system = system
-                with open('{1}/Report_{0}_{2}.html'.
-                          format(dt.date.strftime(dt.datetime.today(),
-                                                  "%Y%m%d_%H%M"),
-                                 self.reports_folder, self.system),
-                          'w') as output:
-                    output.writelines(gen_report(container=self))
+                # self.system = system
+                self.gen_system_report(system)
 
 
-def main(alldays=False, nologs=False, noreports=False, threaded=False,
-         **kwargs):
+def start(alldays=False, nologs=False, noreports=False, threaded=False,
+          **kwargs):
     """ Main method, gets data and logs, store and render the HTML output
         Threaded version (fast, error prone)
     """
@@ -323,7 +324,7 @@ def dump_config(output=None):
     conf.write(output or sys.stdout)
 
 
-def argument_parse():
+def argument_parse(args=None):
     """ Argument parser for main method
     """
     parser = argparse.ArgumentParser(formatter_class=argparse.
@@ -356,10 +357,8 @@ def argument_parse():
                         help='Debug level (default: %s)' %
                         logger.DEFAULT_LOGLEVEL,
                         nargs='?')
-    userargs = vars(parser.parse_args())
-
     # Default for smscmon is 'settings.cfg' in /conf
-    if len(sys.argv) == 1:
+    if not args:
         parser.print_help()
         print('')
         while True:
@@ -371,8 +370,12 @@ def argument_parse():
             elif ans in ('n', 'N'):
                 sys.exit('Aborting')
             print('Please enter y or n.')
-    main(**userargs)
+    return vars(parser.parse_args(args))
+
+
+def main():
+    start(argument_parse(sys.argv[1:]))
 
 
 if __name__ == "__main__":
-    argument_parse()
+    main()

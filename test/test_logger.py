@@ -3,8 +3,9 @@
 """
 *pysmscmon* - SMSC monitoring **test functions**
 """
-import unittest
 import logging
+import unittest
+
 from pysmscmon import logger
 
 

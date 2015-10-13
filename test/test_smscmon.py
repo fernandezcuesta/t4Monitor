@@ -5,33 +5,22 @@
 """
 from __future__ import absolute_import, print_function
 
-import unittest
 import ConfigParser
-import socket
-import Queue
 import logging
-from os import path
+import Queue
+import socket
+import unittest
 
-import paramiko
-import pandas as pd
 import numpy as np
+import pandas as pd
+import paramiko
 from pandas.util.testing import assert_frame_equal
 
 from pysmscmon import smscmon as smsc
-from pysmscmon import df_tools
-from pysmscmon import logger
+from pysmscmon import df_tools, logger
 from pysmscmon.sshtunnels.sftpsession import SftpSession
 
-TEST_DATAFRAME = pd.DataFrame(np.random.randn(100, 4),
-                              columns=['test1',
-                                       'test2',
-                                       'test3',
-                                       'test4'])
-LOGGER = logger.init_logger(loglevel='DEBUG', name='test-pysmscmon')
-TEST_CSV = 'test/test_data.csv'
-TEST_PKL = 'test/test_data.pkl'
-TEST_CONFIG = 'test/test_settings.cfg'
-MY_DIR = path.dirname(path.abspath(__file__))
+from .interactive_common import *
 
 
 class TestSmscmon(unittest.TestCase):
@@ -94,25 +83,8 @@ class TestSmscmon(unittest.TestCase):
                       sdata.__str__())
 
 
-class TestSmscmon_Ssh(unittest.TestCase):
+class TestSmscmon_Ssh(TestWithSsh):
     """ Set of test functions for interactive (ssh) methods of smscmon.py """
-    @classmethod
-    def setUpClass(cls):
-        smsc.add_methods_to_pandas_dataframe(LOGGER)
-        # Check if SSH is listening in localhost """
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        try:
-            ssh.connect('localhost')
-            ssh.open_sftp()
-            ssh.close()
-        except (paramiko.BadHostKeyException, paramiko.AuthenticationException,
-                paramiko.SSHException, socket.error, socket.gaierror) as exc:
-            print('Exception while trying to setup interactive SSH tests. '
-                  'It is assumed that SSH to localhost is setup with pkey and '
-                  'settings are configured in ~/.ssh/config for "localhost".\n'
-                  'ERROR: %s', exc)
-            raise unittest.SkipTest
 
     def test_inittunnels(self):
         """ Test function for init_tunnels """

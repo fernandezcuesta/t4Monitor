@@ -108,7 +108,7 @@ class SMSCMonitor(object):
         """
         my_clone = SMSCMonitor()
         my_clone.server = self.server
-        my_clone.results_queue = Queue.Queue()  # make a brand new results queue
+        my_clone.results_queue = Queue.Queue()  # make a brand new result queue
         my_clone.conf = self.conf
         my_clone.alldays = self.alldays
         my_clone.nologs = self.nologs
@@ -165,7 +165,8 @@ class SMSCMonitor(object):
                                                        )
             # Add the system<>port bindings to the return object
             self.server.tunnelports = tunnelports
-            self.logger.debug('Registered tunnels: %s', self.server.tunnelports)
+            self.logger.debug('Registered tunnels: %s',
+                              self.server.tunnelports)
         except AssertionError:
             self.logger.error('Local tunnel ports MUST be different: %s',
                               tunnelports)
@@ -191,7 +192,8 @@ class SMSCMonitor(object):
         ssh_pass = self.conf.get(system, 'password').strip("\"' ") or None \
             if self.conf.has_option(system, 'password') else None
 
-        ssh_key = self.conf.get(system, 'identity_file').strip("\"' ") or None \
+        ssh_key = self.conf.get(system,
+                                'identity_file').strip("\"' ") or None \
             if self.conf.has_option(system, 'identity_file') else None
 
         user = self.conf.get(system, 'username') or None \
@@ -231,7 +233,7 @@ class SMSCMonitor(object):
         if not log_cmd:
             self.logger.error('No command was specified for log collection')
             return
-        self.logger.info('Getting log output from %s (%s), may take a while...',
+        self.logger.info('Getting log output from %s (%s), may take a while.',
                          system,
                          log_cmd)
         try:  # ignoring stdin and stderr

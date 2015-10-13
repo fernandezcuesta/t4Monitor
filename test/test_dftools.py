@@ -5,16 +5,15 @@
 """
 from __future__ import absolute_import
 
-import unittest
 import tempfile
+import unittest
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from pandas.util.testing import assert_frame_equal
 
 from pysmscmon import smscmon as smsc
-from pysmscmon import df_tools
-from pysmscmon import logger
+from pysmscmon import df_tools, logger
 
 TEST_DATAFRAME = pd.DataFrame(np.random.randn(100, 4),
                               columns=['test1',
