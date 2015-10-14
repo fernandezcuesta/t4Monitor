@@ -6,6 +6,7 @@
 from __future__ import absolute_import
 
 import os
+import shutil
 import tempfile
 import unittest
 from datetime import datetime as dt
@@ -16,16 +17,18 @@ from pandas.util.testing import assert_frame_equal
 import pysmscmon as init_func
 from pysmscmon import smscmon as smsc
 
-from .base import LOGGER, TEST_CSV, TEST_PKL, BAD_CONFIG, TEST_CONFIG
+from .base import (
+    LOGGER,
+    TEST_CSV,
+    TEST_PKL,
+    BAD_CONFIG,
+    TEST_CONFIG,
+    BaseTestClass
+)
 
 
-class TestInit(unittest.TestCase):
+class TestInit(BaseTestClass):
     """ Set of test functions for __init__.py """
-
-    @classmethod
-    def setUpClass(cls):
-        cls.container = init_func.Container(logger=LOGGER,
-                                            settings_file=TEST_CONFIG)
 
     # def test_get_absolute_path(self):
     #     """ Test auxiliary function get_absolute_path """
@@ -108,7 +111,6 @@ class TestInit(unittest.TestCase):
         # Test the threaded version
         container.threaded = True
         container.data.system.add('SYS2')
-        print(container.data.system)
         container.generate_reports(container.data.system)
 
     # def test_argument_parse(self):

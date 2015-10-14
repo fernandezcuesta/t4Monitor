@@ -16,35 +16,8 @@ from pysmscmon.sshtunnels.sftpsession import SftpSession
 from .base import *
 
 
-class TestMain(TestWithSsh):
+class TestMain(TestWithTempConfig):
     """ Set of test functions for interactive (ssh) methods of __init__.py """
-
-    @classmethod
-    def setUpClass(cls):
-        cls.conf = smsc.read_config(settings_file=TEST_CONFIG)
-
-        cls.container = pysmscmon.Container(loglevel='keep',
-                                            settings_file=TEST_CONFIG)
-        cls.container.logger = LOGGER
-        cls.temporary_dir = tempfile.gettempdir()
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.container.logger.debug('Deleting temporary folders: (%s, %s)',
-                                   cls.container.reports_folder,
-                                   cls.container.store_folder)
-        shutil.rmtree(cls.container.reports_folder)
-        shutil.rmtree(cls.container.store_folder)
-
-        # Remove temporary files
-        remove(path.join(cls.temporary_dir,
-                         cls.conf.get('MISC', 'calculations_file')))
-
-        remove(path.join(cls.temporary_dir,
-                         cls.conf.get('MISC', 'html_template')))
-
-        remove(path.join(cls.temporary_dir,
-                         cls.conf.get('MISC', 'graphs_definition_file')))
 
     def test_start(self):
         """ Test function for main() and start() """
@@ -55,23 +28,6 @@ class TestMain(TestWithSsh):
         # settings file may be relative to the settings file location, so
         # work in a temporary directory
         with tempfile.NamedTemporaryFile() as temp_config:
-            self.container.logger.info('Using temporary dir: %s',
-                                       self.temporary_dir)
-            calcs_file = self.container.get_absolute_path(
-                self.conf.get('MISC', 'calculations_file'))
-            shutil.copy(calcs_file,
-                        self.temporary_dir)
-
-            html_template = self.container.get_absolute_path(
-                self.conf.get('MISC', 'html_template'))
-            shutil.copy(html_template,
-                        self.temporary_dir)
-
-            graphs_file = self.container.get_absolute_path(
-                self.conf.get('MISC', 'graphs_definition_file'))
-            shutil.copy(graphs_file,
-                        self.temporary_dir)
-
             self.conf.write(temp_config)
             temp_config.seek(0)
             self.container.settings_file = temp_config.name
@@ -92,9 +48,8 @@ class TestMain(TestWithSsh):
             self.assertIsNone(pysmscmon.start(settings_file=temp_config.name))
 
 
-class TestSmscmon_Ssh(TestWithSsh):
+class TestSmscMon(TestWithSsh):
     """ Set of test functions for interactive (ssh) methods of smscmon.py """
-
     def test_inittunnels(self):
         """ Test function for init_tunnels """
         monitor = smsc.SMSCMonitor(settings_file=TEST_CONFIG, logger=LOGGER)
