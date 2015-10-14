@@ -7,19 +7,12 @@ from __future__ import absolute_import
 
 import unittest
 
-import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from pysmscmon import df_tools, gen_plot, logger
+from pysmscmon import df_tools, gen_plot
 
-TEST_DATAFRAME = pd.DataFrame(np.random.randn(100, 4),
-                              columns=['test1',
-                                       'test2',
-                                       'test3',
-                                       'test4'])
-TEST_CSV = 'test/test_data.csv'
-LOGGER = logger.init_logger(loglevel='DEBUG', name='test-pysmscmon')
+from .base import LOGGER, TEST_CSV, TEST_DATAFRAME
 
 
 class TestGenPlot(unittest.TestCase):

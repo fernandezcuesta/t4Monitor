@@ -59,9 +59,9 @@ from matplotlib import pylab as pylab, pyplot as plt
 
 from . import smscmon
 from .gen_report import gen_report
-from . import logger
+from .logger import init_logger
 
-__version_info__ = (0, 8, 2)
+__version_info__ = (0, 8, 3)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
@@ -71,19 +71,6 @@ __all__ = ('main',
 
 # Default figure size
 pylab.rcParams['figure.figsize'] = 13, 10
-
-
-def get_absolute_path(filename='', settings_file=None):
-    """ Return the absolute path if relative to the settings file location """
-    if os.path.isabs(filename):
-        return filename
-    else:
-        if not settings_file:
-            settings_file = smscmon.DEFAULT_SETTINGS_FILE
-        relpath = os.path.dirname(os.path.abspath(settings_file))
-        return '{}{}{}'.format(relpath,
-                               os.sep if relpath != os.sep else '',
-                               filename)
 
 
 class Container(object):
@@ -96,35 +83,39 @@ class Container(object):
         - system: string containing current system-id being rendered
     """
 
-    def __init__(self, loglevel=None):
-        if loglevel != 'keep':  # to use an existing logger, or during clone
-            self.logger = logger.init_logger(loglevel)
-        else:
-            self.logger = None
+    def __init__(self, logger=None, loglevel=None, settings_file=None):
         self.graphs = {}  # will be filled by calls from within jinja for loop
-        self.logs = {}
-        self.threaded = None
-        self.year = dt.date.today().year
+        self.data = smscmon.pd.DataFrame()
         self.date_time = dt.date.strftime(dt.datetime.today(),
                                           "%d/%m/%Y %H:%M:%S")
-        self.data = smscmon.pd.DataFrame()
-        self.system = ''
-        self.html_template = ''
         self.graphs_file = ''
-        self.store_folder = './store'
+        self.html_template = ''
+        self.logger = logger
+        if loglevel:
+            self.logger = init_logger(loglevel)
+        self.logs = {}
         self.reports_folder = './reports'
+        self.settings_file = settings_file or smscmon.DEFAULT_SETTINGS_FILE
+        self.store_folder = './store'
+        self.system = ''
+        self.threaded = None
+        self.year = dt.date.today().year
+        self.check_files()
 
     def __str__(self):
         return 'Container created on {0} for system: {1}\nLoglevel: {2}\n' \
                'graphs_file: {3}\nhtml_template: {4}\nreports folder: {5}\n' \
-               'store folder: {6}\ndata size: {7}'.format(self.year,
-                                                          self.system,
-                                                          self.logger.level,
-                                                          self.graphs_file,
-                                                          self.html_template,
-                                                          self.reports_folder,
-                                                          self.store_folder,
-                                                          self.data.shape)
+               'store folder: {6}\ndata size: {7}\nsettings_file: {8}'.format(
+                self.year,
+                self.system,
+                self.logger.level,
+                self.graphs_file,
+                self.html_template,
+                self.reports_folder,
+                self.store_folder,
+                self.data.shape,
+                self.settings_file
+                )
 
     def clone(self, system=''):
         """ Makes a copy of the data container where the system is filled in,
@@ -132,36 +123,53 @@ class Container(object):
             pandas.DataFrame.copy(), otherwise it's just a view), date_time is
             copied from the original and logs and graphs are left unmodified.
         """
-        my_clone = Container(loglevel='keep')
-        my_clone.date_time = self.date_time
+        my_clone = Container(logger=self.logger)
         my_clone.data = self.data
+        my_clone.date_time = self.date_time
+        my_clone.graphs_file = self.graphs_file
+        my_clone.html_template = self.html_template
         if system in self.logs:
             my_clone.logs[system] = self.logs[system]
-        my_clone.threaded = self.threaded
+        my_clone.reports_folder = self.reports_folder
+        my_clone.store_folder = self.store_folder
         my_clone.system = system
-        my_clone.logger = self.logger
-        my_clone.html_template = self.html_template
-        my_clone.graphs_file = self.graphs_file
+        my_clone.threaded = self.threaded
+        my_clone.year = self.year
 
         return my_clone
+
+    def get_absolute_path(self, filename=''):
+        """
+        Return the absolute path if relative to the settings file location
+        """
+        if os.path.isabs(filename):
+            return filename
+        else:
+            relpath = os.path.dirname(os.path.abspath(self.settings_file))
+            return '{}{}{}'.format(relpath,
+                                   os.sep if relpath != os.sep else '',
+                                   filename)
 
     def th_reports(self, system):
         """  Handler for rendering jinja2 reports with threads.
              Called from threaded_main()
         """
         # Specify which system in container, passed to get_html_output
-        self.gen_system_report(system=system, container=self.clone(system))
+        self.gen_system_report(system=system,
+                               container=self.clone(system))
 
     def gen_system_report(self, system=None, container=None):
-        self.logger.debug('%s | Generating HTML report', system or self.system)
-        report_name = '{1}/Report_{0}_{2}.html'.format(
-            dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M"),
+        report_name = '{0}/Report_{1}_{2}.html'.format(
             self.reports_folder,
+            dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M"),
             system or self.system)
+        self.logger.debug('%s | Generating HTML report (%s)',
+                          system or self.system,
+                          report_name)
         with open(report_name, 'w') as output:
             output.writelines(gen_report(container=container or self))
 
-    def check_files(self, settings_file=None):
+    def check_files(self):
         """
         Runtime test that checks if all required files exist and are readable:
 
@@ -174,63 +182,63 @@ class Container(object):
 
         Returns: Boolean (whether or not everything is in place)
         """
-        if not settings_file:
-            settings_file = smscmon.DEFAULT_SETTINGS_FILE
-
-        if not os.path.isfile(settings_file):
+        if not os.path.isfile(self.settings_file):
             self.logger.error('Settings file not found: %s',
-                              settings_file)
-            return False
+                              self.settings_file)
+            raise smscmon.ConfigReadError
+        try:
+            conf = smscmon.read_config(self.settings_file)
+            self.logger.debug('Using settings file: %s', self.settings_file)
+            if conf.has_option('MISC', 'store_folder'):
+                self.store_folder = self.get_absolute_path(
+                    conf.get('MISC', 'store_folder')
+                )
+            self.logger.debug('Using store folder: %s', self.store_folder)
+
+            if conf.has_option('MISC', 'reports_folder'):
+                self.reports_folder = self.get_absolute_path(
+                    conf.get('MISC', 'reports_folder')
+                )
+            self.logger.debug('Using reports folder: %s', self.reports_folder)
+
+            calc_file = self.get_absolute_path(
+                conf.get('MISC', 'calculations_file')
+            )
+            self.graphs_file = self.get_absolute_path(
+                conf.get('MISC', 'graphs_definition_file')
+                                                 )
+            self.html_template = self.get_absolute_path(
+                conf.get('MISC', 'html_template')
+                                                   )
+        except (smscmon.ConfigReadError, smscmon.ConfigParser.Error) as _exc:
+            self.logger.error(repr(_exc))
+            raise smscmon.ConfigReadError
+
+        # Create store folder if needed
         if not os.path.exists(self.store_folder):
             self.logger.info('Creating non-existing directory: %s',
                              os.path.abspath(self.store_folder))
             os.makedirs(self.store_folder)
+
+        # Create reports folder if needed
         if not os.path.exists(self.reports_folder):
             self.logger.info('Creating non-existing directory: %s',
                              os.path.abspath(self.reports_folder))
             os.makedirs(self.reports_folder)
 
-        try:
-            conf = smscmon.read_config(settings_file)
-            if conf.has_option('MISC', 'store_folder'):
-                self.store_folder = get_absolute_path(
-                    conf.get('MISC', 'store_folder')
-                )
-            if conf.has_option('MISC', 'reports_folder'):
-                self.store_folder = get_absolute_path(
-                    conf.get('MISC', 'reports_folder')
-                )
-            calc_file = get_absolute_path(
-                conf.get('MISC', 'calculations_file'),
-                settings_file
-            )
-            self.graphs_file = get_absolute_path(
-                conf.get('MISC', 'graphs_definition_file'),
-                settings_file
-                                                 )
-            self.html_template = get_absolute_path(
-                conf.get('MISC', 'html_template'),
-                settings_file
-                                                   )
-        except (smscmon.ConfigReadError, smscmon.ConfigParser.Error) as _exc:
-            self.logger.error(repr(_exc))
-            return False
-
         if not calc_file or not os.path.isfile(calc_file):
             self.logger.error('Calculations file not found: %s', calc_file)
-            return False
+            raise smscmon.ConfigReadError
 
         if not self.html_template or not os.path.isfile(self.html_template):
             self.logger.error('HTML template not found: %s',
                               self.html_template)
-            return False
+            raise smscmon.ConfigReadError
 
         if not self.graphs_file or not os.path.isfile(self.graphs_file):
             self.logger.error('Graphs definitions file not found: %s',
                               self.graphs_file)
-            return False
-
-        return True
+            raise smscmon.ConfigReadError
 
     def generate_reports(self, all_systems):
         """
@@ -262,16 +270,18 @@ def start(alldays=False, nologs=False, noreports=False, threaded=False,
     """ Main method, gets data and logs, store and render the HTML output
         Threaded version (fast, error prone)
     """
-    container = Container(loglevel=kwargs.pop('loglevel')
-                          if 'loglevel' in kwargs else None)
-    container.threaded = threaded
-    # check everything's in place before doing anything
-    if not container.check_files(kwargs.get('settings_file')):
+    try:
+        container = Container(loglevel=kwargs.pop('loglevel')
+                              if 'loglevel' in kwargs else None,
+                              settings_file=kwargs.pop('settings_file')
+                              if 'settings_file' in kwargs else None)
+        container.threaded = threaded
+    except smscmon.ConfigReadError:  # if not everything in place, return now
         return
 
     pylab.rcParams['figure.figsize'] = 13, 10
     plt.style.use('ggplot')
-    conf = smscmon.read_config(kwargs.get('settings_file'))
+    conf = smscmon.read_config(container.settings_file)
 
     # Open the tunnels and gather all data
     container.data, container.logs = smscmon.main(
@@ -279,8 +289,8 @@ def start(alldays=False, nologs=False, noreports=False, threaded=False,
         nologs=nologs,
         logger=container.logger,
         threads=threaded,
-        settings_file=kwargs.get('settings_file')
-                                                  )
+        settings_file=container.settings_file
+    )
     if container.data.empty:
         container.logger.error('Could not retrieve data!!! Aborting.')
         return

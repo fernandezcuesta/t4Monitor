@@ -6,8 +6,8 @@ pysmscmon/store/*
 pysmscmon/reports/*
 pysmscmon/htmlcov/*
 *cache*
-reports/
-store/
+*reports/
+*store/
 share/
 bin/
 include/

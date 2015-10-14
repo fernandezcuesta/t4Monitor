@@ -13,29 +13,24 @@ import numpy as np
 import pandas as pd
 
 import pysmscmon as init_func
-from pysmscmon import df_tools, logger
+from pysmscmon import df_tools
 from pysmscmon.gen_report import gen_report, get_graphs
 
-TEST_DATAFRAME = pd.DataFrame(np.random.randn(100, 4),
-                              columns=['test1',
-                                       'test2',
-                                       'test3',
-                                       'test4'])
-TEST_CSV = 'test/test_data.csv'
-TEST_PKL = 'test/test_data.pkl'
-TEST_GRAPHS_FILE = 'test/test_graphs.cfg'
-TEST_HTMLTEMPLATE = 'test/test_template.html'
-
-LOGGER = logger.init_logger(loglevel='DEBUG', name='test-pysmscmon')
+from .base import (
+    LOGGER,
+    TEST_CSV,
+    TEST_PKL,
+    TEST_GRAPHS_FILE,
+    TEST_HTMLTEMPLATE
+)
 
 
 class TestGenReport(unittest.TestCase):
     """ Test functions for gen_report.py """
     def test_genreport(self):
         """ Test function for gen_report """
-        my_container = init_func.Container(loglevel='keep')
+        my_container = init_func.Container(logger=LOGGER)
         # fill it with some data
-        my_container.logger = LOGGER
         my_container.data = df_tools.read_pickle(TEST_PKL)
         my_container.system = list(my_container.data.system)[0].upper()
         my_container.logs[my_container.system] = 'Skip logs here, just a test!'
@@ -72,8 +67,7 @@ class TestGenReport(unittest.TestCase):
 
     def test_getgraphs(self):
         """ Test function for get_graphs """
-        my_container = init_func.Container(loglevel='keep')
-        my_container.logger = LOGGER
+        my_container = init_func.Container(logger=LOGGER)
         my_container.data = df_tools.read_pickle(TEST_PKL)
         my_container.system = list(my_container.data.system)[0].upper()
         my_container.logs[my_container.system] = 'Skip logs here, just a test!'

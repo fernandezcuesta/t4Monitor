@@ -1,86 +1,95 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-"""
-*pysmscmon* - SMSC monitoring **test functions**
-"""
-from __future__ import absolute_import, print_function
+from __future__ import print_function, absolute_import
 
-import ConfigParser
-import logging
-import Queue
-import socket
-import unittest
+import shutil
+import tempfile
+from os import path, remove
+from unittest import skip
 
-import numpy as np
 import pandas as pd
-import paramiko
-from pandas.util.testing import assert_frame_equal
 
+import pysmscmon
 from pysmscmon import smscmon as smsc
-from pysmscmon import df_tools, logger
 from pysmscmon.sshtunnels.sftpsession import SftpSession
 
-from .interactive_common import *
+from .base import *
 
 
-class TestSmscmon(unittest.TestCase):
-    """ Set of test functions for smscmon.py """
+class TestMain(TestWithSsh):
+    """ Set of test functions for interactive (ssh) methods of __init__.py """
+
     @classmethod
     def setUpClass(cls):
-        smsc.add_methods_to_pandas_dataframe(LOGGER)
+        cls.conf = smsc.read_config(settings_file=TEST_CONFIG)
 
-    def test_config(self):
-        """ test function for read_config """
-        config = smsc.read_config(TEST_CONFIG)
-        self.assertIsInstance(config, ConfigParser.SafeConfigParser)
-        self.assertGreater(config.sections(), 2)
-        self.assertIn('GATEWAY', config.sections())
-        self.assertTrue(all([key in [i[0] for i in config.items('DEFAULT')]
-                             for key in ['ssh_port', 'ssh_timeout',
-                                         'tunnel_port', 'folder', 'username',
-                                         'ip_or_hostname']]))
-        # Trying to read a bad formatted config file should raise an exception
-        self.assertRaises(smsc.ConfigReadError, smsc.read_config, TEST_CSV)
+        cls.container = pysmscmon.Container(loglevel='keep',
+                                            settings_file=TEST_CONFIG)
+        cls.container.logger = LOGGER
+        cls.temporary_dir = tempfile.gettempdir()
 
-    def test_getstats(self):
-        """ Test function for get_stats_from_host """
-        monitor = smsc.SMSCMonitor()
-        df1 = monitor.get_stats_from_host('localfs', TEST_CSV)
-        df2 = df_tools.read_pickle(TEST_PKL)
+    @classmethod
+    def tearDownClass(cls):
+        cls.container.logger.debug('Deleting temporary folders: (%s, %s)',
+                                   cls.container.reports_folder,
+                                   cls.container.store_folder)
+        shutil.rmtree(cls.container.reports_folder)
+        shutil.rmtree(cls.container.store_folder)
 
-        self.assertIsInstance(df1, pd.DataFrame)
-        self.assertIsInstance(df2, pd.DataFrame)
-        assert_frame_equal(df1, df2)
+        # Remove temporary files
+        remove(path.join(cls.temporary_dir,
+                         cls.conf.get('MISC', 'calculations_file')))
 
-    def test_SMSCMonitor_class(self):
-        """ Test methods related to SMSCMonitor class """
-        sdata = smsc.SMSCMonitor()
-        # first of all, check default values
-        self.assertIsNone(sdata.server)
-        self.assertIsInstance(sdata.results_queue, Queue.Queue)
-        self.assertIsInstance(sdata.conf, ConfigParser.SafeConfigParser)
-        self.assertFalse(sdata.alldays)
-        self.assertFalse(sdata.nologs)
-        self.assertIsInstance(sdata.logger, logging.Logger)
-        self.assertEqual(sdata.settings_file, smsc.DEFAULT_SETTINGS_FILE)
-        self.assertIsInstance(sdata.data, pd.DataFrame)
-        self.assertDictEqual(sdata.logs, {})
+        remove(path.join(cls.temporary_dir,
+                         cls.conf.get('MISC', 'html_template')))
 
-        # fill it with some data, clone and test contents of copy
-        sdata.alldays = True
-        sdata.logger = LOGGER
-        sdata.settings_file = TEST_CONFIG
+        remove(path.join(cls.temporary_dir,
+                         cls.conf.get('MISC', 'graphs_definition_file')))
 
-        clone = sdata.clone()
-        self.assertEqual(sdata.server, clone.server)
-        self.assertEqual(sdata.conf, clone.conf)
-        self.assertEqual(sdata.alldays, clone.alldays)
-        self.assertEqual(sdata.nologs, clone.nologs)
-        self.assertEqual(sdata.logger, clone.logger)
-        self.assertEqual(sdata.settings_file, clone.settings_file)
+    def test_start(self):
+        """ Test function for main() and start() """
 
-        self.assertIn('Settings file: {}'.format(sdata.settings_file),
-                      sdata.__str__())
+        self.conf.set('DEFAULT', 'folder', MY_DIR)
+
+        # start() needs a file with the settings, and the files linked in that
+        # settings file may be relative to the settings file location, so
+        # work in a temporary directory
+        with tempfile.NamedTemporaryFile() as temp_config:
+            self.container.logger.info('Using temporary dir: %s',
+                                       self.temporary_dir)
+            calcs_file = self.container.get_absolute_path(
+                self.conf.get('MISC', 'calculations_file'))
+            shutil.copy(calcs_file,
+                        self.temporary_dir)
+
+            html_template = self.container.get_absolute_path(
+                self.conf.get('MISC', 'html_template'))
+            shutil.copy(html_template,
+                        self.temporary_dir)
+
+            graphs_file = self.container.get_absolute_path(
+                self.conf.get('MISC', 'graphs_definition_file'))
+            shutil.copy(graphs_file,
+                        self.temporary_dir)
+
+            self.conf.write(temp_config)
+            temp_config.seek(0)
+            self.container.settings_file = temp_config.name
+            self.container.check_files()
+
+            pysmscmon.start(alldays=True,
+                            loglevel='DEBUG',
+                            settings_file=temp_config.name,
+                            threads=True)
+
+        # Returns nothing if non-existing or bad settings file
+        with tempfile.NamedTemporaryFile() as temp_config:
+            self.conf.write(temp_config)
+            temp_config.seek(0)
+            self.container.settings_file = temp_config.name
+            self.container.check_files()
+            # calc, graph and template are not in the same folder as settings
+            self.assertIsNone(pysmscmon.start(settings_file=temp_config.name))
 
 
 class TestSmscmon_Ssh(TestWithSsh):

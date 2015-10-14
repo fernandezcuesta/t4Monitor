@@ -5,8 +5,8 @@
 """
 from __future__ import absolute_import
 
-import math
 import re
+import math
 import tempfile
 import unittest
 
@@ -14,9 +14,8 @@ import pandas as pd
 from pandas.util.testing import assert_frame_equal
 
 from pysmscmon import smscmon as smsc
-from pysmscmon import logger
 
-LOGGER = logger.init_logger(loglevel='DEBUG', name='test-pysmscmon')
+from .base import LOGGER
 
 
 class TestCalculations(unittest.TestCase):
@@ -67,7 +66,8 @@ class TestCalculations(unittest.TestCase):
                                   parn_pattern,
                                   'R',
                                   'B * C / (64 - 32)')
-        self.assertTrue(all([self.testdf.R[k] == 4 for k in self.testdf.index]))
+        self.assertTrue(all([self.testdf.R[k] == 4
+                        for k in self.testdf.index]))
 
     def test_apply_calcs(self):
         """ Test function for apply_calcs """
@@ -103,4 +103,4 @@ class TestCalculations(unittest.TestCase):
         assert_frame_equal(self.testdf, df_with_calcs)
         # Attempting to clean from a non-exising file does nothing
         self.assertIsNone(self.testdf.clean_calcs('non-existing-file'))
-        self.testdf.clean_calcs('test/test_data.csv')  # wrong calculations file
+        self.testdf.clean_calcs('test/test_data.csv')  # wrong calcs file

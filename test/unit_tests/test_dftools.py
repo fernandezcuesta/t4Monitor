@@ -8,21 +8,13 @@ from __future__ import absolute_import
 import tempfile
 import unittest
 
-import numpy as np
 import pandas as pd
 from pandas.util.testing import assert_frame_equal
 
 from pysmscmon import smscmon as smsc
-from pysmscmon import df_tools, logger
+from pysmscmon import df_tools
 
-TEST_DATAFRAME = pd.DataFrame(np.random.randn(100, 4),
-                              columns=['test1',
-                                       'test2',
-                                       'test3',
-                                       'test4'])
-LOGGER = logger.init_logger(loglevel='DEBUG', name='test-pysmscmon')
-TEST_CSV = 'test/test_data.csv'
-TEST_PKL = 'test/test_data.pkl'
+from .base import LOGGER, TEST_CSV, TEST_PKL
 
 
 class TestAuxiliaryFunctions(unittest.TestCase):
@@ -192,12 +184,20 @@ class TestDFTools(unittest.TestCase):
             assert_frame_equal(dataframe,
                                pd.read_pickle(picklegz.name,
                                               compress=True))
+            # We should be able to know this is a compressed pickle just by
+            # looking at the .gz extension
+            assert_frame_equal(dataframe,
+                               pd.read_pickle(picklegz.name))
 
     def consolidate_data(self):
         """ Test for consolidate_data """
         dataframe = df_tools.dataframize(TEST_CSV, logger=LOGGER)
+        # Consolidate a dataframe with nothing should return the original df
         assert_frame_equal(df_tools.consolidate_data(dataframe), dataframe)
+        # Consolidating a df with itself shouldn't modify anything
         assert_frame_equal(df_tools.consolidate_data(dataframe, dataframe),
                            dataframe)
-        assert_frame_equal(df_tools.consolidate_data(dataframe, pd.DataFrame()),
+        # Consolidating a df with itself should return the original dataframe
+        assert_frame_equal(df_tools.consolidate_data(dataframe,
+                                                     pd.DataFrame()),
                            dataframe)

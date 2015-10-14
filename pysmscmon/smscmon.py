@@ -287,7 +287,7 @@ class SMSCMonitor(object):
             error_msg = '{} | Directory "{}" not found at destination'.format(
                 system,
                 self.conf.get(system, 'folder')
-                                                                              )
+            )
             self.logger.error(error_msg)
             return data
 
@@ -298,7 +298,7 @@ class SMSCMonitor(object):
             tag_list = ['.csv']
         else:
             tag_list = ['.csv', '%02i%s%i' % (dt.date.today().day,
-                                              MONTHS[dt.date.today().month - 1],
+                                              MONTHS[dt.date.today().month-1],
                                               dt.date.today().year)]
         try:  # if present, also filter on cluster id
             tag_list.append(self.conf.get(system, 'cluster_id').lower())
