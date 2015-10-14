@@ -59,7 +59,7 @@ from matplotlib import pylab as pylab, pyplot as plt
 
 from . import smscmon
 from .gen_report import gen_report
-from .logger import init_logger
+from .logger import init_logger, DEFAULT_LOGLEVEL
 
 __version_info__ = (0, 8, 3)
 __version__ = '.'.join(str(i) for i in __version_info__)
@@ -90,9 +90,9 @@ class Container(object):
                                           "%d/%m/%Y %H:%M:%S")
         self.graphs_file = ''
         self.html_template = ''
-        self.logger = logger
-        if loglevel:
-            self.logger = init_logger(loglevel)
+        self.logger = logger if logger else init_logger(
+                      loglevel if loglevel else DEFAULT_LOGLEVEL
+                      )
         self.logs = {}
         self.reports_folder = './reports'
         self.settings_file = settings_file or smscmon.DEFAULT_SETTINGS_FILE
@@ -215,12 +215,18 @@ class Container(object):
             raise smscmon.ConfigReadError
 
         # Create store folder if needed
-        if not os.path.exists(self.store_folder):
-            self.logger.info('Creating non-existing directory: %s',
-                             os.path.abspath(self.store_folder))
+        try:
             os.makedirs(self.store_folder)
-
+        except OSError:
+            self.logger.info('Store folder already exists: %s',
+                             os.path.abspath(self.store_folder))
         # Create reports folder if needed
+        try:
+            os.makedirs(self.reports_folder)
+        except OSError:
+            self.logger.info('Reports folder already exists: %s',
+                             os.path.abspath(self.reports_folder))
+
         if not os.path.exists(self.reports_folder):
             self.logger.info('Creating non-existing directory: %s',
                              os.path.abspath(self.reports_folder))
@@ -358,14 +364,14 @@ def argument_parse(args=None):
                         help='Settings file (default {})'
                         .format(os.path.relpath(smscmon.DEFAULT_SETTINGS_FILE)
                                 ))
-    parser.add_argument('--loglevel', const=logger.DEFAULT_LOGLEVEL,
+    parser.add_argument('--loglevel', const=DEFAULT_LOGLEVEL,
                         choices=['DEBUG',
                                  'INFO',
                                  'WARNING',
                                  'ERROR',
                                  'CRITICAL'],
                         help='Debug level (default: %s)' %
-                        logger.DEFAULT_LOGLEVEL,
+                        DEFAULT_LOGLEVEL,
                         nargs='?')
     # Default for smscmon is 'settings.cfg' in /conf
     if not args:

@@ -282,13 +282,14 @@ class SMSCMonitor(object):
         try:  # Test if destination folder is reachable
             destdir = self.conf.get(system, 'folder') or '.'
             session.chdir(destdir)
+            self.logger.debug('%s | Changing to remote folder: %s',
+                              system,
+                              destdir)
             session.chdir()  # revert back to home folder
         except IOError:
-            error_msg = '{} | Directory "{}" not found at destination'.format(
-                system,
-                self.conf.get(system, 'folder')
-            )
-            self.logger.error(error_msg)
+            self.logger.error('%s | Directory "%s" not found at destination',
+                              system,
+                              self.conf.get(system, 'folder'))
             return data
 
         # filter remote files on extension and date

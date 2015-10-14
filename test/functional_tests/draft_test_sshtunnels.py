@@ -6,8 +6,8 @@
 
 import random
 import socket
-import threading
 import unittest
+import threading
 
 import sshserver
 import sshtunnel
