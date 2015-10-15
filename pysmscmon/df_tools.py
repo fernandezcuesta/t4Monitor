@@ -58,6 +58,8 @@ def consolidate_data(data, tmp_data=None):
     data = data.groupby(data.index).last()
     restore_metadata(tmp_meta, data)
     if isinstance(data.system, set):
+        # WHY NOT TO USE CLUSTER_NAME INSTEAD THE TRICKY THING FROM T4-CSV?
+        # THIS IS NOT UNIVERSAL...
         # we are only interested in first 5 chars of the system name
         data.system = set([i[0:5] for i in data.system])
     return data
@@ -210,13 +212,15 @@ def extract_t4csv(file_descriptor):
             # Search from the bottom in case there's a format2 violation,
             # common with t4 merge where files are glued just as with cat,
             # so there are 2x headers, discarding the first part
+            # Our header will be between [h_ini, h_last]
             h_ini = len(data_lines) - \
-                data_lines[::-1].index(START_HEADER_TAG) - 1
+                data_lines[::-1].index(START_HEADER_TAG)
             h_last = len(data_lines) - \
-                data_lines[::-1].index(END_HEADER_TAG) - 1
+                data_lines[::-1].index(END_HEADER_TAG)
 
-            header = SEPARATOR.join(data_lines[h_ini+1:h_last]).split(SEPARATOR)
-            data_lines = data_lines[h_last + 1:]
+            header = SEPARATOR.join(data_lines[h_ini:h_last-1]).\
+                split(SEPARATOR)  # This is now a list with all the columns
+            data_lines = data_lines[h_last:]
         return (header, data_lines, metadata)
     except:
         raise ExtractCSVException

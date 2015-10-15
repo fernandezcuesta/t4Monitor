@@ -45,7 +45,7 @@ class TestSmscmon(unittest.TestCase):
     def test_getstats(self):
         """ Test function for get_stats_from_host """
         monitor = smsc.SMSCMonitor()
-        df1 = monitor.get_stats_from_host('localfs', TEST_CSV)
+        df1 = monitor.get_stats_from_host(filespec_list=TEST_CSV)
         df2 = df_tools.read_pickle(TEST_PKL)
 
         self.assertIsInstance(df1, pd.DataFrame)

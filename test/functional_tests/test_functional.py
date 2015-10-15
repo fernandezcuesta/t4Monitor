@@ -14,13 +14,13 @@ from pysmscmon import smscmon as smsc
 from pysmscmon.sshtunnels.sftpsession import SftpSession
 
 from .base import *
-
+import time
 
 class TestMain(TestWithTempConfig):
     """ Set of test functions for interactive (ssh) methods of __init__.py """
 
     def test_start(self):
-        """ Test function for main() and start() """
+        """ Test function for pysmscmon.start() """
 
         self.conf.set('DEFAULT', 'folder', MY_DIR)
 
@@ -47,7 +47,8 @@ class TestMain(TestWithTempConfig):
             # calc, graph and template are not in the same folder as settings
             self.assertIsNone(pysmscmon.start(settings_file=temp_config.name))
 
-
+        time.sleep(20)
+# @skip
 class TestSmscMon(TestWithSsh):
     """ Set of test functions for interactive (ssh) methods of smscmon.py """
     def test_inittunnels(self):
@@ -162,9 +163,7 @@ class TestSmscMon(TestWithSsh):
                                    alldays=True,
                                    nologs=True)
         monitor.conf.set('DEFAULT', 'folder', MY_DIR)
-        all_systems = [item for item in monitor.conf.sections()
-                       if item not in ['GATEWAY', 'MISC']]
-        monitor.main_no_threads(all_systems)
+        monitor.main_no_threads()
         self.assertIsInstance(monitor.data, pd.DataFrame)
         self.assertFalse(monitor.data.empty)
         self.assertIsInstance(monitor.logs, dict)
@@ -176,20 +175,18 @@ class TestSmscMon(TestWithSsh):
                                    alldays=True,
                                    nologs=True)
         monitor.conf.set('DEFAULT', 'folder', MY_DIR)
-        all_systems = [item for item in monitor.conf.sections()
-                       if item not in ['GATEWAY', 'MISC']]
-        monitor.main_threads(all_systems)
+        monitor.main_threads()
         self.assertIsInstance(monitor.data, pd.DataFrame)
         self.assertFalse(monitor.data.empty)
         self.assertIsInstance(monitor.logs, dict)
 
-    def test_main(self):
-        """ Test function for main """
+    def test_start(self):
+        """ Test function for start """
         monitor = smsc.SMSCMonitor(settings_file=TEST_CONFIG,
                                    logger=LOGGER,
                                    alldays=True,
                                    nologs=True)
-        monitor.main()
+        monitor.start()
         # main reads by itself the config file, where the folder is not set
         # thus won't find the files and return an empty dataframe
         self.assertIsInstance(monitor.data, pd.DataFrame)
@@ -201,7 +198,7 @@ class TestSmscMon(TestWithSsh):
                                    logger=LOGGER,
                                    alldays=True,
                                    nologs=True)
-        monitor.main(threads=True)
+        monitor.start(threads=True)
         self.assertIsInstance(monitor.data, pd.DataFrame)
         self.assertTrue(monitor.data.empty)
         self.assertIsInstance(monitor.logs, dict)

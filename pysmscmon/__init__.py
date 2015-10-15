@@ -103,10 +103,10 @@ class Container(object):
         self.check_files()
 
     def __str__(self):
-        return 'Container created on {0} for system: {1}\nLoglevel: {2}\n' \
+        return 'Container created on {0} for system: "{1}"\nLoglevel: {2}\n' \
                'graphs_file: {3}\nhtml_template: {4}\nreports folder: {5}\n' \
                'store folder: {6}\ndata size: {7}\nsettings_file: {8}'.format(
-                self.year,
+                self.date_time,
                 self.system,
                 self.logger.level,
                 self.graphs_file,
@@ -117,6 +117,7 @@ class Container(object):
                 self.settings_file
                 )
 
+# TODO: get rid of this?
     def clone(self, system=''):
         """ Makes a copy of the data container where the system is filled in,
             data is shared with the original (note in pandas we need to do a
@@ -150,13 +151,13 @@ class Container(object):
                                    os.sep if relpath != os.sep else '',
                                    filename)
 
-    def th_reports(self, system):
-        """  Handler for rendering jinja2 reports with threads.
-             Called from threaded_main()
-        """
-        # Specify which system in container, passed to get_html_output
-        self.gen_system_report(system=system,
-                               container=self.clone(system))
+    # def th_reports(self, system):
+    #     """  Handler for rendering jinja2 reports with threads.
+    #          Called from threaded_main()
+    #     """
+    #     # Specify which system in container, passed to get_html_output
+    #     self.gen_system_report(system=system,
+    #                            container=self.clone(system))
 
     def gen_system_report(self, system=None, container=None):
         report_name = '{0}/Report_{1}_{2}.html'.format(
@@ -193,14 +194,10 @@ class Container(object):
                 self.store_folder = self.get_absolute_path(
                     conf.get('MISC', 'store_folder')
                 )
-            self.logger.debug('Using store folder: %s', self.store_folder)
-
             if conf.has_option('MISC', 'reports_folder'):
                 self.reports_folder = self.get_absolute_path(
                     conf.get('MISC', 'reports_folder')
                 )
-            self.logger.debug('Using reports folder: %s', self.reports_folder)
-
             calc_file = self.get_absolute_path(
                 conf.get('MISC', 'calculations_file')
             )
@@ -216,16 +213,18 @@ class Container(object):
 
         # Create store folder if needed
         try:
+            self.logger.debug('Using store folder: %s', self.store_folder)
             os.makedirs(self.store_folder)
         except OSError:
-            self.logger.info('Store folder already exists: %s',
-                             os.path.abspath(self.store_folder))
+            self.logger.debug('Store folder already exists: %s',
+                              os.path.abspath(self.store_folder))
         # Create reports folder if needed
         try:
+            self.logger.debug('Using reports folder: %s', self.reports_folder)
             os.makedirs(self.reports_folder)
         except OSError:
-            self.logger.info('Reports folder already exists: %s',
-                             os.path.abspath(self.reports_folder))
+            self.logger.debug('Reports folder already exists: %s',
+                              os.path.abspath(self.reports_folder))
 
         if not os.path.exists(self.reports_folder):
             self.logger.info('Creating non-existing directory: %s',
@@ -246,7 +245,7 @@ class Container(object):
                               self.graphs_file)
             raise smscmon.ConfigReadError
 
-    def generate_reports(self, all_systems):
+    def generate_reports(self):
         """
         Call jinja2 template, separately to safely store the logs
         in case of error.
@@ -255,18 +254,20 @@ class Container(object):
         """
         if self.threaded:
             threads = [
-                threading.Thread(target=self.th_reports,
-                                 args=(system, ),
+                threading.Thread(target=self.gen_system_report,
+                                 kwargs={'system': system,
+# TODO: Probar poniendo container = self
+                                         'container': self.clone(system)},
                                  name=system)
-                for system in all_systems
+                for system in self.data.system
             ]
             for thread_item in threads:
                 thread_item.daemon = True
                 thread_item.start()
-            # for thread_item in threads:
+            for thread_item in threads:  # Assuming all take the same time
                 thread_item.join()
         else:
-            for system in all_systems:
+            for system in self.data.system:
                 # self.system = system
                 self.gen_system_report(system)
 
@@ -287,7 +288,7 @@ def start(alldays=False, nologs=False, noreports=False, threaded=False,
 
     pylab.rcParams['figure.figsize'] = 13, 10
     plt.style.use('ggplot')
-    conf = smscmon.read_config(container.settings_file)
+    #conf = smscmon.read_config(container.settings_file)
 
     # Open the tunnels and gather all data
     container.data, container.logs = smscmon.main(
@@ -301,7 +302,8 @@ def start(alldays=False, nologs=False, noreports=False, threaded=False,
         container.logger.error('Could not retrieve data!!! Aborting.')
         return
 
-    all_systems = [x for x in conf.sections() if x not in ['GATEWAY', 'MISC']]
+    #all_systems = [x for x in conf.sections() if x not in ['GATEWAY', 'MISC']]
+    # all_systems = [x for x in container.data.system]
     datetag = dt.date.strftime(dt.datetime.today(), "%Y%m%d_%H%M")
 
     # Store the data locally
@@ -316,7 +318,7 @@ def start(alldays=False, nologs=False, noreports=False, threaded=False,
 
     # Write logs
     if not nologs:
-        for system in all_systems:
+        for system in container.data.system:  # all_systems:
             if system not in container.logs:
                 container.logger.warning('No log info found for %s', system)
                 continue
@@ -325,11 +327,13 @@ def start(alldays=False, nologs=False, noreports=False, threaded=False,
                                                     datetag),
                       'w') as logtxt:
                 logtxt.writelines(container.logs[system])
+
+    container.logger.debug(container.data.system)
     # Generate reports
     if noreports:
         container.logger.info('Skipped report generation')
     else:
-        container.generate_reports(all_systems)
+        container.generate_reports()  # all_systems)
     container.logger.info('Done!')
 
 

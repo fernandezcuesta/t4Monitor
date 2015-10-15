@@ -19,8 +19,8 @@ def gen_report(container):
     Notice the use of trim_blocks, which greatly helps control whitespace. """
 
     try:
-        assert container.system  # Check a system was specified
         assert not container.data.empty  # Check that data isn't empty
+        assert container.system  # Check a system was specified
         env_dir = path.dirname(path.abspath(container.html_template))
         j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader(env_dir),
                                     trim_blocks=True)

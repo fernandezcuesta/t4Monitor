@@ -38,7 +38,6 @@ class TestWithSsh(BaseTestClass):
             raise unittest.SkipTest
 
 
-
 class TestWithTempConfig(TestWithSsh):
     """ Test class to handle working in a temporary dir """
     @classmethod
@@ -63,7 +62,6 @@ class TestWithTempConfig(TestWithSsh):
             cls.conf.get('MISC', 'graphs_definition_file'))
         shutil.copy(graphs_file,
                     cls.temporary_dir)
-
 
     @classmethod
     def tearDownClass(cls):

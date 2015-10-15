@@ -46,6 +46,11 @@ class TestAuxiliaryFunctions(unittest.TestCase):
 
 class TestDFTools(unittest.TestCase):
     """ Set of test functions for df_tools.py """
+
+    @classmethod
+    def setUpClass(cls):
+        smsc.add_methods_to_pandas_dataframe(LOGGER)
+
     def test_extract_t4csv(self):
         """ Test function for extract_t4csv """
         with open(TEST_CSV, 'r') as filedescriptor:

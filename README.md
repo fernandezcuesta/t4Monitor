@@ -2,12 +2,13 @@
 
 [![Build Status](https://travis-ci.org/fernandezcuesta/pySMSCMon.svg?branch=master)](https://travis-ci.org/fernandezcuesta/pySMSCMon)
 
-T4-Format 1/2 CSV to Pandas dataframe
-
-- Load files over sftp through optional SSH tunnels over a single gateway.
-- Merges all remote CSVs into a single, plain CSV and a gzipped pickle file
-containing the dataframe.
-- Create report in HTML using Jinja2 templates.
+- Download OpenVMS statistics (T4) over sftp through optional SSH tunnels over
+a single gateway.
+- T4-Format (flavours 1 and 2) CSV to Pandas dataframe. Merge all remote CSVs
+into a single, plain (not T4) CSV and a gzipped pickle file containing the
+dataframe and its associated metadata.
+- Apply simple arithmetical operations to the dataframe.
+- HTML (Jinja2 templates) report generation by graphing dataframe columns.
 
 
 ## Build for windows
