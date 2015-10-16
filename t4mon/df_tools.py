@@ -7,11 +7,11 @@ Created on Mon May 25 11:11:38 2015
 """
 from __future__ import absolute_import
 
-import __builtin__
 import gzip
+import __builtin__
+from re import split
 from cStringIO import StringIO
 from itertools import takewhile
-from re import split
 
 import numpy as np
 import pandas as pd

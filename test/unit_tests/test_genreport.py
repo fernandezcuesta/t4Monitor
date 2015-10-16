@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-*pysmscmon* - SMSC monitoring **test functions**
+*t4mon* - SMSC monitoring **test functions**
 """
 from __future__ import absolute_import
 
@@ -12,24 +12,25 @@ import unittest
 import numpy as np
 import pandas as pd
 
-import pysmscmon as init_func
-from pysmscmon import df_tools
-from pysmscmon.gen_report import gen_report, get_graphs
+import t4mon as init_func
+from t4mon import df_tools
+from t4mon.gen_report import gen_report, get_graphs
 
 from .base import (
     LOGGER,
     TEST_CSV,
     TEST_PKL,
     TEST_GRAPHS_FILE,
-    TEST_HTMLTEMPLATE
+    TEST_HTMLTEMPLATE,
+    BaseTestClass
 )
 
 
-class TestGenReport(unittest.TestCase):
+class TestGenReport(BaseTestClass):
     """ Test functions for gen_report.py """
     def test_genreport(self):
         """ Test function for gen_report """
-        my_container = init_func.Container(logger=LOGGER)
+        my_container = self.container.clone()
         # fill it with some data
         my_container.data = df_tools.read_pickle(TEST_PKL)
         my_container.system = list(my_container.data.system)[0].upper()
@@ -67,7 +68,7 @@ class TestGenReport(unittest.TestCase):
 
     def test_getgraphs(self):
         """ Test function for get_graphs """
-        my_container = init_func.Container(logger=LOGGER)
+        my_container = self.container.clone()
         my_container.data = df_tools.read_pickle(TEST_PKL)
         my_container.system = list(my_container.data.system)[0].upper()
         my_container.logs[my_container.system] = 'Skip logs here, just a test!'

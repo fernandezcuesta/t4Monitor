@@ -11,13 +11,13 @@ from os import path, remove
 
 import paramiko
 
-from pysmscmon.smscmon import read_config, add_methods_to_pandas_dataframe
+from t4mon.collector import read_config, add_methods_to_pandas_dataframe
 
 from ..unit_tests.base import *
 
 
 class TestWithSsh(BaseTestClass):
-    """ Set of test functions for interactive (ssh) methods of smscmon.py """
+    """ Set of test functions for interactive (ssh) methods of collector.py """
     @classmethod
     def setUpClass(cls):
         super(TestWithSsh, cls).setUpClass()

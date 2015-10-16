@@ -1,4 +1,4 @@
-# pySMSCMon
+# t4Monitor
 
 [![Build Status](https://travis-ci.org/fernandezcuesta/pySMSCMon.svg?branch=master)](https://travis-ci.org/fernandezcuesta/pySMSCMon)
 
@@ -8,9 +8,10 @@ a single gateway.
 into a single, plain (not T4) CSV and a gzipped pickle file containing the
 dataframe and its associated metadata.
 - Apply simple arithmetical operations to the dataframe.
-- HTML (Jinja2 templates) report generation by graphing dataframe columns.
+- HTML (Jinja2 templates) report generation by graphing selected dataframe
+columns.
 
 
 ## Build for windows
 
-    $ nuitka __init__.py --recurse-to=pysmscmon --recurse-to=sftpsession --recurse-to=sshtunnel --recurse-to=calculations
+    $ nuitka __init__.py --recurse-to=t4mon --recurse-to=sftpsession --recurse-to=sshtunnel --recurse-to=calculations

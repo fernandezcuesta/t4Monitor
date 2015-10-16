@@ -10,9 +10,8 @@ import numpy as np
 import pandas as pd
 import paramiko
 
-import pysmscmon
-from pysmscmon import smscmon as smsc
-from pysmscmon import logger
+from t4mon.orchestrator import Orchestrator
+from t4mon import logger
 
 __all__ = ('BaseTestClass',
            'MY_DIR',
@@ -25,7 +24,7 @@ __all__ = ('BaseTestClass',
            'TEST_HTMLTEMPLATE',
            'TEST_PKL')
 
-LOGGER = logger.init_logger(loglevel='DEBUG', name='test-pysmscmon')
+LOGGER = logger.init_logger(loglevel='DEBUG', name='test-t4mon')
 
 TEST_CONFIG = 'test/test_settings.cfg'
 MY_DIR = path.dirname(path.abspath(TEST_CONFIG))
@@ -46,14 +45,18 @@ class BaseTestClass(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.container = pysmscmon.Container(logger=LOGGER,
-                                            settings_file=TEST_CONFIG)
+        cls.container = Orchestrator(logger=LOGGER,
+                                     settings_file=TEST_CONFIG)
+        cls.container.logs['my_sys'] = 'These are my dummy log results'
 
     @classmethod
     def tearDownClass(cls):
         for folder in [cls.container.reports_folder,
                        cls.container.store_folder]:
             if path.isdir(folder):
-                cls.container.logger.debug('Deleting temporary folder: %s',
-                                           folder)
-                shutil.rmtree(folder)
+                try:
+                    shutil.rmtree(folder)
+                    cls.container.logger.debug('Temporary folder deleted: %s',
+                                               folder)
+                except OSError:
+                    pass  # was already deleted or no permissions

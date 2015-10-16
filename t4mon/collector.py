@@ -18,24 +18,25 @@
 """
 from __future__ import absolute_import
 
-import ConfigParser
-import datetime as dt
 import os
 import Queue
+import datetime as dt
 import threading
+import ConfigParser
 from random import randint
 
 import pandas as pd
 from paramiko import SSHException
 
-from . import calculations, df_tools
+from . import df_tools, calculations
 from .logger import init_logger
 from .sshtunnels import sshtunnel
 from .sshtunnels.sftpsession import SftpSession, SFTPSessionError
 
 __all__ = ('add_methods_to_pandas_dataframe',
-           'SMSCMonitor',
-           'read_config')
+           'Collector',
+           'read_config',
+           'start')
 
 # CONSTANTS
 DEFAULT_SETTINGS_FILE = '{}/conf/settings.cfg'.\
@@ -66,10 +67,11 @@ class NoFileFound(Exception):
     pass
 
 
-class SMSCMonitor(object):
+class Collector(object):
 
     """
-    Defines class 'SMSCMonitor'
+    Defines the main Collector class for carrying the data, logs and additional
+    options
     """
 
     def __init__(self,
@@ -77,6 +79,7 @@ class SMSCMonitor(object):
                  logger=None,
                  alldays=False,
                  nologs=False):
+
         self.alldays = alldays
         self.data = pd.DataFrame()
         self.conf = read_config(settings_file)
@@ -109,7 +112,7 @@ class SMSCMonitor(object):
     def clone(self):
         """ Makes a copy of SData
         """
-        my_clone = SMSCMonitor()
+        my_clone = Collector()
         my_clone.alldays = self.alldays
         my_clone.conf = self.conf
         my_clone.data = self.data.copy()  # required in pandas
@@ -464,7 +467,7 @@ class SMSCMonitor(object):
 
     def start(self, threads=None):
         """
-        Main method for SMSCMonitor class
+        Main method for the data collection
         """
         try:
             if threads:
@@ -480,14 +483,14 @@ class SMSCMonitor(object):
             self.logger.error('Unexpected error: %s)', repr(exc))
 
     def __str__(self):
-        return 'alldays/nologs: {}/{}\ndata shape:{}\nlogs (keys): {}' \
-               'server is set up?: {}\n' \
-               'Settings file: {}'.format(self.alldays,
-                                          self.nologs,
-                                          self.data.shape,
-                                          self.logs.keys(),
-                                          'Yes' if self.server else 'No',
-                                          self.settings_file)
+        return ('alldays/nologs: {}/{}\ndata shape:{}\nlogs (keys): {}\n'
+                'server is set up?: {}\n'
+                'Settings file: {}'.format(self.alldays,
+                                           self.nologs,
+                                           self.data.shape,
+                                           self.logs.keys(),
+                                           'Yes' if self.server else 'No',
+                                           self.settings_file))
 
 
 # ADD METHODS TO PANDAS DATAFRAME
@@ -548,8 +551,8 @@ def read_config(settings_file=None):
     return config
 
 
-def main(alldays=False, nologs=False, logger=None, threads=False,
-         settings_file=None):
+def start(alldays=False, nologs=False, logger=None, threads=False,
+          settings_file=None):
     """ Here comes the main function
     Optional: alldays (Boolean): if true, do not filter on today's date
               nologs (Boolean): if true, skip log info collection
@@ -557,7 +560,7 @@ def main(alldays=False, nologs=False, logger=None, threads=False,
     # TODO: review exceptions and comment where they may come from
     try:
         # Initialize monitor
-        collector = SMSCMonitor(settings_file, logger, alldays, nologs)
+        collector = Collector(settings_file, logger, alldays, nologs)
         add_methods_to_pandas_dataframe(collector.logger)
         # Collect all the data and logs
         collector.start(threads)

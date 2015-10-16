@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-*pysmscmon* - SMSC monitoring **test functions**
+*t4mon* - SMSC monitoring **test functions**
 """
 from __future__ import absolute_import
 
@@ -11,8 +11,8 @@ import unittest
 import pandas as pd
 from pandas.util.testing import assert_frame_equal
 
-from pysmscmon import smscmon as smsc
-from pysmscmon import df_tools
+from t4mon import collector
+from t4mon import df_tools
 
 from .base import LOGGER, TEST_CSV, TEST_PKL
 
@@ -25,7 +25,7 @@ class TestAuxiliaryFunctions(unittest.TestCase):
     """
     @classmethod
     def setUpClass(cls):
-        smsc.add_methods_to_pandas_dataframe(LOGGER)
+        collector.add_methods_to_pandas_dataframe(LOGGER)
 
     def test_restore_plain_csv(self):
         """ Test function for auxiliary metadata_from_cols and reload_from_csv
@@ -49,7 +49,7 @@ class TestDFTools(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        smsc.add_methods_to_pandas_dataframe(LOGGER)
+        collector.add_methods_to_pandas_dataframe(LOGGER)
 
     def test_extract_t4csv(self):
         """ Test function for extract_t4csv """

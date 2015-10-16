@@ -1,12 +1,12 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-*pysmscmon* - SMSC monitoring **test functions**
+*t4mon* - SMSC monitoring **test functions**
 """
 import logging
 import unittest
 
-from pysmscmon import logger
+from t4mon import logger
 
 
 class TestSmscmon(unittest.TestCase):

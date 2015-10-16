@@ -5,15 +5,15 @@ from pip.req import parse_requirements
 from pip.download import PipSession
 
 import sys
-import pysmscmon
+import t4mon
 
 
 requires = [str(ir.req) for ir in parse_requirements('requirements.txt', session=PipSession)]
 
 entry_points = {
     'console_scripts': [
-        'smscmon = pysmscmon:main',
-        'smscmon-config = pysmscmon:dump_config'
+        't4monitor = t4mon:main',
+        't4mon-config = t4mon:dump_config'
     ]
 }
 
@@ -33,15 +33,15 @@ class Tox(TestCommand):
         sys.exit(errcode)
 
 setup(
-    name="pysmscmon",
-    version=pysmscmon.__version__,
-    url='https://github.com/fernandezcuesta/pySMSCMon',
+    name="t4Monitor",
+    version=t4mon.__version__,
+    url='https://github.com/fernandezcuesta/t4Monitor',
     license='MIT license',
     author='JM Fernandez',
     author_email='fernandez.cuesta@gmail.com',
-    description="A tool to monitor Acision SMSC without AMS_PMS",
+    description="Report OpenVMS hosts from T4 statistics",
     long_description=README + '\n' + CHANGELOG,
-    packages=['pysmscmon', 'pysmscmon.sshtunnels'],
+    packages=['t4mon', 't4mon.sshtunnels'],
     include_package_data=True,
     install_requires=requires,
     entry_points=entry_points,
@@ -53,9 +53,9 @@ setup(
          'Operating System :: OS Independent',
          'Programming Language :: Python :: 2',
          'Programming Language :: Python :: 2.7',
-         'Topic :: Software Development :: Libraries :: Python Modules',
+         'Topic :: System :: Monitoring',
     ],
     tests_require=['tox'],
     cmdclass = {'test': Tox},
-    test_suite='pysmscmon.tests.test_pysmscmon',
+    test_suite='t4mon.tests',
 )

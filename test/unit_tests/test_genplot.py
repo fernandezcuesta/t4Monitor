@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-*pysmscmon* - SMSC monitoring **test functions**
+*t4mon* - SMSC monitoring **test functions**
 """
 from __future__ import absolute_import
 
@@ -10,7 +10,7 @@ import unittest
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from pysmscmon import df_tools, gen_plot
+from t4mon import df_tools, gen_plot
 
 from .base import LOGGER, TEST_CSV, TEST_DATAFRAME
 
