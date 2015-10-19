@@ -34,19 +34,14 @@ class TestOrchestrator(TestWithTempConfig):
                                 settings_file=temp_config.name)
             orch.start(alldays=True,
                        threads=True)
-            self.assertIn('{0}/Report_{1}_{2}.html'.format(orch.reports_folder,
-                                                           orch.date_tag(),
-                                                           orch.system),
-                          orch.reports_written)
-
-        # Returns nothing if non-existing or bad settings file
-        with tempfile.NamedTemporaryFile() as temp_config:
-            self.conf.write(temp_config)
-            temp_config.seek(0)
-            self.container.settings_file = temp_config.name
-            self.container.check_files()
-            # calc, graph and template are not in the same folder as settings
-            # self.assertIsNone(Orchestrator(settings_file=temp_config.name).start())
+        for system in orch.data.system:
+            if system:
+                self.assertIn(
+                    '{0}/Report_{1}_{2}.html'.format(orch.reports_folder,
+                                                     orch.date_tag(),
+                                                     system),
+                    orch.reports_written
+                )
 
 
 class TestCollector(TestWithSsh):

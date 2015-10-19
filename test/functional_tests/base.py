@@ -45,20 +45,20 @@ class TestWithTempConfig(TestWithSsh):
         super(TestWithTempConfig, cls).setUpClass()
         cls.conf = read_config(settings_file=TEST_CONFIG)
         cls.temporary_dir = tempfile.gettempdir()
-        cls.container.logger.info('Using temporary dir: %s',
+        cls.orchestrator.logger.info('Using temporary dir: %s',
                                   cls.temporary_dir)
 
-        calcs_file = cls.container.get_absolute_path(
+        calcs_file = cls.orchestrator.get_absolute_path(
             cls.conf.get('MISC', 'calculations_file'))
         shutil.copy(calcs_file,
                     cls.temporary_dir)
 
-        html_template = cls.container.get_absolute_path(
+        html_template = cls.orchestrator.get_absolute_path(
             cls.conf.get('MISC', 'html_template'))
         shutil.copy(html_template,
                     cls.temporary_dir)
 
-        graphs_file = cls.container.get_absolute_path(
+        graphs_file = cls.orchestrator.get_absolute_path(
             cls.conf.get('MISC', 'graphs_definition_file'))
         shutil.copy(graphs_file,
                     cls.temporary_dir)

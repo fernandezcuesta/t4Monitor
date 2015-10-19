@@ -30,7 +30,11 @@ def gen_report(container):
                               container.system)
         return j2_tpl.render(data=container)
     except AssertionError:
-        container.logger.error('Data container error!')
+        container.logger.error(
+            '%s',
+            '{} | No data, no report'.format(container.system)
+            if container.system else 'Not a valid system, report skipped'
+        )
     except IOError:
         container.logger.error('Template file (%s) not found.',
                                container.html_template)

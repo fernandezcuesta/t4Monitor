@@ -25,11 +25,10 @@ except ImportError:
     import pickle
 
 
-
-SEPARATOR = ','                                # CSV separator, usually a comma
-START_HEADER_TAG = "$$$ START COLUMN HEADERS $$$"    # Start of Format-2 header
-END_HEADER_TAG = "$$$ END COLUMN HEADERS $$$"          # End of Format-2 header
-DATETIME_TAG = 'Sample Time'                # Column containing sample datetime
+SEPARATOR = ','  # CSV separator, usually a comma
+START_HEADER_TAG = "$$$ START COLUMN HEADERS $$$"  # Start of Format-2 header
+END_HEADER_TAG = "$$$ END COLUMN HEADERS $$$"  # End of Format-2 header
+DATETIME_TAG = 'Sample Time'  # Column containing sample datetime
 
 
 __all__ = ('select_var', 'copy_metadata', 'restore_metadata',

@@ -45,18 +45,18 @@ class BaseTestClass(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.container = Orchestrator(logger=LOGGER,
-                                     settings_file=TEST_CONFIG)
-        cls.container.logs['my_sys'] = 'These are my dummy log results'
+        cls.orchestrator = Orchestrator(logger=LOGGER,
+                                        settings_file=TEST_CONFIG)
+        cls.orchestrator.logs['my_sys'] = 'These are my dummy log results'
 
     @classmethod
     def tearDownClass(cls):
-        for folder in [cls.container.reports_folder,
-                       cls.container.store_folder]:
+        for folder in [cls.orchestrator.reports_folder,
+                       cls.orchestrator.store_folder]:
             if path.isdir(folder):
                 try:
                     shutil.rmtree(folder)
-                    cls.container.logger.debug('Temporary folder deleted: %s',
+                    cls.orchestrator.logger.debug('Temporary folder deleted: %s',
                                                folder)
                 except OSError:
                     pass  # was already deleted or no permissions

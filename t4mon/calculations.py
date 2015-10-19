@@ -67,7 +67,8 @@ def recursive_lis(self, sign_pattern, parn_pattern, res, c_list):
     """
     # Get rid of trailing spaces in result name
     res = res.strip()
-    # Breaking into a list of strings when done, if string we've some work to do
+    # Breaking into a list of strings when done,
+    # if it is a string then we've some work to do...
     if isinstance(c_list, str):
         # text inside the parenthesis
         par = re.findall(parn_pattern, c_list)

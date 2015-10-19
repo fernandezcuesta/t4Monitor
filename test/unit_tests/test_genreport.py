@@ -30,7 +30,7 @@ class TestGenReport(BaseTestClass):
     """ Test functions for gen_report.py """
     def test_genreport(self):
         """ Test function for gen_report """
-        my_container = self.container.clone()
+        my_container = self.orchestrator.clone()
         # fill it with some data
         my_container.data = df_tools.read_pickle(TEST_PKL)
         my_container.system = list(my_container.data.system)[0].upper()
@@ -68,7 +68,7 @@ class TestGenReport(BaseTestClass):
 
     def test_getgraphs(self):
         """ Test function for get_graphs """
-        my_container = self.container.clone()
+        my_container = self.orchestrator.clone()
         my_container.data = df_tools.read_pickle(TEST_PKL)
         my_container.system = list(my_container.data.system)[0].upper()
         my_container.logs[my_container.system] = 'Skip logs here, just a test!'
