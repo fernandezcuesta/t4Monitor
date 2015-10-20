@@ -64,12 +64,12 @@ def dump_config(output=None):
     conf.write(output or sys.stdout)
 
 
-def main():
+def main():  # pragma: no cover
     _orchestrator = Orchestrator(**parse_arguments_main(sys.argv[1:]))
     _orchestrator.start()
 
 
-def create_reports_from_local_pkl():
+def create_reports_from_local_pkl():  # pragma: no cover
     """ Create HTML reports from local stored PKL file """
     arguments = parse_arguments_local_pkl(sys.argv[1:])
     pkl_file = arguments.pop('pkl_file')
@@ -77,7 +77,7 @@ def create_reports_from_local_pkl():
     _orchestrator.create_reports_from_local_pkl(pkl_file)
 
 
-def create_reports_from_local_csv():
+def create_reports_from_local_csv():  # pragma: no cover
     """ Create HTML reports from local stored CSV files """
     arguments = parse_arguments_local_csv(sys.argv[1:])
     csv_file = arguments.pop('csv_file')
@@ -85,5 +85,5 @@ def create_reports_from_local_csv():
     _orchestrator.create_reports_from_local_csv(csv_file)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()
