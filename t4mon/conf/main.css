@@ -1,5 +1,5 @@
 /*
- * CSS file example for pySMSCMon
+ * CSS file example for t4Mon
  *
  */
 
@@ -116,7 +116,7 @@
   }
 
   pre>code:before{
-   content: " SMSC>";
+   content: " OpenVMS>";
       display: block;
       background-color: #a12;
       margin:0 -16px 16px -16px;

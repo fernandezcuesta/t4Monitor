@@ -1,5 +1,9 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
+"""
+*t4mon* - T4 monitoring functional tests
+"""
+
 from __future__ import print_function, absolute_import
 
 import tempfile
@@ -18,7 +22,7 @@ class TestOrchestrator(TestWithTempConfig):
     Set of test functions for interactive (ssh) methods of orchestrator.py
     """
 
-    def test_start(self):
+    def test_orchestrator_start(self):
         """ Test function for Orchestrator.start() """
 
         self.conf.set('DEFAULT', 'folder', MY_DIR)  # where the test files are
@@ -31,9 +35,10 @@ class TestOrchestrator(TestWithTempConfig):
             temp_config.seek(0)
 
             orch = Orchestrator(loglevel='DEBUG',
-                                settings_file=temp_config.name)
-            orch.start(alldays=True,
-                       threads=True)
+                                settings_file=temp_config.name,
+                                alldays=True,
+                                threaded=True)
+            orch.start()
         for system in orch.data.system:
             if system:
                 self.assertIn(
@@ -146,7 +151,7 @@ class TestCollector(TestWithSsh):
             self.assertIn('Log collection omitted', logs)
             monitor.nologs = False
             monitor.conf.set('DEFAULT', 'folder', MY_DIR)
-            monitor.conf.set('MISC', 'smsc_log_cmd', 'netstat -nrt')
+            monitor.conf.set('MISC', 'remote_log_cmd', 'netstat -nrt')
             (data, logs) = monitor.collect_system_data(system='System_1')
             self.assertFalse(data.empty)
             self.assertNotIn('Log collection omitted', logs)
@@ -175,8 +180,8 @@ class TestCollector(TestWithSsh):
         self.assertFalse(monitor.data.empty)
         self.assertIsInstance(monitor.logs, dict)
 
-    def test_start(self):
-        """ Test function for start """
+    def test_collector_start(self):
+        """ Test function for Collector.start """
         monitor = collector.Collector(settings_file=TEST_CONFIG,
                                       logger=LOGGER,
                                       alldays=True,
@@ -189,11 +194,12 @@ class TestCollector(TestWithSsh):
         self.assertIsInstance(monitor.logs, dict)
 
         # Same by calling the threaded version
-        monitor = collector.Collector(settings_file=TEST_CONFIG,
+        monitor = collector.Collector(alldays=True,
                                       logger=LOGGER,
-                                      alldays=True,
-                                      nologs=True)
-        monitor.start(threads=True)
+                                      nologs=True,
+                                      settings_file=TEST_CONFIG,
+                                      threaded=True)
+        monitor.start()
         self.assertIsInstance(monitor.data, pd.DataFrame)
         self.assertTrue(monitor.data.empty)
         self.assertIsInstance(monitor.logs, dict)

@@ -35,8 +35,7 @@ from .sshtunnels.sftpsession import SftpSession, SFTPSessionError
 
 __all__ = ('add_methods_to_pandas_dataframe',
            'Collector',
-           'read_config',
-           'start')
+           'read_config')
 
 # CONSTANTS
 DEFAULT_SETTINGS_FILE = '{}/conf/settings.cfg'.\
@@ -75,10 +74,12 @@ class Collector(object):
     """
 
     def __init__(self,
-                 settings_file=None,
-                 logger=None,
                  alldays=False,
-                 nologs=False):
+                 logger=None,
+                 nologs=False,
+                 settings_file=None,
+                 safe=False,
+                 **kwargs):
 
         self.alldays = alldays
         self.data = pd.DataFrame()
@@ -88,10 +89,12 @@ class Collector(object):
         self.nologs = nologs
         self.results_queue = Queue.Queue()
         self.settings_file = settings_file or DEFAULT_SETTINGS_FILE
+        self.safe = safe
         self.server = None
         self.systems = [item for item in self.conf.sections()
                         if item not in ['GATEWAY', 'MISC']]
         self.__str__()
+        add_methods_to_pandas_dataframe(self.logger)
 
     def __enter__(self):
         self.init_tunnels()
@@ -101,6 +104,17 @@ class Collector(object):
     def __exit__(self, etype, *args):
         self.stop_server()
         return None
+
+    def __str__(self):
+        return ('alldays/nologs: {0}/{1}\ndata shape:{2}\nlogs (keys): {3}\n'
+                'threaded:{4}\nserver is set up?: {5}\n'
+                'Settings file: {6}'.format(self.alldays,
+                                            self.nologs,
+                                            self.data.shape,
+                                            self.logs.keys(),
+                                            not self.safe,
+                                            'Yes' if self.server else 'No',
+                                            self.settings_file))
 
     def consolidate_data(self, partial_dataframe):
         """
@@ -139,8 +153,7 @@ class Collector(object):
         lbal = []
         tunnelports = {}
 
-        for _sys in [system] if system else [x for x in self.conf.sections()
-                                             if x not in ['GATEWAY', 'MISC']]:
+        for _sys in [system] if system else self.systems:
             rbal.append((self.conf.get(_sys, 'ip_or_hostname'),
                          int(self.conf.get(_sys, 'ssh_port'))))
             lbal.append(('', int(self.conf.get(_sys, 'tunnel_port')) or
@@ -218,16 +231,15 @@ class Collector(object):
 
                 # Done gathering data, now get the logs
                 if self.nologs or data.empty \
-                   or not self.conf.has_option('MISC', 'smsc_log_cmd'):
+                   or not self.conf.has_option('MISC', 'remote_log_cmd'):
                     logs = '{0} | Log collection omitted'.format(system)
                     self.logger.info(logs)
                 else:
                     logs = self.get_system_logs(
                         sftp_session.ssh_transport,
                         system,
-                        self.conf.get('MISC', 'smsc_log_cmd')
-                                                ) \
-                        or '{} | Missing logs!'.format(system)
+                        self.conf.get('MISC', 'remote_log_cmd')) or \
+                        '{} | Missing logs!'.format(system)
             return (data, logs)
         except SFTPSessionError:
             return (None, None)
@@ -401,7 +413,7 @@ class Collector(object):
 
     def thread_wrapper(self, system):
         """
-        Thread method for main_threaded
+        Thread wrapper method for main_threads
         """
         # Get data from the remote system
         try:
@@ -423,57 +435,51 @@ class Collector(object):
 
     def main_threads(self):
         """ Threaded method for main() """
-        self.init_tunnels()
-        self.start_server()
-        for system in self.systems:
-            thread = threading.Thread(target=self.thread_wrapper,
-                                      name=system,
-                                      args=(system, ))
-            thread.daemon = True
-            thread.start()
-# TODO: get rid of this for loop?? No, it makes sense to wait for threads
-        for system in self.systems:
-            self.logger.info('%s | Done collecting data!',
-                             self.results_queue.get())
-            # (system, res_data, res_log) = self.results_queue.get()
-            # self.logger.debug('%s | Consolidating results', system)
-            # self.consolidate_data(res_data)
-            # self.logs[system] = res_log
-            # self.logger.info('%s | Done collecting data!', system)
-            # self.server.stop()
+        with self:
+            for system in self.systems:
+                thread = threading.Thread(target=self.thread_wrapper,
+                                          name=system,
+                                          args=(system, ))
+                thread.daemon = True
+                thread.start()
+            # wait for threads to end, first one to finish will leave
+            # the result in the queue
+            for system in self.systems:
+                self.logger.info('%s | Done collecting data!',
+                                 self.results_queue.get())
 
     def main_no_threads(self):
         """ Serial (legacy) method for main() """
         for system in self.systems:
             self.logger.info('%s | Initializing tunnel', system)
             try:
-                self.init_tunnels(system=system)
-                self.start_server()
-                tunnelport = self.server.tunnelports[system]
-                if tunnelport not in self.server.tunnel_is_up or \
-                   not self.server.tunnel_is_up[tunnelport]:
-                    self.logger.error('Cannot download data from %s.', system)
-                    raise IOError
-                res_data, self.logs[system] = self.collect_system_data(system)
-                self.consolidate_data(res_data)
-                self.logger.info('Done for %s', system)
-                self.server.stop()
+                self.systems = [system]  # fake this for calling init_tunnels
+                with self:
+                    tunnelport = self.server.tunnelports[system]
+                    if tunnelport not in self.server.tunnel_is_up or \
+                       not self.server.tunnel_is_up[tunnelport]:
+                        self.logger.error('Cannot download data from %s.',
+                                          system)
+                        raise IOError
+                    (res_data,
+                     self.logs[system]) = self.collect_system_data(system)
+                    self.consolidate_data(res_data)
+                    self.logger.info('Done for %s', system)
             except (sshtunnel.BaseSSHTunnelForwarderError,
                     IOError,
                     SFTPSessionError):
-                # _sd.server.stop()
                 self.logger.warning('Continue to next system')
                 continue
 
-    def start(self, threads=None):
+    def start(self):
         """
         Main method for the data collection
         """
         try:
-            if threads:
-                self.main_threads()
-            else:
+            if self.safe:
                 self.main_no_threads()
+            else:
+                self.main_threads()
         except (sshtunnel.BaseSSHTunnelForwarderError, AttributeError) as exc:
             self.logger.error('Could not initialize the SSH tunnels, '
                               'aborting (%s)', repr(exc))
@@ -481,16 +487,23 @@ class Collector(object):
             self.logger.error('Could not open remote connection')
         except Exception as exc:
             self.logger.error('Unexpected error: %s)', repr(exc))
+        finally:
+            return (self.data, self.logs)
 
-    def __str__(self):
-        return ('alldays/nologs: {}/{}\ndata shape:{}\nlogs (keys): {}\n'
-                'server is set up?: {}\n'
-                'Settings file: {}'.format(self.alldays,
-                                           self.nologs,
-                                           self.data.shape,
-                                           self.logs.keys(),
-                                           'Yes' if self.server else 'No',
-                                           self.settings_file))
+
+def read_config(settings_file=None):
+    """ Return ConfigParser object from configuration file """
+    config = ConfigParser.SafeConfigParser()
+    try:
+        settings_file = settings_file or DEFAULT_SETTINGS_FILE
+        settings = config.read(settings_file)
+    except ConfigParser.Error as _exc:
+        raise ConfigReadError(repr(_exc))
+
+    if not settings or not config.sections():
+        raise ConfigReadError('Could not read configuration %s!' %
+                              settings_file)
+    return config
 
 
 # ADD METHODS TO PANDAS DATAFRAME
@@ -534,39 +547,3 @@ def add_methods_to_pandas_dataframe(logger=None):
     pd.DataFrame.clean_calcs = calculations.clean_calcs
     pd.DataFrame.logger = logger or init_logger()
 # END OF ADD METHODS TO PANDAS DATAFRAME
-
-
-def read_config(settings_file=None):
-    """ Return ConfigParser object from configuration file """
-    config = ConfigParser.SafeConfigParser()
-    try:
-        settings_file = settings_file or DEFAULT_SETTINGS_FILE
-        settings = config.read(settings_file)
-    except ConfigParser.Error as _exc:
-        raise ConfigReadError(repr(_exc))
-
-    if not settings or not config.sections():
-        raise ConfigReadError('Could not read configuration %s!' %
-                              settings_file)
-    return config
-
-
-def start(alldays=False, nologs=False, logger=None, threads=False,
-          settings_file=None):
-    """ Here comes the main function
-    Optional: alldays (Boolean): if true, do not filter on today's date
-              nologs (Boolean): if true, skip log info collection
-    """
-    # TODO: review exceptions and comment where they may come from
-    try:
-        # Initialize monitor
-        collector = Collector(settings_file, logger, alldays, nologs)
-        add_methods_to_pandas_dataframe(collector.logger)
-        # Collect all the data and logs
-        collector.start(threads)
-
-    except ConfigReadError:
-        collector.logger.error('Could not read settings file: %s',
-                               collector.settings_file)
-
-    return collector.data, collector.logs

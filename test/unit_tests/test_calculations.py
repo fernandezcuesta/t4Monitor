@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-*t4mon* - SMSC monitoring **test functions**
+*t4mon* - T4 monitoring **test functions** for calculations.py
 """
 from __future__ import absolute_import
 

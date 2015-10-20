@@ -1,20 +1,18 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-*t4mon* - SMSC monitoring **test functions**
+*t4mon* - T4 monitoring **test functions** for orchestrator.py
 """
 from __future__ import absolute_import
 
 import os
-
-import tempfile
 from datetime import datetime as dt
 
 import pandas as pd
 from pandas.util.testing import assert_frame_equal
 
-from t4mon.orchestrator import Orchestrator
 from t4mon import collector
+from t4mon.orchestrator import Orchestrator
 
 from .base import (
     LOGGER,
@@ -53,7 +51,7 @@ class TestOrchestrator(BaseTestClass):
         assert_frame_equal(pd.DataFrame(), self.orchestrator.data)
         self.assertEqual(self.orchestrator.system, '')
         self.assertIn('html_template', self.orchestrator.__dict__)
-        self.assertIn('graphs_file', self.orchestrator.__dict__)
+        self.assertIn('graphs_definition_file', self.orchestrator.__dict__)
         self.assertNotEqual(self.orchestrator.store_folder, '')
         self.assertNotEqual(self.orchestrator.reports_folder,
                             self.orchestrator.store_folder)
@@ -87,9 +85,8 @@ class TestOrchestrator(BaseTestClass):
     def test_orchestrator_raises_exception_if_bad_settings(self):
         """ Check that if the setting file contains a link to a
         non existing file, init will raise an exception """
-        test_container = self.orchestrator.clone()
         with self.assertRaises(collector.ConfigReadError):
-            Orchestrator(settings_file = BAD_CONFIG)
+            Orchestrator(settings_file=BAD_CONFIG)
 
     def test_reports_generator(self):
         """ Test function for Orchestrator.reports_generator() """
@@ -97,7 +94,7 @@ class TestOrchestrator(BaseTestClass):
         container = self.orchestrator.clone()
         container.data = pd.read_pickle(TEST_PKL)
         container.reports_generator()
-        # Test the threaded version
-        container.threaded = True
+        # Test the non-threaded version
+        container.safe = True
         container.data.system.add('SYS2')
         container.reports_generator()

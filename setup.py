@@ -13,13 +13,15 @@ requires = [str(ir.req) for ir in parse_requirements('requirements.txt', session
 entry_points = {
     'console_scripts': [
         't4monitor = t4mon:main',
-        't4mon-config = t4mon:dump_config'
+        't4mon-config = t4mon:dump_config',
+        't4mon-local = t4mon:create_reports_from_local_pkl',
+        't4mon-localcsv = t4mon:create_reports_from_local_csv',
     ]
 }
 
 
-README = open('README.md').read()
-CHANGELOG = open('changelog.md').read()
+README = open('README.rst').read()
+CHANGELOG = open('changelog.rst').read()
 
 class Tox(TestCommand):
     def finalize_options(self):

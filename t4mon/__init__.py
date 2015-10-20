@@ -44,7 +44,10 @@ import sys
 
 from .collector import read_config
 from .orchestrator import Orchestrator
-from .arguments_parser import parse_arguments
+from . arguments_parser import (parse_arguments_local_csv,
+                                parse_arguments_local_pkl,
+                                parse_arguments_main)
+
 
 __version_info__ = (0, 9, 0)
 __version__ = '.'.join(str(i) for i in __version_info__)
@@ -62,8 +65,24 @@ def dump_config(output=None):
 
 
 def main():
-    _orchestrator = Orchestrator(**parse_arguments(sys.argv[1:]))
+    _orchestrator = Orchestrator(**parse_arguments_main(sys.argv[1:]))
     _orchestrator.start()
+
+
+def create_reports_from_local_pkl():
+    """ Create HTML reports from local stored PKL file """
+    arguments = parse_arguments_local_pkl(sys.argv[1:])
+    pkl_file = arguments.pop('pkl_file')
+    _orchestrator = Orchestrator(**arguments)
+    _orchestrator.create_reports_from_local_pkl(pkl_file)
+
+
+def create_reports_from_local_csv():
+    """ Create HTML reports from local stored CSV files """
+    arguments = parse_arguments_local_csv(sys.argv[1:])
+    csv_file = arguments.pop('csv_file')
+    _orchestrator = Orchestrator(**arguments)
+    _orchestrator.create_reports_from_local_csv(csv_file)
 
 
 if __name__ == "__main__":

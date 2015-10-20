@@ -1,10 +1,9 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-Created on Mon May 25 11:11:38 2015
-
-@author: fernandezjm
+*t4mon* - T4 monitoring **test functions** for df_tools.py
 """
+
 from __future__ import absolute_import
 
 import gzip
@@ -77,14 +76,16 @@ def metadata_from_cols(data):
 
 
 def reload_from_csv(csv_filename):
-    """ Load a CSV into a dataframe and synthesize its metadata """
-    data = pd.read_csv(csv_filename)
-
+    """
+    Load a CSV into a dataframe and synthesize its metadata
+    Assumes that first column contains the timestamp information
+    """
+    data = pd.read_csv(csv_filename,
+                       index_col=0
+                       )
+    data.index = pd.to_datetime(data.index)
     metadata_from_cols(data)  # restore metadata fields
-    if 'datetime' in data:
-        return data.set_index('datetime')
-    else:
-        return data
+    return data
 
 
 def select_var(dataframe, *var_names, **optional):

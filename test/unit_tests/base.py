@@ -1,5 +1,8 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
+"""
+*t4mon* - T4 monitoring base test functions for functional tests
+"""
 
 import shutil
 import socket
@@ -10,8 +13,8 @@ import numpy as np
 import pandas as pd
 import paramiko
 
-from t4mon.orchestrator import Orchestrator
 from t4mon import logger
+from t4mon.orchestrator import Orchestrator
 
 __all__ = ('BaseTestClass',
            'MY_DIR',

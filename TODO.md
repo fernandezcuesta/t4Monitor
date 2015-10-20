@@ -6,6 +6,6 @@
 according to `container.data.system` instead of
 `[x for x in conf.sections() if x not in ['GATEWAY', 'MISC']` in `html.py`.
 
-- Complete refactor of __init__
+- <s>Complete refactor of __init__</s>
 
 - GUI (kivy?)

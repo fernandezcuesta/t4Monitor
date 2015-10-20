@@ -12,7 +12,7 @@
     <div id="contentDiv">
       <h1>System Status Report</h1>
       <h2>Report date: {{data.date_time}}</h2>
-      <p>On this report, output from the monitoring scripts running on the SMSCs will be summarized, as well as an extract of the application logs.</p>
+      <p>On this report, output from the monitoring scripts running on the remote OpenVMS cluster {{ data.system }} will be summarized, as well as an extract of the application logs.</p>
       <p>Information for the following system is shown: <strong>{{ data.system }}</strong></p>
 
       <h2>Statistics</h2><br/>
@@ -34,7 +34,7 @@
     </div>
 
     <div id="footer">
-      &copy; {{ data.year }} <a href="mailto:fernandez.cuesta@gmail.com">J.M. Fernández</a>
+      &copy; {{ data.year }} &middot; <a href="mailto:fernandez.cuesta@gmail.com">J.M. Fernández</a>
     </div>
   </body>
 </html>

@@ -14,33 +14,34 @@ from matplotlib import pyplot as plt
 from . import gen_plot
 
 
-def gen_report(container):
+def gen_report(container=None, system=None):
     """ Create the jinja2 environment.
     Notice the use of trim_blocks, which greatly helps control whitespace. """
 
     try:
         assert not container.data.empty  # Check that data isn't empty
-        assert container.system  # Check a system was specified
+        assert system  # Check a system was specified
+        container.system = system
         env_dir = path.dirname(path.abspath(container.html_template))
         j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader(env_dir),
                                     trim_blocks=True)
         j2_tpl = j2_env.get_template(path.basename(container.html_template))
         j2_tpl.globals['get_graphs'] = get_graphs
         container.logger.info('%s | Generating graphics and rendering report',
-                              container.system)
+                              system)
         return j2_tpl.render(data=container)
     except AssertionError:
         container.logger.error(
             '%s',
-            '{} | No data, no report'.format(container.system)
-            if container.system else 'Not a valid system, report skipped'
+            '{} | No data, no report'.format(system)
+            if system else 'Not a valid system, report skipped'
         )
     except IOError:
         container.logger.error('Template file (%s) not found.',
                                container.html_template)
     except jinja2.TemplateError as msg:
         container.logger.error('%s | Error in html template (%s): %s',
-                               container.system,
+                               system,
                                container.html_template,
                                repr(msg))
     return ''
@@ -54,8 +55,7 @@ def get_graphs(container):
         Returns: (graph_title, graph_encoded_in_b64)
     """
     try:
-        container.logger.debug(container.graphs_file)
-        with open(container.graphs_file, 'r') as graphs_txt:
+        with open(container.graphs_definition_file, 'r') as graphs_txt:
             for line in graphs_txt:
                 line = line.strip()
 
@@ -89,7 +89,7 @@ def get_graphs(container):
                     yield (info[1].strip(), _b64figure)
     except IOError:
         container.logger.error('Graphs definition file not found: %s',
-                               container.graphs_file)
+                               container.graphs_definition_file)
     except Exception as unexpected:
         container.logger.error('%s | Unexpected exception found while '
                                'creating graphs: %s',

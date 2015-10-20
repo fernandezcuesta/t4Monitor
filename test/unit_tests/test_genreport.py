@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-*t4mon* - SMSC monitoring **test functions**
+*t4mon* - T4 monitoring **test functions** for gen_report.py
 """
 from __future__ import absolute_import
 
@@ -32,20 +32,20 @@ class TestGenReport(BaseTestClass):
         """ Test function for gen_report """
         my_container = self.orchestrator.clone()
         # fill it with some data
-        my_container.data = df_tools.read_pickle(TEST_PKL)
-        my_container.system = list(my_container.data.system)[0].upper()
-        my_container.logs[my_container.system] = 'Skip logs here, just a test!'
+        my_container.data = pd.read_pickle(TEST_PKL)
+        system = list(my_container.data.system)[0].upper()
+        my_container.logs[system] = 'Skip logs here, just a test!'
         my_container.html_template = TEST_HTMLTEMPLATE
-        my_container.graphs_file = TEST_GRAPHS_FILE
+        my_container.graphs_definition_file = TEST_GRAPHS_FILE
 
-        html_rendered = gen_report(my_container)
+        html_rendered = gen_report(my_container, system)
         self.assertIn('<title>Monitoring of {} at {}</title>'.format(
-            my_container.system,
+            system,
             my_container.date_time),
                       html_rendered)
 
         graph_titles = []
-        with open(my_container.graphs_file, 'r') as graphs_file:
+        with open(my_container.graphs_definition_file, 'r') as graphs_file:
             for line in graphs_file:
                 line = line.strip()
                 if not len(line) or line[0] == '#':
@@ -59,21 +59,22 @@ class TestGenReport(BaseTestClass):
 
         # Test with a non existing template file, should return ''
         my_container.html_template = 'this_file_does_not_exist'
-        self.assertEqual(gen_report(my_container), '')
+        self.assertEqual(gen_report(my_container, system), '')
 
-        # Same with a bad formatted container
-        my_container.system = None
+        # Same when no data in the container or when no system was specified
         my_container.html_template = TEST_HTMLTEMPLATE
+        my_container.data = pd.DataFrame()
+        self.assertEqual(gen_report(my_container, system), '')
         self.assertEqual(gen_report(my_container), '')
 
     def test_getgraphs(self):
         """ Test function for get_graphs """
         my_container = self.orchestrator.clone()
-        my_container.data = df_tools.read_pickle(TEST_PKL)
+        my_container.data = pd.read_pickle(TEST_PKL)
         my_container.system = list(my_container.data.system)[0].upper()
         my_container.logs[my_container.system] = 'Skip logs here, just a test!'
         my_container.html_template = TEST_HTMLTEMPLATE
-        my_container.graphs_file = TEST_GRAPHS_FILE
+        my_container.graphs_definition_file = TEST_GRAPHS_FILE
 
         my_graph = get_graphs(my_container).next()
         # test that the generated graph is a valid b64 encoded png
@@ -87,5 +88,5 @@ class TestGenReport(BaseTestClass):
             self.assertEqual(imghdr.what(temporary_file.name), 'png')
 
         # Test when the graphs file contains invalid entries
-        my_container.graphs_file = TEST_CSV  # bad file here
+        my_container.graphs_definition_file = TEST_CSV  # bad file here
         self.assertIsNone(get_graphs(my_container).next())

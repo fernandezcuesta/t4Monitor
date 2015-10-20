@@ -20,7 +20,7 @@ from matplotlib import pyplot as plt  # isort:skip
 from . import collector  # isort:skip
 from .logger import DEFAULT_LOGLEVEL, init_logger  # isort:skip
 from .gen_report import gen_report  # isort:skip
-from .arguments_parser import parse_arguments  # isort:skip
+from .df_tools import reload_from_csv, read_pickle
 
 
 __all__ = ('Orchestrator')
@@ -39,39 +39,51 @@ class Orchestrator(object):
     def __init__(self,
                  logger=None,  # shall I remove this???
                  loglevel=None,
+                 noreports=False,
                  settings_file=None,
-                 threaded=False,
+                 safe=False,
                  **kwargs):
         self.calculations_file = ''
         self.data = collector.pd.DataFrame()
         self.date_time = dt.date.strftime(dt.datetime.today(),
                                           "%d/%m/%Y %H:%M:%S")
         self.graphs = {}  # will be filled by calls from within jinja for loop
-        self.graphs_file = ''
+        self.graphs_definition_file = ''
         self.html_template = ''
         self.logger = logger if logger else init_logger(
                       loglevel if loglevel else DEFAULT_LOGLEVEL
                       )
         self.logs = {}
+        self.noreports = noreports
         self.reports_written = []
         self.reports_folder = './reports'
         self.settings_file = settings_file or collector.DEFAULT_SETTINGS_FILE
         self.store_folder = './store'
         self.system = ''
-        self.threaded = threaded
+        self.safe = safe
         self.year = dt.date.today().year
+        self.collector = collector.Collector(  # CollectorOptions(
+            logger=self.logger,
+            settings_file=self.settings_file,
+            safe=self.safe,
+            **kwargs
+        )
         self.check_files()
-        self.kwargs = kwargs
 
     def __str__(self):
-        return ('Container created on {0} for system: "{1}"\nLoglevel: {2}\n'
-                'graphs_file: {3}\nhtml_template: {4}\nreports folder: {5}\n'
-                'store folder: {6}\ndata size: {7}\nsettings_file: {8}\n'
-                'calculations_file: {9}'.format(
+        return ('Container created on {0} for system: "{1}"\n'
+                'Loglevel: {2}\n'
+                'graphs_definition_file: {3}\n'
+                'html_template: {4}\n'
+                'reports folder: {5}\n'
+                'store folder: {6}\n'
+                'data size: {7}\n'
+                'settings_file: {8}\n'
+                'calculations_file: {9}\n'.format(
                     self.date_time,
                     self.system,
                     self.logger.level,
-                    self.graphs_file,
+                    self.graphs_definition_file,
                     self.html_template,
                     self.reports_folder,
                     self.store_folder,
@@ -80,18 +92,19 @@ class Orchestrator(object):
                     self.calculations_file
                 ))
 
-# TODO: get rid of this?
+
     def clone(self, system=''):
         """ Makes a copy of the data container where the system is filled in,
             data is shared with the original (note in pandas we need to do a
             pandas.DataFrame.copy(), otherwise it's just a view), date_time is
             copied from the original and logs and graphs are left unmodified.
+            This method is only used in test functions.
         """
         my_clone = Orchestrator(logger=self.logger)
         my_clone.calculations_file = self.calculations_file
         my_clone.data = self.data
         my_clone.date_time = self.date_time
-        my_clone.graphs_file = self.graphs_file
+        my_clone.graphs_definition_file = self.graphs_definition_file
         my_clone.html_template = self.html_template
         if system in self.logs:
             my_clone.logs[system] = self.logs[system]
@@ -99,7 +112,7 @@ class Orchestrator(object):
         my_clone.reports_folder = self.reports_folder
         my_clone.store_folder = self.store_folder
         my_clone.system = system
-        my_clone.threaded = self.threaded
+        my_clone.safe = self.safe
         my_clone.year = self.year
 
         return my_clone
@@ -193,16 +206,16 @@ class Orchestrator(object):
         return dt.date.strftime(current_date,
                                 "%Y%m%d_%H%M")
 
-    def create_report(self, system=None, container=None):
+    def create_report(self, system=None):  # , container=None):
         """ Method for creating a single report for a particular system """
         report_name = '{0}/Report_{1}_{2}.html'.format(self.reports_folder,
                                                        self.date_tag(),
-                                                       system or self.system)
+                                                       system)  # or self.system)
         self.logger.debug('%s | Generating HTML report (%s)',
-                          system or self.system,
+                          system, # or self.system,
                           report_name)
         with open(report_name, 'w') as output:
-            output.writelines(gen_report(container=container or self))
+            output.writelines(gen_report(container=self, system=system))  # container or self))
         self.reports_written.append(report_name)
 
     def reports_generator(self):
@@ -212,12 +225,18 @@ class Orchestrator(object):
         Doing this with threads throws many errors with Qt (when acting as
         matplotlib backend out from main thread)
         """
-        if self.threaded:
+        # Initialize default figure sizes and styling
+        pylab.rcParams['figure.figsize'] = 13, 10
+        plt.style.use('ggplot')
+
+        if self.safe:
+            for system in self.data.system:
+                # self.system = system
+                self.create_report(system)
+        else:
             threads = [
                 threading.Thread(target=self.create_report,
-                                 kwargs={'system': system,
-# TODO: Probar poniendo container = self
-                                         'container': self.clone(system)},
+                                 kwargs={'system': system},
                                  name=system)
                 for system in self.data.system
             ]
@@ -226,10 +245,6 @@ class Orchestrator(object):
                 thread_item.start()
             for thread_item in threads:  # Assuming all take the same time
                 thread_item.join()
-        else:
-            for system in self.data.system:
-                # self.system = system
-                self.create_report(system)
 
     def local_store(self, nologs):
         """
@@ -257,38 +272,54 @@ class Orchestrator(object):
                           'w') as logtxt:
                     logtxt.writelines(self.logs[system])
 
-    def start(self,
-              alldays=False,
-              nologs=False,
-              noreports=False,
-              threads=False,
-              **kwargs):
+    def start(self):
         """ Main method, gets data and logs, store and render the HTML output
-            Threaded version (fast, error prone)
         """
 
-        pylab.rcParams['figure.figsize'] = 13, 10
-        plt.style.use('ggplot')
-
-        # Open the tunnels and gather all data
-        (self.data, self.logs) = collector.start(
-            alldays=alldays,
-            nologs=nologs,
-            logger=self.logger,
-            threads=threads,
-            settings_file=self.settings_file
+        # Open the tunnels and gather all data&logs
+        (self.data, self.logs) = self.collector.start(
+            # self.collector_options
         )
         if self.data.empty:
             self.logger.error('Could not retrieve data!!! Aborting.')
             return
 
         # Store the data locally
-        self.local_store(nologs)
+        self.local_store(self.collector.nologs)
 
         # Generate reports
-        if noreports:
+        if self.noreports:
             self.logger.info('Skipped report generation')
         else:
             self.reports_generator()
 
+        self.logger.info('Done!')
+
+    def create_reports_from_local_pkl(self, pkl_file):
+        """ Generate HTML files from data stored locally in pickle format """
+        # load the input file
+        if not os.path.exists(pkl_file):
+            self.logger.error('PKL file %s cannot be found', pkl_file)
+        self.data = read_pickle(pkl_file)
+
+        # Populate the log info with fake data
+        for system in self.collector.systems:
+            self.logs[system] = 'Log collection omitted for locally '\
+                                'generated reports'
+        # Create the reports
+        self.reports_generator()
+        self.logger.info('Done!')
+
+    def create_reports_from_local_csv(self, csv_file):
+        """ Generate HTML files from a local CSV file """
+        # parse the CSV into a (modified) pandas Dataframe
+        if not os.path.exists(csv_file):
+            self.logger.error('CSV file %s cannot be found', csv_file)
+        self.data = reload_from_csv(csv_file)
+        # Populate the log info with fake data
+        for system in self.collector.systems:
+            self.logs[system] = 'Log collection omitted for locally '\
+                                'generated reports'
+        # Create the reports
+        self.reports_generator()
         self.logger.info('Done!')

@@ -1,6 +1,8 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-
+"""
+*t4mon* - T4 monitoring base test functions for unit tests
+"""
 from __future__ import print_function, absolute_import
 
 import shutil
@@ -46,7 +48,7 @@ class TestWithTempConfig(TestWithSsh):
         cls.conf = read_config(settings_file=TEST_CONFIG)
         cls.temporary_dir = tempfile.gettempdir()
         cls.orchestrator.logger.info('Using temporary dir: %s',
-                                  cls.temporary_dir)
+                                     cls.temporary_dir)
 
         calcs_file = cls.orchestrator.get_absolute_path(
             cls.conf.get('MISC', 'calculations_file'))
