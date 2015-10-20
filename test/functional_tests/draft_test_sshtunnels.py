@@ -4,13 +4,13 @@
 *sshtunnel* - Initiate SSH tunnels via a remote gateway. TEST FUNCTIONS
 """
 
-import unittest
-import sshtunnel
-import sshserver
 import random
-import threading
 import socket
+import unittest
+import threading
 
+import sshserver
+import sshtunnel
 
 #SSH_PORT = random.randint(20000, 20999)
 SSH_PORT = sshserver.SSH_PORT

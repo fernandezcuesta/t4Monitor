@@ -1,46 +1,7 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
- SMSCMon: T4-compliant CSV processor and visualizer for Acision SMSC Monitor
- ------------------------------------------------------------------------------
- 2014-2015 (c) J.M. Fernández - fernandez.cuesta@gmail.com
-
- t4 input_file
-
- CSV file header may come in 2 different formats:
-
-  ** Format 1: **
-  The first four lines are header data:
-
-  line0: Header information containing T4 revision info and system information.
-
-  line1: Collection date  (optional line)
-
-  line2: Start time       (optional line)
-
-  line3: Parameter Headings (comma separated).
-
- or
-
-  ** Format 2: **
-
- line0: Header information containing T4 revision info and system information.
- line1: <delim> START COLUMN HEADERS  <delim>  where <delim> is a triple $
- line2: parameter headings (comma separated)
- ...
-
-  line 'n': <delim> END COLUMN HEADERS  <delim>  where <delim> is a triple $
-
-  The remaining lines are the comma separated values. The first column is the
-  sample time. Each line represents a sample, typically 60 seconds apart.
-  However T4 incorrectly places an extra raw line with the column averages
-  almost at the end of the file. That line will be considered as a closing hash
-  and contents followed by it (sometimes even more samples...) is ignored.
-
-
-
-
-    main() ------------------.
+    start() ------------------.
      |                       | no threads (legacy serial mode)
      v                       |
     thread_wrapper()         |
@@ -53,29 +14,27 @@
      |
      v
     get_stats_from_host()
-Created on Mon May 25 11:11:38 2015
 
 """
 from __future__ import absolute_import
 
 import os
-import ConfigParser
-import threading
-import datetime as dt
 import Queue
+import datetime as dt
+import threading
+import ConfigParser
+from random import randint
 
 import pandas as pd
-from random import randint
 from paramiko import SSHException
 
-from . import df_tools
-from . import calculations
+from . import df_tools, calculations
 from .logger import init_logger
 from .sshtunnels import sshtunnel
 from .sshtunnels.sftpsession import SftpSession, SFTPSessionError
 
-
-__all__ = ('SMSCMonitor',
+__all__ = ('add_methods_to_pandas_dataframe',
+           'Collector',
            'read_config')
 
 # CONSTANTS
@@ -107,27 +66,35 @@ class NoFileFound(Exception):
     pass
 
 
-class SMSCMonitor(object):
+class Collector(object):
 
     """
-    Defines class 'SMSCMonitor'
+    Defines the main Collector class for carrying the data, logs and additional
+    options
     """
 
     def __init__(self,
-                 settings_file=None,
-                 logger=None,
                  alldays=False,
-                 nologs=False):
-        self.server = None
-        self.results_queue = Queue.Queue()
-        self.conf = read_config(settings_file)
+                 logger=None,
+                 nologs=False,
+                 settings_file=None,
+                 safe=False,
+                 **kwargs):
+
         self.alldays = alldays
-        self.nologs = nologs
-        self.logger = logger or init_logger()
-        self.settings_file = settings_file or DEFAULT_SETTINGS_FILE
         self.data = pd.DataFrame()
+        self.conf = read_config(settings_file)
+        self.logger = logger or init_logger()
         self.logs = {}
+        self.nologs = nologs
+        self.results_queue = Queue.Queue()
+        self.settings_file = settings_file or DEFAULT_SETTINGS_FILE
+        self.safe = safe
+        self.server = None
+        self.systems = [item for item in self.conf.sections()
+                        if item not in ['GATEWAY', 'MISC']]
         self.__str__()
+        add_methods_to_pandas_dataframe(self.logger)
 
     def __enter__(self):
         self.init_tunnels()
@@ -137,6 +104,17 @@ class SMSCMonitor(object):
     def __exit__(self, etype, *args):
         self.stop_server()
         return None
+
+    def __str__(self):
+        return ('alldays/nologs: {0}/{1}\ndata shape:{2}\nlogs (keys): {3}\n'
+                'threaded:{4}\nserver is set up?: {5}\n'
+                'Settings file: {6}'.format(self.alldays,
+                                            self.nologs,
+                                            self.data.shape,
+                                            self.logs.keys(),
+                                            not self.safe,
+                                            'Yes' if self.server else 'No',
+                                            self.settings_file))
 
     def consolidate_data(self, partial_dataframe):
         """
@@ -148,16 +126,16 @@ class SMSCMonitor(object):
     def clone(self):
         """ Makes a copy of SData
         """
-        my_clone = SMSCMonitor()
-        my_clone.server = self.server
-        my_clone.results_queue = Queue.Queue()  # make a brand new results queue
-        my_clone.conf = self.conf
+        my_clone = Collector()
         my_clone.alldays = self.alldays
-        my_clone.nologs = self.nologs
-        my_clone.logger = self.logger
-        my_clone.settings_file = self.settings_file
+        my_clone.conf = self.conf
         my_clone.data = self.data.copy()  # required in pandas
+        my_clone.logger = self.logger
         my_clone.logs = self.logs
+        my_clone.nologs = self.nologs
+        my_clone.results_queue = Queue.Queue()  # make a brand new result queue
+        my_clone.server = self.server
+        my_clone.settings_file = self.settings_file
         return my_clone
 
     def init_tunnels(self, system=None):
@@ -175,8 +153,7 @@ class SMSCMonitor(object):
         lbal = []
         tunnelports = {}
 
-        for _sys in [system] if system else [x for x in self.conf.sections()
-                                             if x not in ['GATEWAY', 'MISC']]:
+        for _sys in [system] if system else self.systems:
             rbal.append((self.conf.get(_sys, 'ip_or_hostname'),
                          int(self.conf.get(_sys, 'ssh_port'))))
             lbal.append(('', int(self.conf.get(_sys, 'tunnel_port')) or
@@ -207,7 +184,8 @@ class SMSCMonitor(object):
                                                        )
             # Add the system<>port bindings to the return object
             self.server.tunnelports = tunnelports
-            self.logger.debug('Registered tunnels: %s', self.server.tunnelports)
+            self.logger.debug('Registered tunnels: %s',
+                              self.server.tunnelports)
         except AssertionError:
             self.logger.error('Local tunnel ports MUST be different: %s',
                               tunnelports)
@@ -233,7 +211,8 @@ class SMSCMonitor(object):
         ssh_pass = self.conf.get(system, 'password').strip("\"' ") or None \
             if self.conf.has_option(system, 'password') else None
 
-        ssh_key = self.conf.get(system, 'identity_file').strip("\"' ") or None \
+        ssh_key = self.conf.get(system,
+                                'identity_file').strip("\"' ") or None \
             if self.conf.has_option(system, 'identity_file') else None
 
         user = self.conf.get(system, 'username') or None \
@@ -252,16 +231,15 @@ class SMSCMonitor(object):
 
                 # Done gathering data, now get the logs
                 if self.nologs or data.empty \
-                   or not self.conf.has_option('MISC', 'smsc_log_cmd'):
+                   or not self.conf.has_option('MISC', 'remote_log_cmd'):
                     logs = '{0} | Log collection omitted'.format(system)
                     self.logger.info(logs)
                 else:
                     logs = self.get_system_logs(
                         sftp_session.ssh_transport,
                         system,
-                        self.conf.get('MISC', 'smsc_log_cmd')
-                                                ) \
-                        or '{} | Missing logs!'.format(system)
+                        self.conf.get('MISC', 'remote_log_cmd')) or \
+                        '{} | Missing logs!'.format(system)
             return (data, logs)
         except SFTPSessionError:
             return (None, None)
@@ -273,7 +251,7 @@ class SMSCMonitor(object):
         if not log_cmd:
             self.logger.error('No command was specified for log collection')
             return
-        self.logger.info('Getting log output from %s (%s), may take a while...',
+        self.logger.info('Getting log output from %s (%s), may take a while.',
                          system,
                          log_cmd)
         try:  # ignoring stdin and stderr
@@ -322,13 +300,14 @@ class SMSCMonitor(object):
         try:  # Test if destination folder is reachable
             destdir = self.conf.get(system, 'folder') or '.'
             session.chdir(destdir)
+            self.logger.debug('%s | Changing to remote folder: %s',
+                              system,
+                              destdir)
             session.chdir()  # revert back to home folder
         except IOError:
-            error_msg = '{} | Directory "{}" not found at destination'.format(
-                system,
-                self.conf.get(system, 'folder')
-                                                                              )
-            self.logger.error(error_msg)
+            self.logger.error('%s | Directory "%s" not found at destination',
+                              system,
+                              self.conf.get(system, 'folder'))
             return data
 
         # filter remote files on extension and date
@@ -338,7 +317,7 @@ class SMSCMonitor(object):
             tag_list = ['.csv']
         else:
             tag_list = ['.csv', '%02i%s%i' % (dt.date.today().day,
-                                              MONTHS[dt.date.today().month - 1],
+                                              MONTHS[dt.date.today().month-1],
                                               dt.date.today().year)]
         try:  # if present, also filter on cluster id
             tag_list.append(self.conf.get(system, 'cluster_id').lower())
@@ -348,8 +327,7 @@ class SMSCMonitor(object):
         data = self.get_stats_from_host(hostname=system_addr,
                                         filespec_list=tag_list,
                                         sftp_session=session,
-                                        files_folder=destdir,
-                                        logger=self.logger)
+                                        files_folder=destdir)
         if data.empty:
             self.logger.warning('%s | Data size obtained is 0 Bytes, skipping '
                                 'log collection.', system)
@@ -373,7 +351,7 @@ class SMSCMonitor(object):
         """
         Connects to a remote system via SFTP and reads the CSV files, then
         calls the csv-pandas conversion function.
-        Working with local filesystem if hostname == 'localfs'
+        Working with local filesystem if hostname is None
         Returns: pandas dataframe
 
         **kwargs (optional):
@@ -389,14 +367,11 @@ class SMSCMonitor(object):
             files_folder = files_folder[:-1]  # remove trailing separator (/)
         _df = pd.DataFrame()
         close_me = False
-        hostname = hostname or 'localfs'  # by default if no hostname given
         filespec_list = filespec_list or ['.csv']  # default if no filter given
         if sftp_session:
             self.logger.debug('Using established sftp session...')
         else:
-            if hostname == 'localfs':
-                self.logger.info('Using local filesystem to get the files')
-            else:
+            if hostname:
                 try:
                     sftp_session = SftpSession(hostname, **kwargs).connect()
                     if sftp_session:
@@ -407,6 +382,8 @@ class SMSCMonitor(object):
                     self.logger.error('Error occurred while SFTP session '
                                       'to %s: %s', hostname, _exc)
                     return _df
+            else:
+                self.logger.info('Using local filesystem to get the files')
         filesource = sftp_session if sftp_session else os
         # get file list by filtering with taglist (case insensitive)
         try:
@@ -415,13 +392,13 @@ class SMSCMonitor(object):
                      for f in filesource.listdir('.')
                      if all([val.upper() in f.upper()
                              for val in filespec_list])]
-            if not files and hostname == 'localfs':
+            if not files and not hostname:
                 files = [filespec_list]  # For absolute paths
         except OSError:
             files = [filespec_list]  # When localfs, don't behave as filter
         if not files:
             self.logger.debug('Nothing gathered from %s, no files were '
-                              'selected', hostname)
+                              'selected', hostname or 'local system')
             return _df
         _df = pd.concat([df_tools.dataframize(
             a_file,
@@ -436,7 +413,7 @@ class SMSCMonitor(object):
 
     def thread_wrapper(self, system):
         """
-        Thread method for main_threaded
+        Thread wrapper method for main_threads
         """
         # Get data from the remote system
         try:
@@ -445,67 +422,64 @@ class SMSCMonitor(object):
             if not self.server.tunnel_is_up[tunnelport]:
                 self.logger.error('%s | System not reachable!', system)
                 raise IOError
-            data, log = self.collect_system_data(system)
-            self.logger.debug('%s | Putting results in queue', system)
+            (data, log) = self.collect_system_data(system)
+            # self.logger.debug('%s | Putting results in queue', system)
         except (IOError, SFTPSessionError):
             data = pd.DataFrame()
             log = 'Could not get information from this system'
-        self.results_queue.put((system, data, log))
+        # self.results_queue.put((system, data, log))
+        self.logger.debug('%s | Consolidating results', system)
+        self.consolidate_data(data)
+        self.logs[system] = log
+        self.results_queue.put(system)
 
-    def main_threads(self, systems_list):
+    def main_threads(self):
         """ Threaded method for main() """
-        self.init_tunnels()
-        self.start_server()
-        for item in [threading.Thread(target=self.thread_wrapper,
-                                      name=system,
-                                      args=(system, ))
-                     for system in systems_list]:
-            item.daemon = True
-            item.start()
+        with self:
+            for system in self.systems:
+                thread = threading.Thread(target=self.thread_wrapper,
+                                          name=system,
+                                          args=(system, ))
+                thread.daemon = True
+                thread.start()
+            # wait for threads to end, first one to finish will leave
+            # the result in the queue
+            for system in self.systems:
+                self.logger.info('%s | Done collecting data!',
+                                 self.results_queue.get())
 
-        for item in range(len(systems_list)):
-            system, res_data, res_log = self.results_queue.get()
-            self.logger.debug('%s | Consolidating results', system)
-            self.consolidate_data(res_data)
-            self.logs[system] = res_log
-            self.logger.info('%s | Done collecting data!', system)
-            self.server.stop()
-
-    def main_no_threads(self, systems_list):
+    def main_no_threads(self):
         """ Serial (legacy) method for main() """
-        for system in systems_list:
+        for system in self.systems:
             self.logger.info('%s | Initializing tunnel', system)
             try:
-                self.init_tunnels(system=system)
-                self.start_server()
-                tunnelport = self.server.tunnelports[system]
-                if tunnelport not in self.server.tunnel_is_up or \
-                   not self.server.tunnel_is_up[tunnelport]:
-                    self.logger.error('Cannot download data from %s.', system)
-                    raise IOError
-                res_data, self.logs[system] = self.collect_system_data(system)
-                self.consolidate_data(res_data)
-                self.logger.info('Done for %s', system)
-                self.server.stop()
+                self.systems = [system]  # fake this for calling init_tunnels
+                with self:
+                    tunnelport = self.server.tunnelports[system]
+                    if tunnelport not in self.server.tunnel_is_up or \
+                       not self.server.tunnel_is_up[tunnelport]:
+                        self.logger.error('Cannot download data from %s.',
+                                          system)
+                        raise IOError
+                    (res_data,
+                     self.logs[system]) = self.collect_system_data(system)
+                    self.consolidate_data(res_data)
+                    self.logger.info('Done for %s', system)
             except (sshtunnel.BaseSSHTunnelForwarderError,
                     IOError,
                     SFTPSessionError):
-                # _sd.server.stop()
                 self.logger.warning('Continue to next system')
                 continue
 
-    def main(self, threads=None):
+    def start(self):
         """
-        Main method for SMSCMonitor class
+        Main method for the data collection
         """
         try:
-            self.conf = read_config(self.settings_file)
-            all_systems = [item for item in self.conf.sections()
-                           if item not in ['GATEWAY', 'MISC']]
-            if threads:
-                self.main_threads(all_systems)
+            if self.safe:
+                self.main_no_threads()
             else:
-                self.main_no_threads(all_systems)
+                self.main_threads()
         except (sshtunnel.BaseSSHTunnelForwarderError, AttributeError) as exc:
             self.logger.error('Could not initialize the SSH tunnels, '
                               'aborting (%s)', repr(exc))
@@ -513,16 +487,23 @@ class SMSCMonitor(object):
             self.logger.error('Could not open remote connection')
         except Exception as exc:
             self.logger.error('Unexpected error: %s)', repr(exc))
+        finally:
+            return (self.data, self.logs)
 
-    def __str__(self):
-        return 'alldays/nologs: {}/{}\ndata shape:{}\nlogs (keys): {}' \
-               'server is set up?: {}\n' \
-               'Settings file: {}'.format(self.alldays,
-                                          self.nologs,
-                                          self.data.shape,
-                                          self.logs.keys(),
-                                          'Yes' if self.server else 'No',
-                                          self.settings_file)
+
+def read_config(settings_file=None):
+    """ Return ConfigParser object from configuration file """
+    config = ConfigParser.SafeConfigParser()
+    try:
+        settings_file = settings_file or DEFAULT_SETTINGS_FILE
+        settings = config.read(settings_file)
+    except ConfigParser.Error as _exc:
+        raise ConfigReadError(repr(_exc))
+
+    if not settings or not config.sections():
+        raise ConfigReadError('Could not read configuration %s!' %
+                              settings_file)
+    return config
 
 
 # ADD METHODS TO PANDAS DATAFRAME
@@ -566,36 +547,3 @@ def add_methods_to_pandas_dataframe(logger=None):
     pd.DataFrame.clean_calcs = calculations.clean_calcs
     pd.DataFrame.logger = logger or init_logger()
 # END OF ADD METHODS TO PANDAS DATAFRAME
-
-
-def read_config(settings_file=None):
-    """ Return ConfigParser object from configuration file """
-    config = ConfigParser.SafeConfigParser()
-    try:
-        settings_file = settings_file or DEFAULT_SETTINGS_FILE
-        settings = config.read(settings_file)
-    except ConfigParser.Error as _exc:
-        raise ConfigReadError(repr(_exc))
-
-    if not settings or not config.sections():
-        raise ConfigReadError('Could not read configuration %s!' %
-                              settings_file)
-    return config
-
-
-def main(alldays=False, nologs=False, logger=None, threads=False,
-         settings_file=None):
-    """ Here comes the main function
-    Optional: alldays (Boolean): if true, do not filter on today's date
-              nologs (Boolean): if true, skip log info collection
-    """
-    # TODO: review exceptions and comment where they may come from
-    try:
-        _sd = SMSCMonitor(settings_file, logger, alldays, nologs)
-        add_methods_to_pandas_dataframe(_sd.logger)
-        _sd.main(threads)
-
-    except ConfigReadError:
-        _sd.logger.error('Could not read settings file: %s', _sd.settings_file)
-
-    return _sd.data, _sd.logs

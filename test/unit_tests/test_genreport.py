@@ -1,55 +1,51 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-*pysmscmon* - SMSC monitoring **test functions**
+*t4mon* - T4 monitoring **test functions** for gen_report.py
 """
 from __future__ import absolute_import
 
-import unittest
-import numpy as np
-import pandas as pd
 import imghdr
 import tempfile
+import unittest
 
-from pysmscmon import df_tools
-import pysmscmon as init_func
-from pysmscmon.gen_report import gen_report, get_graphs
-from pysmscmon import logger
+import numpy as np
+import pandas as pd
 
-TEST_DATAFRAME = pd.DataFrame(np.random.randn(100, 4),
-                              columns=['test1',
-                                       'test2',
-                                       'test3',
-                                       'test4'])
-TEST_CSV = 'test/test_data.csv'
-TEST_PKL = 'test/test_data.pkl'
-TEST_GRAPHS_FILE = 'test/test_graphs.cfg'
-TEST_HTMLTEMPLATE = 'test/test_template.html'
+import t4mon as init_func
+from t4mon import df_tools
+from t4mon.gen_report import gen_report, get_graphs
 
-LOGGER = logger.init_logger(loglevel='DEBUG', name='test-pysmscmon')
+from .base import (
+    LOGGER,
+    TEST_CSV,
+    TEST_PKL,
+    TEST_GRAPHS_FILE,
+    TEST_HTMLTEMPLATE,
+    BaseTestClass
+)
 
 
-class TestGenReport(unittest.TestCase):
+class TestGenReport(BaseTestClass):
     """ Test functions for gen_report.py """
     def test_genreport(self):
         """ Test function for gen_report """
-        my_container = init_func.Container(loglevel='keep')
+        my_container = self.orchestrator.clone()
         # fill it with some data
-        my_container.logger = LOGGER
-        my_container.data = df_tools.read_pickle(TEST_PKL)
-        my_container.system = list(my_container.data.system)[0].upper()
-        my_container.logs[my_container.system] = 'Skip logs here, just a test!'
+        my_container.data = pd.read_pickle(TEST_PKL)
+        system = list(my_container.data.system)[0].upper()
+        my_container.logs[system] = 'Skip logs here, just a test!'
         my_container.html_template = TEST_HTMLTEMPLATE
-        my_container.graphs_file = TEST_GRAPHS_FILE
+        my_container.graphs_definition_file = TEST_GRAPHS_FILE
 
-        html_rendered = gen_report(my_container)
+        html_rendered = gen_report(my_container, system)
         self.assertIn('<title>Monitoring of {} at {}</title>'.format(
-            my_container.system,
+            system,
             my_container.date_time),
                       html_rendered)
 
         graph_titles = []
-        with open(my_container.graphs_file, 'r') as graphs_file:
+        with open(my_container.graphs_definition_file, 'r') as graphs_file:
             for line in graphs_file:
                 line = line.strip()
                 if not len(line) or line[0] == '#':
@@ -63,22 +59,22 @@ class TestGenReport(unittest.TestCase):
 
         # Test with a non existing template file, should return ''
         my_container.html_template = 'this_file_does_not_exist'
-        self.assertEqual(gen_report(my_container), '')
+        self.assertEqual(gen_report(my_container, system), '')
 
-        # Same with a bad formatted container
-        my_container.system = None
+        # Same when no data in the container or when no system was specified
         my_container.html_template = TEST_HTMLTEMPLATE
+        my_container.data = pd.DataFrame()
+        self.assertEqual(gen_report(my_container, system), '')
         self.assertEqual(gen_report(my_container), '')
 
     def test_getgraphs(self):
         """ Test function for get_graphs """
-        my_container = init_func.Container(loglevel='keep')
-        my_container.logger = LOGGER
-        my_container.data = df_tools.read_pickle(TEST_PKL)
+        my_container = self.orchestrator.clone()
+        my_container.data = pd.read_pickle(TEST_PKL)
         my_container.system = list(my_container.data.system)[0].upper()
         my_container.logs[my_container.system] = 'Skip logs here, just a test!'
         my_container.html_template = TEST_HTMLTEMPLATE
-        my_container.graphs_file = TEST_GRAPHS_FILE
+        my_container.graphs_definition_file = TEST_GRAPHS_FILE
 
         my_graph = get_graphs(my_container).next()
         # test that the generated graph is a valid b64 encoded png
@@ -92,5 +88,5 @@ class TestGenReport(unittest.TestCase):
             self.assertEqual(imghdr.what(temporary_file.name), 'png')
 
         # Test when the graphs file contains invalid entries
-        my_container.graphs_file = TEST_CSV  # bad file here
+        my_container.graphs_definition_file = TEST_CSV  # bad file here
         self.assertIsNone(get_graphs(my_container).next())

@@ -1,86 +1,11 @@
-!<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="generator" content="SMSCMon" />
+    <meta name="generator" content="t4Monitor" />
     <!-- Enable responsiveness on mobile devices -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
     <title>Monitoring of {{ data.system }} at {{data.date_time}}</title>
-
-    <!-- INSERT FAVICON HERE -->
-   <style type="text/css">
-      body {
-          margin-top: 0;
-          margin-right: 0;
-          padding-right: 1em;
-          padding-left: 1em;
-          border-left: 15px dotted black;
-          border-right: 6px double #111;
-          color: black;
-          font-family: Verdana, sans-serif;
-          font-size: 100%;
-          line-height: 140%;
-          color: #333;
-      }
-
-      #contentDiv{
-              background-color: white;
-              margin:auto;
-              max-width: 70em;
-              padding: 1em;
-              z-index: 1;
-      }
-
-      section {
-          font-family: Verdana, sans-serif;
-          font-size: small;
-          font-variant: small-caps;
-          line-height: 200%;
-          visibility: hidden;
-          background-color: #1b2;
-      }
-
-      pre {
-          font-family: Serif;
-          font-size: 1.5em;
-          border-radius: 5px;
-          border-top-right-radius: 5em;
-          background-color: #ddd;
-          color: #111;
-          overflow: auto;
-          padding: .5em;
-      }
-
-      pre>code{
-        display: block;
-        padding: 0 16px 16px 16px;
-        margin:2px 0;
-        background-color:#eaf3ea;
-        border-radius: 5px;
-        border-top-right-radius: 5em;
-        border: 3px solid #1b2;
-        line-height: 95%;
-        font-family: monospace;
-        white-space: normal;
-      }
-
-      h1, h2 { font-family: verdana;
-               font-weight: bold;
-               color: #1b2;
-               margin-top: 5rem;
-               padding-top: 2rem;
-               font-size: 130%;
-               border-top: 4px dashed #1b2;
-               }
-
-      #footer {
-              padding-top: 4em;
-              font-size: 70%;
-              color: gray;
-              text-align: center;
-              border-top: 2px dotted gray;
-              }
-  </style>
   </head>
   <body>
     <div id="contentDiv">
@@ -91,7 +16,7 @@
 
       <h2>Statistics</h2><br/>
 {%      for graph in get_graphs(data) %}
-{%       if not graph is sameas false %}
+{%       if graph %}
 {#   graph = (title, image)           #}
           <p>
            <pre><gtitle>{{ graph[0] }}</gtitle></pre>
@@ -107,7 +32,7 @@
     </div>
 
     <div id="footer">
-      &copy; {{ data.year }}<a href="mailto:fernandez.cuesta@gmail.com">JMF</a>
+      &copy; {{ data.year }} &middot; <a href="mailto:fernandez.cuesta@gmail.com">JMF</a>
     </div>
   </body>
 </html>

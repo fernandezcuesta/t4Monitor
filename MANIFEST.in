@@ -1,4 +1,4 @@
-include pysmscmon/conf/*
+include t4mon/conf/*
 include *.md
 include requirements.txt
 include test/*

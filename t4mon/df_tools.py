@@ -1,32 +1,33 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-Created on Mon May 25 11:11:38 2015
-
-@author: fernandezjm
+*t4mon* - T4 monitoring **test functions** for df_tools.py
 """
+
 from __future__ import absolute_import
-import __builtin__
-import pandas as pd
-import numpy as np
+
 import gzip
+import __builtin__
+from re import split
+from cStringIO import StringIO
+from itertools import takewhile
+
+import numpy as np
+import pandas as pd
+from paramiko import SFTPClient
+
+from .logger import init_logger
 
 try:
     import cPickle as pickle
 except ImportError:
     import pickle
 
-from itertools import takewhile
-from re import split
-from cStringIO import StringIO
-from paramiko import SFTPClient
 
-from .logger import init_logger
-
-SEPARATOR = ','                                # CSV separator, usually a comma
-START_HEADER_TAG = "$$$ START COLUMN HEADERS $$$"    # Start of Format-2 header
-END_HEADER_TAG = "$$$ END COLUMN HEADERS $$$"          # End of Format-2 header
-DATETIME_TAG = 'Sample Time'                # Column containing sample datetime
+SEPARATOR = ','  # CSV separator, usually a comma
+START_HEADER_TAG = "$$$ START COLUMN HEADERS $$$"  # Start of Format-2 header
+END_HEADER_TAG = "$$$ END COLUMN HEADERS $$$"  # End of Format-2 header
+DATETIME_TAG = 'Sample Time'  # Column containing sample datetime
 
 
 __all__ = ('select_var', 'copy_metadata', 'restore_metadata',
@@ -55,6 +56,8 @@ def consolidate_data(data, tmp_data=None):
     data = data.groupby(data.index).last()
     restore_metadata(tmp_meta, data)
     if isinstance(data.system, set):
+        # WHY NOT TO USE CLUSTER_NAME INSTEAD THE TRICKY THING FROM T4-CSV?
+        # THIS IS NOT UNIVERSAL...
         # we are only interested in first 5 chars of the system name
         data.system = set([i[0:5] for i in data.system])
     return data
@@ -73,14 +76,16 @@ def metadata_from_cols(data):
 
 
 def reload_from_csv(csv_filename):
-    """ Load a CSV into a dataframe and synthesize its metadata """
-    data = pd.read_csv(csv_filename)
-
+    """
+    Load a CSV into a dataframe and synthesize its metadata
+    Assumes that first column contains the timestamp information
+    """
+    data = pd.read_csv(csv_filename,
+                       index_col=0
+                       )
+    data.index = pd.to_datetime(data.index)
     metadata_from_cols(data)  # restore metadata fields
-    if 'datetime' in data:
-        return data.set_index('datetime')
-    else:
-        return data
+    return data
 
 
 def select_var(dataframe, *var_names, **optional):
@@ -186,6 +191,7 @@ def restore_metadata(metadata, dataframe):
         if keyvalue not in dataframe._metadata:
             dataframe._metadata.append(keyvalue)
 
+
 def extract_t4csv(file_descriptor):
     """ Reads Format1/Format2 T4-CSV and returns:
          * header:     List of strings (column names)
@@ -203,9 +209,18 @@ def extract_t4csv(file_descriptor):
             header = data_lines[3].split(SEPARATOR)
             data_lines = data_lines[4:]
         else:  # Format 2
-            h_last = data_lines.index(END_HEADER_TAG)
-            header = SEPARATOR.join(data_lines[2:h_last]).split(SEPARATOR)
-            data_lines = data_lines[h_last + 1:]
+            # Search from the bottom in case there's a format2 violation,
+            # common with t4 merge where files are glued just as with cat,
+            # so there are 2x headers, discarding the first part
+            # Our header will be between [h_ini, h_last]
+            h_ini = len(data_lines) - \
+                data_lines[::-1].index(START_HEADER_TAG)
+            h_last = len(data_lines) - \
+                data_lines[::-1].index(END_HEADER_TAG)
+
+            header = SEPARATOR.join(data_lines[h_ini:h_last-1]).\
+                split(SEPARATOR)  # This is now a list with all the columns
+            data_lines = data_lines[h_last:]
         return (header, data_lines, metadata)
     except:
         raise ExtractCSVException
@@ -281,6 +296,10 @@ def to_pickle(self, name, compress=False):
                     buffer_object,
                     protocol=pickle.HIGHEST_PROTOCOL)
     buffer_object.flush()
+
+    if name.endswith('.gz'):
+        compress = True
+        name = name.rsplit('.gz')[0]  # we're appending the gz extensions below
 
     if compress:
         output = gzip

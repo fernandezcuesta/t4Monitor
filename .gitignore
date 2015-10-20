@@ -6,8 +6,8 @@ pysmscmon/store/*
 pysmscmon/reports/*
 pysmscmon/htmlcov/*
 *cache*
-reports/
-store/
+*reports/
+*store/
 share/
 bin/
 include/
@@ -31,3 +31,4 @@ test_local/
 build/
 dist/
 .tox/
+.ipynb*

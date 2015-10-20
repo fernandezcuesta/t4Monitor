@@ -1,29 +1,19 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-*pysmscmon* - SMSC monitoring **test functions**
+*t4mon* - T4 monitoring **test functions** for df_tools.py
 """
 from __future__ import absolute_import
 
-import unittest
 import tempfile
+import unittest
 
 import pandas as pd
-import numpy as np
 from pandas.util.testing import assert_frame_equal
 
-from pysmscmon import smscmon as smsc
-from pysmscmon import df_tools
-from pysmscmon import logger
+from t4mon import df_tools, collector
 
-TEST_DATAFRAME = pd.DataFrame(np.random.randn(100, 4),
-                              columns=['test1',
-                                       'test2',
-                                       'test3',
-                                       'test4'])
-LOGGER = logger.init_logger(loglevel='DEBUG', name='test-pysmscmon')
-TEST_CSV = 'test/test_data.csv'
-TEST_PKL = 'test/test_data.pkl'
+from .base import LOGGER, TEST_CSV, TEST_PKL
 
 
 class TestAuxiliaryFunctions(unittest.TestCase):
@@ -34,7 +24,7 @@ class TestAuxiliaryFunctions(unittest.TestCase):
     """
     @classmethod
     def setUpClass(cls):
-        smsc.add_methods_to_pandas_dataframe(LOGGER)
+        collector.add_methods_to_pandas_dataframe(LOGGER)
 
     def test_restore_plain_csv(self):
         """ Test function for auxiliary metadata_from_cols and reload_from_csv
@@ -55,6 +45,11 @@ class TestAuxiliaryFunctions(unittest.TestCase):
 
 class TestDFTools(unittest.TestCase):
     """ Set of test functions for df_tools.py """
+
+    @classmethod
+    def setUpClass(cls):
+        collector.add_methods_to_pandas_dataframe(LOGGER)
+
     def test_extract_t4csv(self):
         """ Test function for extract_t4csv """
         with open(TEST_CSV, 'r') as filedescriptor:
@@ -136,10 +131,10 @@ class TestDFTools(unittest.TestCase):
         # # Missing data should return an empty DF
         self.assertTrue(df_tools.to_dataframe(header, [], metadata).empty)
         # # Missing metadata should return metadata-ready empty DF
-        # for item in dataframe._metadata:
-        #     self.assertIn(item, df_tools.to_dataframe(header,
-        #                                               data,
-        #                                               {})._metadata)
+        for item in dataframe._metadata:
+            self.assertIn(item, df_tools.to_dataframe(header,
+                                                      data,
+                                                      {})._metadata)
         my_df = df_tools.to_dataframe(['COL1', 'My Sample Time'],
                                       ['7, 2000-01-01 00:00:01',
                                        '23, 2000-01-01 00:01:00',
@@ -179,7 +174,6 @@ class TestDFTools(unittest.TestCase):
             plaincsv.file.close()
             assert_frame_equal(pd.DataFrame(),
                                df_tools.dataframize(plaincsv.name))
-
         # test when file does not exist
         assert_frame_equal(pd.DataFrame(),
                            df_tools.dataframize('non-existing-file'))
@@ -194,12 +188,20 @@ class TestDFTools(unittest.TestCase):
             assert_frame_equal(dataframe,
                                pd.read_pickle(picklegz.name,
                                               compress=True))
+            # We should be able to know this is a compressed pickle just by
+            # looking at the .gz extension
+            assert_frame_equal(dataframe,
+                               pd.read_pickle(picklegz.name))
 
     def consolidate_data(self):
         """ Test for consolidate_data """
         dataframe = df_tools.dataframize(TEST_CSV, logger=LOGGER)
+        # Consolidate a dataframe with nothing should return the original df
         assert_frame_equal(df_tools.consolidate_data(dataframe), dataframe)
+        # Consolidating a df with itself shouldn't modify anything
         assert_frame_equal(df_tools.consolidate_data(dataframe, dataframe),
                            dataframe)
-        assert_frame_equal(df_tools.consolidate_data(dataframe, pd.DataFrame()),
+        # Consolidating a df with itself should return the original dataframe
+        assert_frame_equal(df_tools.consolidate_data(dataframe,
+                                                     pd.DataFrame()),
                            dataframe)

@@ -1,9 +1,9 @@
-import socket
-import paramiko
-import threading
-import sys
 import select
+import socket
+import sys
+import threading
 
+import paramiko
 
 HOST_KEY = paramiko.RSAKey(filename='key.key')
 SSH_PORT = 22022

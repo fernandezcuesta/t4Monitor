@@ -5,12 +5,15 @@ Created on Mon May 25 11:10:57 2015
 @author: fernandezjm
 """
 from __future__ import absolute_import
+
 import sys
 from cStringIO import StringIO
-from matplotlib import pyplot as plt, dates as md
 
-from .logger import init_logger
+from matplotlib import dates as md
+from matplotlib import pyplot as plt
+
 from . import df_tools
+from .logger import init_logger
 
 
 def plot_var(dataframe, *var_names, **optional):
@@ -64,7 +67,8 @@ def plot_var(dataframe, *var_names, **optional):
                     continue
                 for item in sel:
                     logger.debug('Drawing item: %s (%s)' % (item, key))
-                    # convert timestamp to number
+                    # convert timestamp to number, Matplotlib requires a float
+                    # format which is days since epoch
                     my_ts = [ts.to_julian_date() - 1721424.5
                              for ts in grp[item].dropna().index]
                     plt.plot(my_ts,

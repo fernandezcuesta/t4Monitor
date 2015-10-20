@@ -1,14 +1,15 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-*pysmscmon* - SMSC monitoring **test functions**
+*t4mon* - T4 monitoring **test functions** for logger.py
 """
-import unittest
 import logging
-from pysmscmon import logger
+import unittest
+
+from t4mon import logger
 
 
-class TestSmscmon(unittest.TestCase):
+class TestLogger(unittest.TestCase):
     """ Set of test functions for logger.py """
     def test_initlogger(self):
         """ Test function for init_logger """

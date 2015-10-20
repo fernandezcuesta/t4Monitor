@@ -1,0 +1,174 @@
+/*
+ * CSS file example for t4Mon
+ *
+ */
+
+  body {
+      margin-top: 0;
+      margin-right: 0;
+      padding-right: 1em;
+      padding-left: 1em;
+      border-left: 15px dotted black;
+      border-right: 6px double #111;
+      color: black;
+      font-family: Verdana, sans-serif;
+      font-size: 100%;
+      line-height: 140%;
+      color: #333;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      background-position: 99% 1em;
+      background-size: 10%;
+      background-color: whitesmoke;
+  /* Prevent scroll on narrow devices */
+      overflow-x: hidden;
+  }
+
+  img {
+      width: auto;
+      max-width: 95%;
+      height: auto;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+  }
+
+  .wrap {
+    position: relative;
+    width: 100%;
+  }
+
+
+  #contentDiv{
+          background-color: white;
+          margin:auto;
+          max-width: 70em;
+          padding: 1em;
+          z-index: 1;
+  }
+
+  section {
+      font-family: Verdana, sans-serif;
+      font-size: small;
+      font-variant: small-caps;
+      line-height: 200%;
+      visibility: hidden;
+      background-color: #a12;
+  }
+
+  /* hyperlinks */
+  a:link {
+      text-decoration: none;
+      color: #333
+  }
+  a:visited {
+      color: #050
+  }
+  a:hover {
+      color: #a12;
+      text-decoration: underline;
+  }
+
+  a:active {
+      color:  black;
+  }
+
+  pre {
+      border-radius: 5px;
+      border-top-right-radius: 5em;
+      background-color: #ececec;
+      color: #1111111;
+      overflow: auto;
+      padding: 0.5em;
+  }
+
+
+  pre>gtitle{
+        display: block;
+        padding: 0 16px 16px 16px;
+        margin:2px 0;
+        background-color:#a12;
+        overflow-x:auto;
+        word-wrap:normal;
+        white-space:inherit;
+        border-radius: 5px;
+        font-family:Lato,"Microsoft YaHei",sans-serif;
+        border-top-right-radius: 5em;
+        border: 3px solid #a12;
+        font-size: 1.5em;
+        padding: 0.3em;
+        color: #efefef;
+        text-align: center;
+  }
+
+  pre>code{
+    display: block;
+    padding: 0 16px 16px 16px;
+    margin:2px 0;
+    background-color:#f3efef;
+    overflow-x:auto;
+    word-wrap:normal;
+    white-space:inherit;
+    border-radius: 5px;
+    border-top-right-radius: 5em;
+    border: 3px solid #a12;
+     line-height: 95%;
+  }
+
+  pre>code:before{
+   content: " OpenVMS>";
+      display: block;
+      background-color: #a12;
+      margin:0 -16px 16px -16px;
+      padding:8px 16px;
+      color: #efefef;
+      font-family:Lato,"Microsoft YaHei",sans-serif;
+      font-size:1.1em;
+  }
+
+  code {
+      font-family: monospace;
+      white-space: normal;
+  }
+
+  h1 a, h2 a {
+      text-decoration: none;
+      color: #a12;
+  }
+  h1, h2 { font-family: verdana;
+           font-weight: bold;
+           color: #a12;
+           margin-top: 5rem;
+           padding-top: 2rem;}
+  h1 {
+          font-size: 150%;
+     }
+
+  h2 {
+          font-size: 130%;
+          border-top: 4px dashed #a12;
+     }
+
+  h1.title {
+          color: #555;
+          font-weight: bold;
+          padding-top: 2em;
+          padding-bottom: 0.2em;
+          text-align: left;
+          border: none;
+  }
+
+  dt code {
+          font-weight: bold;
+  }
+  dd p {
+          margin-top: 0;
+  }
+
+  #footer {
+          padding-top: 4em;
+          font-size: 70%;
+          color: gray;
+          text-align: center;
+          border-top: 2px dotted gray;
+          }
