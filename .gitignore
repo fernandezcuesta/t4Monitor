@@ -1,7 +1,7 @@
 *.pyc
 *.*~
 *old*.*
-.coverage
+.covera*
 pysmscmon/store/*
 pysmscmon/reports/*
 pysmscmon/htmlcov/*
