@@ -7,6 +7,6 @@ before_script:
   - pip install coveralls
   - pip install pytest-cov
 script:
-  py.test --cov . --cov-report term-missing
+  py.test --cov t4mon --cov-report term-missing
 after_success:
   coveralls
