@@ -44,9 +44,16 @@ def plot_var(dataframe, *var_names, **optional):
                                       logger=logger)
             if not sel:
                 raise TypeError
-            logger.debug('Drawing selected: %s', sel)
-            plotaxis = dataframe[dataframe['system'] == system_filter][sel].\
-                dropna(axis=1, how='all').plot(**optional)
+            system_column = df_tools.get_column_name_case_insensitive(
+                                dataframe,
+                                'system'
+                            )
+            filtered_rows = [k.upper() == system_filter
+                             for k in dataframe[system_column]]
+            plotaxis = dataframe[filtered_rows][sel].dropna(
+                           axis=1,
+                           how='all'
+                       ).plot(**optional)
 
         # Otherwise, var_names columns are selected for system in the dataframe
         # and matplotlib.pyplot's plot function is used once for each column.

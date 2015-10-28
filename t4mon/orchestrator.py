@@ -27,6 +27,7 @@ __all__ = ('Orchestrator')
 
 
 class Orchestrator(object):
+
     """ Object passed to jinja2 containing:
 
         - graphs: dictionary of key, value -> {system-id, list of graphs}
@@ -59,10 +60,8 @@ class Orchestrator(object):
         self.reports_folder = './reports'
         self.settings_file = settings_file or collector.DEFAULT_SETTINGS_FILE
         self.store_folder = './store'
-        self.system = ''
         self.safe = safe
-        self.year = dt.date.today().year
-        self.collector = collector.Collector(  # CollectorOptions(
+        self.collector = collector.Collector(
             logger=self.logger,
             settings_file=self.settings_file,
             safe=self.safe,
@@ -71,17 +70,15 @@ class Orchestrator(object):
         self.check_files()
 
     def __str__(self):
-        return ('Container created on {0} for system: "{1}"\n'
-                'Loglevel: {2}\n'
-                'graphs_definition_file: {3}\n'
-                'html_template: {4}\n'
-                'reports folder: {5}\n'
-                'store folder: {6}\n'
-                'data size: {7}\n'
-                'settings_file: {8}\n'
-                'calculations_file: {9}\n'.format(
+        return ('Container created on {0} with loglevel {1}"\n'
+                'graphs_definition_file: {2}\n'
+                'html_template: {3}\n'
+                'reports folder: {4}\n'
+                'store folder: {5}\n'
+                'data size: {6}\n'
+                'settings_file: {7}\n'
+                'calculations_file: {8}\n'.format(
                     self.date_time,
-                    self.system,
                     self.logger.level,
                     self.graphs_definition_file,
                     self.html_template,
@@ -91,31 +88,6 @@ class Orchestrator(object):
                     self.settings_file,
                     self.calculations_file
                 ))
-
-
-    def clone(self, system=''):
-        """ Makes a copy of the data container where the system is filled in,
-            data is shared with the original (note in pandas we need to do a
-            pandas.DataFrame.copy(), otherwise it's just a view), date_time is
-            copied from the original and logs and graphs are left unmodified.
-            This method is only used in test functions.
-        """
-        my_clone = Orchestrator(logger=self.logger)
-        my_clone.calculations_file = self.calculations_file
-        my_clone.data = self.data
-        my_clone.date_time = self.date_time
-        my_clone.graphs_definition_file = self.graphs_definition_file
-        my_clone.html_template = self.html_template
-        if system in self.logs:
-            my_clone.logs[system] = self.logs[system]
-        my_clone.reports_written = self.reports_written
-        my_clone.reports_folder = self.reports_folder
-        my_clone.store_folder = self.store_folder
-        my_clone.system = system
-        my_clone.safe = self.safe
-        my_clone.year = self.year
-
-        return my_clone
 
     def get_absolute_path(self, filename=''):
         """
@@ -210,12 +182,12 @@ class Orchestrator(object):
         """ Method for creating a single report for a particular system """
         report_name = '{0}/Report_{1}_{2}.html'.format(self.reports_folder,
                                                        self.date_tag(),
-                                                       system)  # or self.system)
+                                                       system)
         self.logger.debug('%s | Generating HTML report (%s)',
-                          system, # or self.system,
+                          system,
                           report_name)
         with open(report_name, 'w') as output:
-            output.writelines(gen_report(container=self, system=system))  # container or self))
+            output.writelines(gen_report(container=self, system=system))
         self.reports_written.append(report_name)
 
     def reports_generator(self):
@@ -230,15 +202,14 @@ class Orchestrator(object):
         plt.style.use('ggplot')
 
         if self.safe:
-            for system in self.data.system:
-                # self.system = system
+            for system in self.collector.systems:
                 self.create_report(system)
         else:
             threads = [
                 threading.Thread(target=self.create_report,
                                  kwargs={'system': system},
                                  name=system)
-                for system in self.data.system
+                for system in self.collector.systems
             ]
             for thread_item in threads:
                 thread_item.daemon = True
@@ -262,7 +233,7 @@ class Orchestrator(object):
 
         # Write logs
         if not nologs:
-            for system in self.data.system:
+            for system in self.collector.systems:
                 if system not in self.logs:
                     self.logger.warning('No log info found for %s', system)
                     continue
@@ -277,9 +248,7 @@ class Orchestrator(object):
         """
 
         # Open the tunnels and gather all data&logs
-        (self.data, self.logs) = self.collector.start(
-            # self.collector_options
-        )
+        (self.data, self.logs) = self.collector.start()
         if self.data.empty:
             self.logger.error('Could not retrieve data!!! Aborting.')
             return
@@ -310,12 +279,13 @@ class Orchestrator(object):
         self.reports_generator()
         self.logger.info('Done!')
 
-    def create_reports_from_local_csv(self, csv_file):
-        """ Generate HTML files from a local CSV file """
+    def create_reports_from_local_csv(self, csv_file, plain=False):
+        """ Generate HTML files from a local (plain/T4) CSV file """
         # parse the CSV into a (modified) pandas Dataframe
         if not os.path.exists(csv_file):
             self.logger.error('CSV file %s cannot be found', csv_file)
-        self.data = reload_from_csv(csv_file)
+        self.data = reload_from_csv(csv_file, plain)
+        self.collector.systems = list(self.data.system)
         # Populate the log info with fake data
         for system in self.collector.systems:
             self.logs[system] = 'Log collection omitted for locally '\

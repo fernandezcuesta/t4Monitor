@@ -15,8 +15,9 @@ from t4mon import df_tools, collector
 
 from .base import LOGGER, TEST_CSV, TEST_PKL
 
-
+@unittest.skip
 class TestAuxiliaryFunctions(unittest.TestCase):
+
     """ Test auxiliary functions, only executed from CLI
         Moved to a separate class since it affects _metadata, which extends to
         all objects of the pandas.DataFrame class. Placed before TestDFTools
@@ -30,13 +31,14 @@ class TestAuxiliaryFunctions(unittest.TestCase):
         """ Test function for auxiliary metadata_from_cols and reload_from_csv
         """
         # my_df = pd.read_pickle(TEST_PKL)
-        with open(TEST_CSV, 'r') as testcsv:
-            df1 = df_tools.to_dataframe(*df_tools.extract_t4csv(testcsv))
+        df1 = df_tools.reload_from_csv(TEST_CSV)
+        # with open(TEST_CSV, 'r') as testcsv:
+        #     df1 = df_tools.to_dataframe(*df_tools.extract_t4csv(testcsv))
         with tempfile.NamedTemporaryFile() as plaincsv:
             df1.to_csv(plaincsv)
             plaincsv.file.close()
+            df2 = df_tools.reload_from_csv(plaincsv.name, plain=True)
 
-            df2 = df_tools.reload_from_csv(plaincsv.name)
         self.assertTupleEqual(df1.shape, df2.shape)
         self.assertListEqual(df1._metadata, df2._metadata)
         for meta_item in df1._metadata:
@@ -44,6 +46,7 @@ class TestAuxiliaryFunctions(unittest.TestCase):
 
 
 class TestDFTools(unittest.TestCase):
+
     """ Set of test functions for df_tools.py """
 
     @classmethod
@@ -113,7 +116,7 @@ class TestDFTools(unittest.TestCase):
         # Extract filtering by an existing system (only one in this case)
         assert_frame_equal(dataframe,
                            df_tools.extract_df(dataframe,
-                                               system='SYSTEM1',
+                                               system='SYSTEM_1',
                                                logger=LOGGER))
         # Extract an empty DF should return empty DF
         assert_frame_equal(pd.DataFrame(), df_tools.extract_df(pd.DataFrame(),

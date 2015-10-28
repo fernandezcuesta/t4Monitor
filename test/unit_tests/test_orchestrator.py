@@ -7,6 +7,7 @@ from __future__ import absolute_import
 
 import os
 from datetime import datetime as dt
+import unittest
 
 import pandas as pd
 from pandas.util.testing import assert_frame_equal
@@ -25,47 +26,47 @@ from .base import (
 
 
 class TestOrchestrator(BaseTestClass):
+
     """ Set of test functions for orchestrator.py """
 
     def test_get_absolute_path(self):
         """ Test auxiliary function get_absolute_path """
         self.assertEqual(
-            self.orchestrator.get_absolute_path(),
+            self.orchestrator_test.get_absolute_path(),
             os.path.dirname(os.path.abspath(TEST_CONFIG)) + os.sep
         )
         self.assertEqual(
-            self.orchestrator.get_absolute_path('/home/user/file.txt'),
+            self.orchestrator_test.get_absolute_path('/home/user/file.txt'),
             '/home/user/file.txt'
         )
 
     def test_orchestrator(self):
         """ Check that Orchestrator has the correct fields by default """
-        self.assertDictEqual(self.orchestrator.graphs, {})
-        self.assertDictEqual(self.orchestrator.logs,
+        self.assertDictEqual(self.orchestrator_test.graphs, {})
+        self.assertDictEqual(self.orchestrator_test.logs,
                              {'my_sys': 'These are my dummy log results'}
                              )
-        self.assertEqual(dt.today().year, self.orchestrator.year)
         self.assertGreaterEqual(dt.today().toordinal(),
-                                dt.strptime(self.orchestrator.date_time,
+                                dt.strptime(self.orchestrator_test.date_time,
                                             '%d/%m/%Y %H:%M:%S').toordinal())
-        assert_frame_equal(pd.DataFrame(), self.orchestrator.data)
-        self.assertEqual(self.orchestrator.system, '')
-        self.assertIn('html_template', self.orchestrator.__dict__)
-        self.assertIn('graphs_definition_file', self.orchestrator.__dict__)
-        self.assertNotEqual(self.orchestrator.store_folder, '')
-        self.assertNotEqual(self.orchestrator.reports_folder,
-                            self.orchestrator.store_folder)
-        self.assertIsInstance(self.orchestrator.__str__(), str)
+        assert_frame_equal(pd.DataFrame(), self.orchestrator_test.data)
+        self.assertIn('html_template', self.orchestrator_test.__dict__)
+        self.assertIn('graphs_definition_file',
+                      self.orchestrator_test.__dict__)
+        self.assertNotEqual(self.orchestrator_test.store_folder, '')
+        self.assertNotEqual(self.orchestrator_test.reports_folder,
+                            self.orchestrator_test.store_folder)
+        self.assertIsInstance(self.orchestrator_test.__str__(), str)
 
     def test_clone(self):
         """ Test function for Orchestrator.clone() """
-        container_clone = self.orchestrator.clone(system='my_sys')
-        self.assertEqual(self.orchestrator.date_time,
+        container_clone = self.orchestrator_test.clone(system='my_sys')
+        self.assertEqual(self.orchestrator_test.date_time,
                          container_clone.date_time)
 
     def test_check_files(self):
         """ Test check_files"""
-        test_container = self.orchestrator.clone()
+        test_container = self.orchestrator_test.clone()
         # First of all, check with default settings
         self.assertIsNone(test_container.check_files())
 
@@ -90,11 +91,34 @@ class TestOrchestrator(BaseTestClass):
 
     def test_reports_generator(self):
         """ Test function for Orchestrator.reports_generator() """
-        collector.add_methods_to_pandas_dataframe(logger=LOGGER)
-        container = self.orchestrator.clone()
+        container = self.orchestrator_test.clone()
         container.data = pd.read_pickle(TEST_PKL)
         container.reports_generator()
+        self.assertNotEqual(container.reports_written, [])
+        for report_file in container.reports_written:
+            self.assertTrue(os.path.exists(report_file))
         # Test the non-threaded version
         container.safe = True
         container.data.system.add('SYS2')
         container.reports_generator()
+        self.assertNotEqual(container.reports_written, [])
+        for report_file in container.reports_written:
+            self.assertTrue(os.path.exists(report_file))
+
+    def test_create_reports_from_local_pkl(self):
+        """
+        Test function for Orchestrator.create_reports_from_local_pkl()
+        """
+        _orchestrator = self.orchestrator_test.clone()
+        _orchestrator.create_reports_from_local_pkl(TEST_PKL)
+        self.assertNotEqual(_orchestrator.reports_written, [])
+        for report_file in _orchestrator.reports_written:
+            self.assertTrue(os.path.exists(report_file))
+
+    def test_create_reports_from_local_csv(self):
+        """ Test function for Orchestrator.create_reports_from_local_csv() """
+        _orchestrator = self.orchestrator_test.clone()
+        _orchestrator.create_reports_from_local_csv(TEST_CSV)
+        self.assertNotEqual(_orchestrator.reports_written, [])
+        for report_file in _orchestrator.reports_written:
+            self.assertTrue(os.path.exists(report_file))

@@ -13,17 +13,17 @@ from os import path, remove
 
 import paramiko
 
-from t4mon.collector import read_config, add_methods_to_pandas_dataframe
+from t4mon.collector import read_config
 
 from ..unit_tests.base import *
 
 
 class TestWithSsh(BaseTestClass):
+
     """ Set of test functions for interactive (ssh) methods of collector.py """
     @classmethod
     def setUpClass(cls):
         super(TestWithSsh, cls).setUpClass()
-        add_methods_to_pandas_dataframe(LOGGER)
         # Check if SSH is listening in localhost """
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -39,28 +39,34 @@ class TestWithSsh(BaseTestClass):
                   'ERROR: %s', exc)
             raise unittest.SkipTest
 
+    def setUp(self):  # make a clone for every new test
+        # Specify where the test files are
+        self.sandbox = self.orchestrator_test.clone()
+        self.sandbox.collector.conf.set('DEFAULT', 'folder', MY_DIR)
+
 
 class TestWithTempConfig(TestWithSsh):
+
     """ Test class to handle working in a temporary dir """
     @classmethod
     def setUpClass(cls):
         super(TestWithTempConfig, cls).setUpClass()
         cls.conf = read_config(settings_file=TEST_CONFIG)
         cls.temporary_dir = tempfile.gettempdir()
-        cls.orchestrator.logger.info('Using temporary dir: %s',
-                                     cls.temporary_dir)
+        cls.orchestrator_test.logger.info('Using temporary dir: %s',
+                                          cls.temporary_dir)
 
-        calcs_file = cls.orchestrator.get_absolute_path(
+        calcs_file = cls.orchestrator_test.get_absolute_path(
             cls.conf.get('MISC', 'calculations_file'))
         shutil.copy(calcs_file,
                     cls.temporary_dir)
 
-        html_template = cls.orchestrator.get_absolute_path(
+        html_template = cls.orchestrator_test.get_absolute_path(
             cls.conf.get('MISC', 'html_template'))
         shutil.copy(html_template,
                     cls.temporary_dir)
 
-        graphs_file = cls.orchestrator.get_absolute_path(
+        graphs_file = cls.orchestrator_test.get_absolute_path(
             cls.conf.get('MISC', 'graphs_definition_file'))
         shutil.copy(graphs_file,
                     cls.temporary_dir)

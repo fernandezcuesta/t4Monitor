@@ -27,11 +27,11 @@ from random import randint
 
 import pandas as pd
 from paramiko import SSHException
+import sshtunnel
 
 from . import df_tools, calculations
 from .logger import init_logger
-from .sshtunnels import sshtunnel
-from .sshtunnels.sftpsession import SftpSession, SFTPSessionError
+from sshtunnels.sftpsession import SftpSession, SFTPSessionError
 
 __all__ = ('add_methods_to_pandas_dataframe',
            'Collector',
@@ -96,8 +96,8 @@ class Collector(object):
         self.__str__()
         add_methods_to_pandas_dataframe(self.logger)
 
-    def __enter__(self):
-        self.init_tunnels()
+    def __enter__(self, system=None):
+        self.init_tunnels(system)
         self.start_server()
         return self
 
@@ -115,28 +115,6 @@ class Collector(object):
                                             not self.safe,
                                             'Yes' if self.server else 'No',
                                             self.settings_file))
-
-    def consolidate_data(self, partial_dataframe):
-        """
-        Consolidates partial_dataframe with self.data by calling
-        df_tools.consolidate_data
-        """
-        self.data = df_tools.consolidate_data(self.data, partial_dataframe)
-
-    def clone(self):
-        """ Makes a copy of SData
-        """
-        my_clone = Collector()
-        my_clone.alldays = self.alldays
-        my_clone.conf = self.conf
-        my_clone.data = self.data.copy()  # required in pandas
-        my_clone.logger = self.logger
-        my_clone.logs = self.logs
-        my_clone.nologs = self.nologs
-        my_clone.results_queue = Queue.Queue()  # make a brand new result queue
-        my_clone.server = self.server
-        my_clone.settings_file = self.settings_file
-        return my_clone
 
     def init_tunnels(self, system=None):
         """
@@ -170,18 +148,16 @@ class Collector(object):
                 else None
             user = self.conf.get('GATEWAY', 'username') or None \
                 if self.conf.has_option('GATEWAY', 'username') else None
-
             self.server = sshtunnel.SSHTunnelForwarder(
-                ssh_address=jumpbox_addr,
-                ssh_port=jumpbox_port,
+                ssh_address_or_host=(jumpbox_addr, jumpbox_port),
                 ssh_username=user,
                 ssh_password=pwd,
-                remote_bind_address_list=rbal,
-                local_bind_address_list=lbal,
+                remote_bind_addresses=rbal,
+                local_bind_addresses=lbal,
                 threaded=False,
                 logger=self.logger,
-                ssh_private_key_file=pkey
-                                                       )
+                ssh_private_key=pkey
+            )
             # Add the system<>port bindings to the return object
             self.server.tunnelports = tunnelports
             self.logger.debug('Registered tunnels: %s',
@@ -272,7 +248,7 @@ class Collector(object):
         try:
             self.logger.info('Opening connection to gateway')
             self.server.start()
-            if not self.server.is_started:
+            if not self.server._is_started:
                 raise sshtunnel.BaseSSHTunnelForwarderError(
                     "Couldn't start server"
                                                             )
@@ -284,7 +260,7 @@ class Collector(object):
         Dummy function to stop SSH servers
         """
         try:
-            if self.server and self.server.is_started:
+            if self.server and self.server._is_started:
                 self.logger.info('Closing connection to gateway')
                 self.server.stop()
         except AttributeError as msg:
@@ -312,7 +288,7 @@ class Collector(object):
 
         # filter remote files on extension and date
         # using MONTHS to avoid problems with locale rather than english
-        # under windows environments
+        # under Windows environments
         if self.alldays:
             tag_list = ['.csv']
         else:
@@ -407,9 +383,16 @@ class Collector(object):
         if close_me:
             self.logger.debug('Closing sftp session')
             sftp_session.close()
-        # calling df_tools.consolidate_data instead of self method to avoid
-        # concatenation with self.data
-        return df_tools.consolidate_data(_df)
+        return _df
+
+    def check_if_tunnel_is_up(self, system):
+        """ Return true if there's a tuple in self.server.tunnel_is_up such as:
+            {('0.0.0.0', port): True} where port is the tunnelport for system
+        """
+        port = self.server.tunnelports[system]
+        return any(port in address_tuple for address_tuple
+                   in self.server.tunnel_is_up.iterkeys()
+                   if self.server.tunnel_is_up[address_tuple])
 
     def thread_wrapper(self, system):
         """
@@ -418,19 +401,18 @@ class Collector(object):
         # Get data from the remote system
         try:
             self.logger.info('%s | Collecting statistics...', system)
-            tunnelport = self.server.tunnelports[system]
-            if not self.server.tunnel_is_up[tunnelport]:
+            if not self.check_if_tunnel_is_up(system):
                 self.logger.error('%s | System not reachable!', system)
                 raise IOError
-            (data, log) = self.collect_system_data(system)
+            (result_data, result_log) = self.collect_system_data(system)
             # self.logger.debug('%s | Putting results in queue', system)
         except (IOError, SFTPSessionError):
-            data = pd.DataFrame()
-            log = 'Could not get information from this system'
+            result_data = pd.DataFrame()
+            result_log = 'Could not get information from this system'
         # self.results_queue.put((system, data, log))
         self.logger.debug('%s | Consolidating results', system)
-        self.consolidate_data(data)
-        self.logs[system] = log
+        self.data = consolidate_data(self.data, result_data, system)
+        self.logs[system] = result_log
         self.results_queue.put(system)
 
     def main_threads(self):
@@ -453,22 +435,23 @@ class Collector(object):
         for system in self.systems:
             self.logger.info('%s | Initializing tunnel', system)
             try:
-                self.systems = [system]  # fake this for calling init_tunnels
-                with self:
-                    tunnelport = self.server.tunnelports[system]
-                    if tunnelport not in self.server.tunnel_is_up or \
-                       not self.server.tunnel_is_up[tunnelport]:
-                        self.logger.error('Cannot download data from %s.',
-                                          system)
-                        raise IOError
-                    (res_data,
-                     self.logs[system]) = self.collect_system_data(system)
-                    self.consolidate_data(res_data)
-                    self.logger.info('Done for %s', system)
+                self.init_tunnels(system)
+                self.start_server()
+                self.thread_wrapper(system)
+
+                # if not self.check_if_tunnel_is_up(system):
+                #     self.logger.error('%s | System not reachable!', system)
+                #     raise IOError
+                # (result_data,
+                #  self.logs[system]) = self.collect_system_data(system)
+                # consolidate_data(self.data, result_data, system)
+                # self.logger.info('%s | Done collecting data!', system)
+
+                self.stop_server()
             except (sshtunnel.BaseSSHTunnelForwarderError,
                     IOError,
                     SFTPSessionError):
-                self.logger.warning('Continue to next system')
+                self.logger.warning('Continue to next system (if any)')
                 continue
 
     def start(self):
@@ -547,3 +530,24 @@ def add_methods_to_pandas_dataframe(logger=None):
     pd.DataFrame.clean_calcs = calculations.clean_calcs
     pd.DataFrame.logger = logger or init_logger()
 # END OF ADD METHODS TO PANDAS DATAFRAME
+
+
+def consolidate_data(dataframe, partial_dataframe=None, system=None):
+    """
+    Consolidates partial_dataframe with self.data by calling
+    df_tools.consolidate_data
+    """
+    if partial_dataframe is None:
+        partial_dataframe = pd.DataFrame()
+    if not system:
+        system = list(dataframe.system)[0]
+    elif isinstance(system, set):
+        system = list(system)[0]
+    dataframe = df_tools.consolidate_data(dataframe, partial_dataframe)
+    # Overwrite system column to avoid breaking cluster statistics,
+    # i.e. data coming from cluster LONDON and represented by systems
+    # LONDON_1 and LONDON_2
+    system_column = df_tools.get_column_name_case_insensitive(dataframe,
+                                                              'system')
+    dataframe[system_column] = system
+    return dataframe

@@ -15,7 +15,7 @@
       <p>Information on the following graphs is meaningless and was generated from the test CSV/dataframe. Showing for system: <strong>{{ data.system }}</strong></p>
 
       <h2>Statistics</h2><br/>
-{%      for graph in get_graphs(data) %}
+{%      for graph in render_graphs() %}
 {%       if graph %}
 {#   graph = (title, image)           #}
           <p>

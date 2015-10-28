@@ -14,7 +14,7 @@ import pandas as pd
 
 import t4mon as init_func
 from t4mon import df_tools
-from t4mon.gen_report import gen_report, get_graphs
+from t4mon.gen_report import gen_report, Report
 
 from .base import (
     LOGGER,
@@ -27,10 +27,12 @@ from .base import (
 
 
 class TestGenReport(BaseTestClass):
+
     """ Test functions for gen_report.py """
+
     def test_genreport(self):
         """ Test function for gen_report """
-        my_container = self.orchestrator.clone()
+        my_container = self.orchestrator_test.clone()
         # fill it with some data
         my_container.data = pd.read_pickle(TEST_PKL)
         system = list(my_container.data.system)[0].upper()
@@ -40,8 +42,8 @@ class TestGenReport(BaseTestClass):
 
         html_rendered = gen_report(my_container, system)
         self.assertIn('<title>Monitoring of {} at {}</title>'.format(
-            system,
-            my_container.date_time),
+                          system,
+                          my_container.date_time),
                       html_rendered)
 
         graph_titles = []
@@ -65,18 +67,19 @@ class TestGenReport(BaseTestClass):
         my_container.html_template = TEST_HTMLTEMPLATE
         my_container.data = pd.DataFrame()
         self.assertEqual(gen_report(my_container, system), '')
-        self.assertEqual(gen_report(my_container), '')
+        self.assertEqual(gen_report(my_container, ''), '')
 
     def test_getgraphs(self):
         """ Test function for get_graphs """
-        my_container = self.orchestrator.clone()
+        my_container = self.orchestrator_test.clone()
         my_container.data = pd.read_pickle(TEST_PKL)
-        my_container.system = list(my_container.data.system)[0].upper()
-        my_container.logs[my_container.system] = 'Skip logs here, just a test!'
+        system = list(my_container.data.system)[0].upper()
+        my_container.logs[system] = 'Skip logs here, just a test!'
         my_container.html_template = TEST_HTMLTEMPLATE
         my_container.graphs_definition_file = TEST_GRAPHS_FILE
 
-        my_graph = get_graphs(my_container).next()
+        _report = Report(my_container, system)
+        my_graph = _report.render_graphs().next()
         # test that the generated graph is a valid b64 encoded png
         self.assertIsInstance(my_graph, tuple)
         for tuple_element in my_graph:
@@ -88,5 +91,5 @@ class TestGenReport(BaseTestClass):
             self.assertEqual(imghdr.what(temporary_file.name), 'png')
 
         # Test when the graphs file contains invalid entries
-        my_container.graphs_definition_file = TEST_CSV  # bad file here
-        self.assertIsNone(get_graphs(my_container).next())
+        _report.graphs_definition_file = TEST_CSV  # bad file here
+        self.assertIsNone(_report.render_graphs().next())

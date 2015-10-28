@@ -7,39 +7,36 @@
 from __future__ import print_function, absolute_import
 
 import tempfile
+import unittest
 
 import pandas as pd
 
-from t4mon.orchestrator import Orchestrator
 from t4mon import collector
-from t4mon.sshtunnels.sftpsession import SftpSession
+from sshtunnels.sftpsession import SftpSession
 
-from .base import *
+from test.functional_tests.base import *  # from .base import *
 
 
 class TestOrchestrator(TestWithTempConfig):
+
     """
     Set of test functions for interactive (ssh) methods of orchestrator.py
     """
 
     def test_orchestrator_start(self):
         """ Test function for Orchestrator.start() """
-
-        self.conf.set('DEFAULT', 'folder', MY_DIR)  # where the test files are
-
         # Orchestrator needs a file with the settings, and the files linked in
         # that settings file may be relative to the settings file location, so
         # work in a temporary directory
         with tempfile.NamedTemporaryFile() as temp_config:
-            self.conf.write(temp_config)
+            self.sandbox.collector.conf.write(temp_config)
             temp_config.seek(0)
-
-            orch = Orchestrator(loglevel='DEBUG',
-                                settings_file=temp_config.name,
-                                alldays=True,
-                                threaded=True)
+            orch = OrchestratorSandbox(loglevel='DEBUG',
+                                       settings_file=temp_config.name,
+                                       alldays=True,
+                                       safe=True)
             orch.start()
-        for system in orch.data.system:
+        for system in orch.collector.systems:
             if system:
                 self.assertIn(
                     '{0}/Report_{1}_{2}.html'.format(orch.reports_folder,
@@ -50,19 +47,20 @@ class TestOrchestrator(TestWithTempConfig):
 
 
 class TestCollector(TestWithSsh):
+
     """ Set of test functions for interactive (ssh) methods of collector.py """
+
     def test_inittunnels(self):
         """ Test function for init_tunnels """
-        monitor = collector.Collector(settings_file=TEST_CONFIG, logger=LOGGER)
-        monitor.conf.set('DEFAULT', 'folder', MY_DIR)
+        monitor = self.sandbox.collector
         monitor.init_tunnels()
         # before start, tunnel should not be started
-        self.assertFalse(monitor.server.is_started)
+        self.assertFalse(monitor.server._is_started)
         # Stopping it should not do any harm
         self.assertIsNone(monitor.stop_server())
         # Start and check tunnel ports
         self.assertIsNone(monitor.start_server())  # starting should be silent
-        self.assertTrue(monitor.server.is_started)
+        self.assertTrue(monitor.server._is_started)
         self.assertIsInstance(monitor.server.tunnel_is_up, dict)
         for port in monitor.server.tunnel_is_up:
             self.assertTrue(monitor.server.tunnel_is_up[port])
@@ -203,3 +201,7 @@ class TestCollector(TestWithSsh):
         self.assertIsInstance(monitor.data, pd.DataFrame)
         self.assertTrue(monitor.data.empty)
         self.assertIsInstance(monitor.logs, dict)
+
+
+if __name__ == "__main__":
+    unittest.main()

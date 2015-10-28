@@ -12,19 +12,20 @@ from socket import error as socket_error
 from socket import timeout as socket_timeout
 
 import paramiko
-
-from . import sshtunnel
+import sshtunnel
 
 
 class SFTPSessionError(Exception):
+
     """ Base exception for SFTPSession """
     pass
 
 
 class SftpSession(object):
+
     """
-    Defines methods for opening a SFTP session to a remote system
-    # """
+    Defines methods for opening a SFTP session to a remote OpenVMS system
+    """
 
     def connect(self):
         """
@@ -86,7 +87,8 @@ class SftpSession(object):
             self.ssh_transport = client
 
             if self.ssh_transport:
-                self.ssh_transport.sftp_session = self.ssh_transport.open_sftp()
+                self.ssh_transport.sftp_session = \
+                    self.ssh_transport.open_sftp()
                 return self.ssh_transport.sftp_session
             else:
                 return None
@@ -107,8 +109,8 @@ class SftpSession(object):
                               " aborting... %s", _exc)
             raise SFTPSessionError
         except sshtunnel.HandlerSSHTunnelForwarderError as _exc:
-            self.logger.error('Something went wrong with the SSH transport: %s',
-                              repr(_exc))
+            self.logger.error('Something went wrong with the SSH '
+                              'transport: %s', repr(_exc))
 
     def run_command(self, command):
         """ Runs the specified command over the SSH session """
@@ -173,8 +175,10 @@ class SftpSession(object):
         ssh_user, ssh_pass, ssh_key, ssh_configfile, ssh_port, ssh_timeout
         Otherwise: open method will check ~/.ssh/config
         """
+        # Remove all "None" input values
         list(map(ssh_arguments.pop,
-             [item for item in ssh_arguments if not ssh_arguments[item]]))
+                 [item for item in ssh_arguments if not ssh_arguments[item]])
+             )
         self.hostname = hostname
         self.logger = ssh_arguments.pop('logger') if 'logger' in \
             ssh_arguments else logging.getLogger(__name__)
@@ -195,6 +199,7 @@ class SftpSession(object):
         return sftp_session
 
     class Break(Exception):
+
         """Break out of the with statement"""
         pass
 

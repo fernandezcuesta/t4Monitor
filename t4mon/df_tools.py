@@ -55,11 +55,6 @@ def consolidate_data(data, tmp_data=None):
     tmp_meta = copy_metadata(data)
     data = data.groupby(data.index).last()
     restore_metadata(tmp_meta, data)
-    if isinstance(data.system, set):
-        # WHY NOT TO USE CLUSTER_NAME INSTEAD THE TRICKY THING FROM T4-CSV?
-        # THIS IS NOT UNIVERSAL...
-        # we are only interested in first 5 chars of the system name
-        data.system = set([i[0:5] for i in data.system])
     return data
 
 
@@ -69,23 +64,61 @@ def metadata_from_cols(data):
     """
     for item in data._metadata:
         metadata_values = np.unique(data[item])
-        if len(metadata_values) > 1:
-            setattr(data, item, set(metadata_values))
-        else:
-            setattr(data, item, metadata_values[0])
+        setattr(data, item, set(metadata_values))
 
 
-def reload_from_csv(csv_filename):
+def metadata_to_cols(dataframe, metadata):
+    """
+    Synthesize additional columns based in metadata values and stores the
+    metadata inside the (modified) dataframe object
+    """
+    for item in metadata:
+        setattr(dataframe, item, metadata[item])
+        dataframe[item] = pd.Series([metadata[item]]*len(dataframe),
+                                    index=dataframe.index)
+        if item not in dataframe._metadata:
+            dataframe._metadata.append(item)
+
+
+def reload_from_csv(csv_filename, plain=False):
     """
     Load a CSV into a dataframe and synthesize its metadata
     Assumes that first column contains the timestamp information
     """
-    data = pd.read_csv(csv_filename,
-                       index_col=0
-                       )
+    if plain:  # plain CSV
+        data = pd.read_csv(csv_filename, index_col=0)
+    else:
+        data = dataframize(csv_filename)
     data.index = pd.to_datetime(data.index)
     metadata_from_cols(data)  # restore metadata fields
     return data
+
+
+def get_matching_columns(dataframe, var_names):
+    """ Filter column names that match first item in var_names, which can
+        have wildcards ('*'), like 'str1*str2'; in that case the column
+        name must contain both 'str1' and 'str2'. """
+    if dataframe.empty:
+        return []
+    else:
+        return [col for col in dataframe.columns
+                for var_item in var_names
+                if all([k in col.upper() for k in
+                        var_item.upper().strip().split('*')])]
+
+
+def get_column_name_case_insensitive(dataframe, name):
+    """
+    Returns the actual column name from dataframe where dataframe.column.values
+    matches name in case-insensitive
+    """
+    if name and not dataframe.empty:
+        colnames = [colname.upper() for colname in dataframe.columns
+                    if colname]
+        name = name.upper()
+        if name in colnames:
+            return dataframe.columns[colnames.index(name)]
+    return None
 
 
 def select_var(dataframe, *var_names, **optional):
@@ -101,49 +134,37 @@ def select_var(dataframe, *var_names, **optional):
               - logger (logging.Logger instance)
     """
     logger = optional.pop('logger', '') or init_logger()
-    (column_name, column_filter) = optional.popitem() if optional else (None,
-                                                                        None)
+    (column_filter, filter_by) = optional.popitem() if optional else (None,
+                                                                      None)
     # Work with a case insensitive copy of the column names
-    colnames = [colname.upper() for colname in dataframe.columns]
-    if column_name:
-        column_name = column_name.upper()
-        if column_name in colnames:
-            column_index = dataframe.columns[colnames.index(column_name)]
-        else:
-            logger.warning('Bad filter found: %s not found (case insensitive)',
-                           column_name)
-            column_name = column_filter = None
+    column_name = get_column_name_case_insensitive(dataframe, column_filter)
+    if column_filter and not column_name:
+        logger.warning('Bad filter found: %s not found (case insensitive)',
+                       column_filter)
+        filter_by = None
 
-    def get_matching_columns(dataframe):
-        """ Filter column names that match first item in var_names, which can
-            have wildcards ('*'), like 'str1*str2'; in that case the column
-            name must contain both 'str1' and 'str2'. """
-        if dataframe.empty:
-            return []
-        else:
-            return [col for col in dataframe.columns
-                    for var_item in var_names
-                    if all([k in col.upper() for k in
-                            var_item.upper().strip().split('*')])]
-
-    if not column_filter and len(var_names) > 1:
+    if not filter_by and len(var_names) > 1:
         logger.warning('Only first match will be extracted when no filter '
                        'is applied: %s', var_names[0])
         var_names = var_names[0:1]
 
-    if column_filter:
-        my_filter = [k == column_filter
-                     for k in dataframe[column_index]]
+    if filter_by:
+        # logger.debug('Filtering by %s=%s', column_name, filter_by)
+        # case-insensitive search
+        my_filter = [k.upper() == filter_by.upper()
+                     for k in dataframe[column_name]]
     else:
         my_filter = dataframe.columns
     if len(var_names) == 0:
         logger.warning('No variables were selected, returning all '
                        'columns %s',
-                       'for filter {}={}'.format(column_index, column_filter)
-                       if column_filter else '')
+                       'for filter {}={}'.format(column_name, filter_by)
+                       if filter_by else '')
         return dataframe[my_filter].dropna(axis=1, how='all').columns
+
     return get_matching_columns(dataframe[my_filter].dropna(axis=1,
-                                                            how='all'))
+                                                            how='all'),
+                                var_names)
 
 
 def extract_df(dataframe, *var_names, **kwargs):
@@ -154,20 +175,22 @@ def extract_df(dataframe, *var_names, **kwargs):
     - When no system is selected, work only with the first element of var_names
     and return: COLUMN_NAME == *VAR_NAMES[0]* (wildmarked)
     """
-    logger = kwargs.pop('logger') or init_logger()
+    logger = kwargs.pop('logger') if 'logger' in kwargs else init_logger()
     if dataframe.empty:
         return dataframe
-    col_name, col_filter = kwargs.iteritems().next() if kwargs \
+    (col_name, row_filter) = kwargs.iteritems().next() if kwargs \
         else (None, None)
-    selected = select_var(dataframe,
-                          *var_names,
-                          logger=logger,
-                          **kwargs)
-    if len(selected):
-        if col_filter:
-            return dataframe[dataframe[col_name] == col_filter][selected]
+    selected_columns = select_var(dataframe,
+                                  *var_names,
+                                  logger=logger,
+                                  **kwargs)
+    if len(selected_columns):
+        if row_filter:
+            selected_rows = [row.upper() == row_filter
+                             for row in dataframe[col_name]]
+            return dataframe[selected_rows][selected_columns]
         else:
-            return dataframe[selected]
+            return dataframe[selected_columns]
     else:
         return pd.DataFrame()
 
@@ -247,11 +270,8 @@ def to_dataframe(field_names, data, metadata):
             _df = pd.read_csv(fbuffer, names=field_names,
                               parse_dates={'datetime': [df_timecol]},
                               index_col='datetime')
-        for item in metadata:
-            setattr(_df, item, metadata[item])
-            _df[item] = pd.Series([metadata[item]]*len(_df), index=_df.index)
-            if item not in _df._metadata:
-                _df._metadata.append(item)
+        # Add fake columns based in metadata
+        metadata_to_cols(_df, metadata)
     except Exception as exc:
         raise ToDfError(exc)
     return _df
