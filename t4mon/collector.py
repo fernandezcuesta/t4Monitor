@@ -411,7 +411,7 @@ class Collector(object):
             result_log = 'Could not get information from this system'
         # self.results_queue.put((system, data, log))
         self.logger.debug('%s | Consolidating results', system)
-        self.data = consolidate_data(self.data, result_data, system)
+        self.data = df_tools.consolidate_data(self.data, result_data, system)
         self.logs[system] = result_log
         self.results_queue.put(system)
 
@@ -530,24 +530,3 @@ def add_methods_to_pandas_dataframe(logger=None):
     pd.DataFrame.clean_calcs = calculations.clean_calcs
     pd.DataFrame.logger = logger or init_logger()
 # END OF ADD METHODS TO PANDAS DATAFRAME
-
-
-def consolidate_data(dataframe, partial_dataframe=None, system=None):
-    """
-    Consolidates partial_dataframe with self.data by calling
-    df_tools.consolidate_data
-    """
-    if partial_dataframe is None:
-        partial_dataframe = pd.DataFrame()
-    if not system:
-        system = list(dataframe.system)[0]
-    elif isinstance(system, set):
-        system = list(system)[0]
-    dataframe = df_tools.consolidate_data(dataframe, partial_dataframe)
-    # Overwrite system column to avoid breaking cluster statistics,
-    # i.e. data coming from cluster LONDON and represented by systems
-    # LONDON_1 and LONDON_2
-    system_column = df_tools.get_column_name_case_insensitive(dataframe,
-                                                              'system')
-    dataframe[system_column] = system
-    return dataframe

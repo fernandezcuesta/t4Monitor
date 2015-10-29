@@ -7,7 +7,6 @@ from __future__ import absolute_import
 
 import os
 from datetime import datetime as dt
-import unittest
 
 import pandas as pd
 from pandas.util.testing import assert_frame_equal
@@ -15,14 +14,7 @@ from pandas.util.testing import assert_frame_equal
 from t4mon import collector
 from t4mon.orchestrator import Orchestrator
 
-from .base import (
-    LOGGER,
-    TEST_CSV,
-    TEST_PKL,
-    BAD_CONFIG,
-    TEST_CONFIG,
-    BaseTestClass
-)
+from .base import TEST_CSV, TEST_PKL, BAD_CONFIG, TEST_CONFIG, BaseTestClass
 
 
 class TestOrchestrator(BaseTestClass):
@@ -60,28 +52,28 @@ class TestOrchestrator(BaseTestClass):
 
     def test_clone(self):
         """ Test function for Orchestrator.clone() """
-        container_clone = self.orchestrator_test.clone(system='my_sys')
+        _orchestrator = self.orchestrator_test.clone(system='my_sys')
         self.assertEqual(self.orchestrator_test.date_time,
-                         container_clone.date_time)
+                         _orchestrator.date_time)
 
     def test_check_files(self):
         """ Test check_files"""
-        test_container = self.orchestrator_test.clone()
+        _orchestrator = self.orchestrator_test.clone()
         # First of all, check with default settings
-        self.assertIsNone(test_container.check_files())
+        self.assertIsNone(_orchestrator.check_files())
 
         # Check with wrong settings file
         with self.assertRaises(collector.ConfigReadError):
-            test_container.settings_file = BAD_CONFIG
-            test_container.check_files()
+            _orchestrator.settings_file = BAD_CONFIG
+            _orchestrator.check_files()
         with self.assertRaises(collector.ConfigReadError):
-            test_container.settings_file = TEST_CSV
-            test_container.check_files()
+            _orchestrator.settings_file = TEST_CSV
+            _orchestrator.check_files()
 
         # Check with missing settings file
         with self.assertRaises(collector.ConfigReadError):
-            test_container.settings_file = 'test/unexisting.file'
-            test_container.check_files()
+            _orchestrator.settings_file = 'test/unexisting.file'
+            _orchestrator.check_files()
 
     def test_orchestrator_raises_exception_if_bad_settings(self):
         """ Check that if the setting file contains a link to a
@@ -91,18 +83,18 @@ class TestOrchestrator(BaseTestClass):
 
     def test_reports_generator(self):
         """ Test function for Orchestrator.reports_generator() """
-        container = self.orchestrator_test.clone()
-        container.data = pd.read_pickle(TEST_PKL)
-        container.reports_generator()
-        self.assertNotEqual(container.reports_written, [])
-        for report_file in container.reports_written:
+        _orchestrator = self.orchestrator_test.clone()
+        _orchestrator.data = pd.read_pickle(TEST_PKL)
+        _orchestrator.reports_generator()
+        self.assertNotEqual(_orchestrator.reports_written, [])
+        for report_file in _orchestrator.reports_written:
             self.assertTrue(os.path.exists(report_file))
         # Test the non-threaded version
-        container.safe = True
-        container.data.system.add('SYS2')
-        container.reports_generator()
-        self.assertNotEqual(container.reports_written, [])
-        for report_file in container.reports_written:
+        _orchestrator.safe = True
+        _orchestrator.data.system.add('SYS2')
+        _orchestrator.reports_generator()
+        self.assertNotEqual(_orchestrator.reports_written, [])
+        for report_file in _orchestrator.reports_written:
             self.assertTrue(os.path.exists(report_file))
 
     def test_create_reports_from_local_pkl(self):
@@ -114,6 +106,9 @@ class TestOrchestrator(BaseTestClass):
         self.assertNotEqual(_orchestrator.reports_written, [])
         for report_file in _orchestrator.reports_written:
             self.assertTrue(os.path.exists(report_file))
+        # Non existing file raises error
+        with self.assertRaises(IOError):
+            _orchestrator.create_reports_from_local_pkl('WR0NG')
 
     def test_create_reports_from_local_csv(self):
         """ Test function for Orchestrator.create_reports_from_local_csv() """
@@ -122,3 +117,18 @@ class TestOrchestrator(BaseTestClass):
         self.assertNotEqual(_orchestrator.reports_written, [])
         for report_file in _orchestrator.reports_written:
             self.assertTrue(os.path.exists(report_file))
+        # Non existing file raises error
+        with self.assertRaises(IOError):
+            _orchestrator.create_reports_from_local_pkl('WR0NG')
+
+    def test_local_store(self):
+        """ Test that data can be stored locally in both PKL and CSV formats
+        """
+        _orchestrator = self.orchestrator_test.clone()
+        _orchestrator.data = pd.read_pickle(TEST_PKL)
+        _orchestrator.local_store()
+        for extension in ['pkl.gz', 'csv']:
+            filename = '{0}/data_{1}.{2}'.format(_orchestrator.store_folder,
+                                                 _orchestrator.date_tag(),
+                                                 extension)
+            self.assertTrue(os.path.exists(filename))

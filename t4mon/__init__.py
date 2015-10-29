@@ -42,14 +42,14 @@ from __future__ import print_function, absolute_import
 
 import sys
 
-from .collector import read_config
+from .collector import add_methods_to_pandas_dataframe, read_config
 from .orchestrator import Orchestrator
 from . arguments_parser import (parse_arguments_local_csv,
                                 parse_arguments_local_pkl,
                                 parse_arguments_main)
 
 
-__version_info__ = (0, 9, 0)
+__version_info__ = (0, 9, 5, 1)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 

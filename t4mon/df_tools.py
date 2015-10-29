@@ -46,16 +46,48 @@ class ExtractCSVException(Exception):
     pass
 
 
-def consolidate_data(data, tmp_data=None):
-    """ Concatenate partial dataframe with resulting dataframe
+def consolidate_data(partial_dataframe, dataframe=None, system=None):
     """
-    if isinstance(tmp_data, pd.DataFrame) and not tmp_data.empty:
-        data = pd.concat([data, tmp_data])
-    # Group by index while keeping the metadata
-    tmp_meta = copy_metadata(data)
-    data = data.groupby(data.index).last()
-    restore_metadata(tmp_meta, data)
-    return data
+    Consolidates partial_dataframe with dataframe by calling
+    df_tools.consolidate_data
+    """
+    if dataframe is None:
+        dataframe = pd.DataFrame()
+    try:
+        if (not system) and (not partial_dataframe.system):
+            raise ToDfError('Need a system to consolidate the dataframe')
+    except AttributeError:
+        raise ToDfError('Need a system to consolidate the dataframe')
+
+    if not isinstance(partial_dataframe, pd.DataFrame):
+        raise ToDfError('Cannot consolidate with a non-dataframe object')
+
+    if not system:
+        system = list(partial_dataframe.system)[0]
+    elif isinstance(system, set):
+        system = list(system)[0]
+    # Overwrite system column to avoid breaking cluster statistics,
+    # i.e. data coming from cluster LONDON and represented by systems
+    # LONDON_1 and LONDON_2
+    system_column = get_column_name_case_insensitive(partial_dataframe,
+                                                     'system')
+    partial_dataframe[system_column] = system
+    partial_dataframe.system = set([system])
+    dataframe = pd.concat([dataframe, partial_dataframe])
+    # TODO: Check what happens now since we're not updating the .system field
+    return dataframe
+
+
+# def consolidate_data(data, tmp_data=None):
+#     """ Concatenate partial dataframe with resulting dataframe
+#     """
+#     if isinstance(tmp_data, pd.DataFrame) and not tmp_data.empty:
+#         data = pd.concat([data, tmp_data])
+#     # # Group by index while keeping the metadata
+#     tmp_meta = copy_metadata(data)
+#     data = data.groupby(data.index).last()
+#     restore_metadata(tmp_meta, data)
+#     return data
 
 
 def metadata_from_cols(data):
@@ -90,6 +122,8 @@ def reload_from_csv(csv_filename, plain=False):
     else:
         data = dataframize(csv_filename)
     data.index = pd.to_datetime(data.index)
+    if plain:  # Restore the index name
+        data.index.name = 'datetime'
     metadata_from_cols(data)  # restore metadata fields
     return data
 
@@ -217,9 +251,9 @@ def restore_metadata(metadata, dataframe):
 
 def extract_t4csv(file_descriptor):
     """ Reads Format1/Format2 T4-CSV and returns:
-         * header:     List of strings (column names)
+         * field_names: List of strings (column names)
          * data_lines: List of strings (each one representing a sample)
-         * metadata:   Cluster name as found in the first line of Format1/2 CSV
+         * metadata: Cluster name as found in the first line of Format1/2 CSV
     """
     try:
         data_lines = [li.rstrip()
@@ -228,10 +262,8 @@ def extract_t4csv(file_descriptor):
                                           file_descriptor)]
         _l0 = split(r'/|%c *| *' % SEPARATOR, data_lines[0])
         metadata = {'system': _l0[1] if _l0[0] == 'Merged' else _l0[0]}
-        if data_lines[1].find(START_HEADER_TAG):  # Format 1
-            header = data_lines[3].split(SEPARATOR)
-            data_lines = data_lines[4:]
-        else:  # Format 2
+
+        if START_HEADER_TAG in data_lines[1]:  # Format 2
             # Search from the bottom in case there's a format2 violation,
             # common with t4 merge where files are glued just as with cat,
             # so there are 2x headers, discarding the first part
@@ -241,10 +273,13 @@ def extract_t4csv(file_descriptor):
             h_last = len(data_lines) - \
                 data_lines[::-1].index(END_HEADER_TAG)
 
-            header = SEPARATOR.join(data_lines[h_ini:h_last-1]).\
+            field_names = SEPARATOR.join(data_lines[h_ini:h_last-1]).\
                 split(SEPARATOR)  # This is now a list with all the columns
             data_lines = data_lines[h_last:]
-        return (header, data_lines, metadata)
+        else:  # Format 1
+            field_names = data_lines[3].split(SEPARATOR)
+            data_lines = data_lines[4:]
+        return (field_names, data_lines, metadata)
     except:
         raise ExtractCSVException
 
@@ -316,7 +351,6 @@ def to_pickle(self, name, compress=False):
                     buffer_object,
                     protocol=pickle.HIGHEST_PROTOCOL)
     buffer_object.flush()
-
     if name.endswith('.gz'):
         compress = True
         name = name.rsplit('.gz')[0]  # we're appending the gz extensions below

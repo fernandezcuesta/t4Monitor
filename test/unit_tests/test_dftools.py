@@ -15,7 +15,7 @@ from t4mon import df_tools, collector
 
 from .base import LOGGER, TEST_CSV, TEST_PKL
 
-@unittest.skip
+
 class TestAuxiliaryFunctions(unittest.TestCase):
 
     """ Test auxiliary functions, only executed from CLI
@@ -27,22 +27,22 @@ class TestAuxiliaryFunctions(unittest.TestCase):
     def setUpClass(cls):
         collector.add_methods_to_pandas_dataframe(LOGGER)
 
-    def test_restore_plain_csv(self):
-        """ Test function for auxiliary metadata_from_cols and reload_from_csv
+    def test_reload_from_csv_and_metadata_from_cols(self):
+        """ Test loading a dataframe from CSV file (plain or T4 format)
         """
-        # my_df = pd.read_pickle(TEST_PKL)
+        # Test with a T4-CSV
         df1 = df_tools.reload_from_csv(TEST_CSV)
-        # with open(TEST_CSV, 'r') as testcsv:
-        #     df1 = df_tools.to_dataframe(*df_tools.extract_t4csv(testcsv))
+        for _metadata in pd.DataFrame._metadata:
+            self.assertIn(_metadata, df1._metadata)
+            self.assertIn(_metadata, df1)
+        # Test with a plain CSV
         with tempfile.NamedTemporaryFile() as plaincsv:
             df1.to_csv(plaincsv)
             plaincsv.file.close()
             df2 = df_tools.reload_from_csv(plaincsv.name, plain=True)
-
-        self.assertTupleEqual(df1.shape, df2.shape)
-        self.assertListEqual(df1._metadata, df2._metadata)
-        for meta_item in df1._metadata:
-            self.assertEqual(getattr(df1, meta_item), getattr(df2, meta_item))
+            self.assertIn(_metadata, df2._metadata)
+            self.assertIn(_metadata, df2)
+            assert_frame_equal(df1, df2)
 
 
 class TestDFTools(unittest.TestCase):
@@ -82,6 +82,7 @@ class TestDFTools(unittest.TestCase):
                                                  'NONEXISTING_COLUMN',
                                                  logger=LOGGER),
                              [])
+        # Filtering by a non-existing system returns no items
         self.assertListEqual(df_tools.select_var(dataframe,
                                                  'NONEXISTING_COLUMN',
                                                  system='no-system',
@@ -97,6 +98,19 @@ class TestDFTools(unittest.TestCase):
                                                  'Counter0',
                                                  logger=LOGGER)),
                          370)
+        # Bad additional filter returns as if no filters were applied
+        self.assertEqual(len(df_tools.select_var(dataframe,
+                                                 'Above_Peek',
+                                                 position='UP',  # wrong filter
+                                                 logger=LOGGER)),
+                         12)
+        # When no filter is selected and more than 1 parameter is passed, only
+        # the first one is considered
+        self.assertEqual(len(df_tools.select_var(dataframe,
+                                                 'Above_Peek',
+                                                 'Counter0',
+                                                 logger=LOGGER)),
+                         12)
 
     def test_extractdf(self):
         """ Test function for extract_df """
@@ -124,18 +138,18 @@ class TestDFTools(unittest.TestCase):
 
     def test_todataframe(self):
         """ Test function for to_dataframe """
-        with open(TEST_CSV, 'r') as filedescriptor:
-            header, data, metadata = df_tools.extract_t4csv(filedescriptor)
-        dataframe = df_tools.to_dataframe(header, data, metadata)
+        with open(TEST_CSV, 'r') as testcsv:
+            (field_names, data, metadata) = df_tools.extract_t4csv(testcsv)
+        dataframe = df_tools.to_dataframe(field_names, data, metadata)
         self.assertIsInstance(dataframe, pd.DataFrame)
         self.assertTupleEqual(dataframe.shape, (286, 931))
         # Missing header should return an empty DF
         self.assertTrue(df_tools.to_dataframe([], data, metadata).empty)
         # # Missing data should return an empty DF
-        self.assertTrue(df_tools.to_dataframe(header, [], metadata).empty)
+        self.assertTrue(df_tools.to_dataframe(field_names, [], metadata).empty)
         # # Missing metadata should return metadata-ready empty DF
         for item in dataframe._metadata:
-            self.assertIn(item, df_tools.to_dataframe(header,
+            self.assertIn(item, df_tools.to_dataframe(field_names,
                                                       data,
                                                       {})._metadata)
         my_df = df_tools.to_dataframe(['COL1', 'My Sample Time'],
@@ -144,6 +158,19 @@ class TestDFTools(unittest.TestCase):
                                        '30, 2000-01-01 00:01:58'], {})
         self.assertEqual(my_df['COL1'].sum(), 60)
         self.assertIsInstance(my_df.index, pd.DatetimeIndex)
+
+    def test_todataframe_raises_exception_if_no_datetime_column_found(self):
+        """
+        Test to_dataframe when a no header passed matching the datetime tag
+        """
+        with open(TEST_CSV, 'r') as testcsv:
+            (field_names, data, metadata) = df_tools.extract_t4csv(testcsv)
+        # fake the header
+        df_timecol = (s for s in field_names
+                      if df_tools.DATETIME_TAG in s).next()
+        field_names[field_names.index(df_timecol)] = 'time_index'
+        with self.assertRaises(df_tools.ToDfError):
+            df_tools.to_dataframe(field_names, data, metadata)
 
     def test_metadata_copyrestore(self):
         """ Test function for copy_metadata() and restore_metadata()
@@ -181,21 +208,6 @@ class TestDFTools(unittest.TestCase):
         assert_frame_equal(pd.DataFrame(),
                            df_tools.dataframize('non-existing-file'))
 
-    def test_compressed_pickle(self):
-        """ Test to_pickle and read_pickle for compressed pkl.gz files """
-        dataframe = df_tools.dataframize(TEST_CSV, logger=LOGGER)
-        with tempfile.NamedTemporaryFile() as picklegz:
-            dataframe.to_pickle(picklegz.name, compress=True)
-            picklegz.file.close()
-            picklegz.name = '{}.gz'.format(picklegz.name)
-            assert_frame_equal(dataframe,
-                               pd.read_pickle(picklegz.name,
-                                              compress=True))
-            # We should be able to know this is a compressed pickle just by
-            # looking at the .gz extension
-            assert_frame_equal(dataframe,
-                               pd.read_pickle(picklegz.name))
-
     def consolidate_data(self):
         """ Test for consolidate_data """
         dataframe = df_tools.dataframize(TEST_CSV, logger=LOGGER)
@@ -208,3 +220,24 @@ class TestDFTools(unittest.TestCase):
         assert_frame_equal(df_tools.consolidate_data(dataframe,
                                                      pd.DataFrame()),
                            dataframe)
+    def test_compressed_pickle(self):
+        """ Test to_pickle and read_pickle for compressed pkl.gz files """
+        dataframe = df_tools.dataframize(TEST_CSV, logger=LOGGER)
+        with tempfile.NamedTemporaryFile() as picklegz:
+            dataframe.to_pickle(picklegz.name, compress=True)
+            picklegz.file.close()
+            picklegz.name = '{}.gz'.format(picklegz.name)
+            assert_frame_equal(dataframe,
+                               pd.read_pickle(picklegz.name,
+                                              compress=True))
+            # We should be able to know this is a compressed pickle just by
+            # looking at the .gz extension
+            dataframe.to_pickle(picklegz.name)
+            picklegz.file.close()
+            assert_frame_equal(dataframe,
+                               pd.read_pickle(picklegz.name))
+
+            # Uncompressed still works ;)
+            dataframe.to_pickle(picklegz.name.rstrip('.gz'))
+            assert_frame_equal(dataframe,
+                               pd.read_pickle(picklegz.name))

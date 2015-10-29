@@ -217,7 +217,7 @@ class Orchestrator(object):
             for thread_item in threads:  # Assuming all take the same time
                 thread_item.join()
 
-    def local_store(self, nologs):
+    def local_store(self, nologs=True):
         """
         Makes a local copy of the current data in CSV and gzipped pickle
         """
@@ -269,6 +269,7 @@ class Orchestrator(object):
         # load the input file
         if not os.path.exists(pkl_file):
             self.logger.error('PKL file %s cannot be found', pkl_file)
+            raise IOError
         self.data = read_pickle(pkl_file)
 
         # Populate the log info with fake data
@@ -284,6 +285,7 @@ class Orchestrator(object):
         # parse the CSV into a (modified) pandas Dataframe
         if not os.path.exists(csv_file):
             self.logger.error('CSV file %s cannot be found', csv_file)
+            raise IOError
         self.data = reload_from_csv(csv_file, plain)
         self.collector.systems = list(self.data.system)
         # Populate the log info with fake data

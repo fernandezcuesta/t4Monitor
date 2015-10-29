@@ -10,7 +10,6 @@ import logging
 import ConfigParser
 
 import pandas as pd
-import sshtunnel
 from pandas.util.testing import assert_frame_equal
 
 from t4mon import df_tools, collector
@@ -41,7 +40,7 @@ class TestCollector(BaseTestClass):
         """ Test function for get_stats_from_host """
         df1 = self.collector_test.get_stats_from_host(filespec_list=TEST_CSV)
         df2 = df_tools.read_pickle(TEST_PKL)
-        df1 = collector.consolidate_data(df1, df1, system=df2.system)
+        df1 = df_tools.consolidate_data(df1, system=df2.system)
 
         self.assertIsInstance(df1, pd.DataFrame)
         self.assertIsInstance(df2, pd.DataFrame)
@@ -91,9 +90,14 @@ class TestCollector(BaseTestClass):
                       ),
                       self.collector_test.__str__())
 
-    def tet_init_tunnels(self):
-        """ Test Collector.init_tunnels() """
-        with self.assertRaises(sshtunnel.BaseSSHTunnelForwarderError):
-            with collector.Collector() as _col:
-                for system in _col.systems:
-                    print(system)
+    # def test_consolidate_data(self):
+    #     """ Test dataframe consolidation function """
+    #     dataframe = pd.read_pickle(TEST_PKL)
+    #     # Consolidate with nothing should produce a valid dataframe,
+    #     # in this case tehre shouldn't be any changes
+    #     assert_frame_equal(collector.consolidate_data(dataframe),
+    #                        dataframe)
+
+    #     # If we specify a system, the 'system' column should be overwritten
+    #     df2 = collector.consolidation(dataframe, system='MY_SYS')
+    #     self.assertTrue(df2.)
