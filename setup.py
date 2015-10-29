@@ -43,7 +43,7 @@ setup(
     author_email='fernandez.cuesta@gmail.com',
     description="Report OpenVMS hosts from T4 statistics",
     long_description=README + '\n' + CHANGELOG,
-    packages=['t4mon', 't4mon.sshtunnels'],
+    packages=['t4mon', 'sshtunnels'],
     include_package_data=True,
     install_requires=requires,
     entry_points=entry_points,

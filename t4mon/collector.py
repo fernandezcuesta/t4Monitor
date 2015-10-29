@@ -174,6 +174,33 @@ class Collector(object):
                               jumpbox_port)
             raise sshtunnel.BaseSSHTunnelForwarderError
 
+    def start_server(self):
+        """
+        Dummy function to start SSH servers
+        """
+        if not self.server:
+            raise sshtunnel.BaseSSHTunnelForwarderError
+        try:
+            self.logger.info('Opening connection to gateway')
+            self.server.start()
+            if not self.server._is_started:
+                raise sshtunnel.BaseSSHTunnelForwarderError(
+                    "Couldn't start server"
+                                                            )
+        except AttributeError as msg:
+            raise sshtunnel.BaseSSHTunnelForwarderError(msg)
+
+    def stop_server(self):
+        """
+        Dummy function to stop SSH servers
+        """
+        try:
+            if self.server and self.server._is_started:
+                self.logger.info('Closing connection to gateway')
+                self.server.stop()
+        except AttributeError as msg:
+            raise sshtunnel.BaseSSHTunnelForwarderError(msg)
+
     def collect_system_data(self, system):
         """ Open an sftp session to system and collects the CSVs, generating a
             pandas dataframe as outcome
@@ -239,33 +266,6 @@ class Collector(object):
                               system, repr(_exc))
             return None
 
-    def start_server(self):
-        """
-        Dummy function to start SSH servers
-        """
-        if not self.server:
-            raise sshtunnel.BaseSSHTunnelForwarderError
-        try:
-            self.logger.info('Opening connection to gateway')
-            self.server.start()
-            if not self.server._is_started:
-                raise sshtunnel.BaseSSHTunnelForwarderError(
-                    "Couldn't start server"
-                                                            )
-        except AttributeError as msg:
-            raise sshtunnel.BaseSSHTunnelForwarderError(msg)
-
-    def stop_server(self):
-        """
-        Dummy function to stop SSH servers
-        """
-        try:
-            if self.server and self.server._is_started:
-                self.logger.info('Closing connection to gateway')
-                self.server.stop()
-        except AttributeError as msg:
-            raise sshtunnel.BaseSSHTunnelForwarderError(msg)
-
     def get_system_data(self, session, system):
         """
         Create pandas DF from current session CSV files downloaded via SFTP
@@ -304,6 +304,7 @@ class Collector(object):
                                         filespec_list=tag_list,
                                         sftp_session=session,
                                         files_folder=destdir)
+        # data.system = [system]
         if data.empty:
             self.logger.warning('%s | Data size obtained is 0 Bytes, skipping '
                                 'log collection.', system)
@@ -376,10 +377,15 @@ class Collector(object):
             self.logger.debug('Nothing gathered from %s, no files were '
                               'selected', hostname or 'local system')
             return _df
-        _df = pd.concat([df_tools.dataframize(
-            a_file,
-            sftp_session,
-            self.logger) for a_file in files], axis=0)
+        _df = pd.concat([df_tools.dataframize(a_file,
+                                              sftp_session,
+                                              self.logger)
+                         for a_file in files])
+        _df = df_tools.remove_dataframe_holes(_df)
+        # for a_file in files:
+        #     _df = _df.combine_first(df_tools.dataframize(a_file,
+        #                                                  sftp_session,
+        #                                                  self.logger))
         if close_me:
             self.logger.debug('Closing sftp session')
             sftp_session.close()
@@ -411,7 +417,7 @@ class Collector(object):
             result_log = 'Could not get information from this system'
         # self.results_queue.put((system, data, log))
         self.logger.debug('%s | Consolidating results', system)
-        self.data = df_tools.consolidate_data(self.data, result_data, system)
+        self.data = df_tools.consolidate_data(result_data, self.data, system)
         self.logs[system] = result_log
         self.results_queue.put(system)
 

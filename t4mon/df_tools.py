@@ -78,16 +78,14 @@ def consolidate_data(partial_dataframe, dataframe=None, system=None):
     return dataframe
 
 
-# def consolidate_data(data, tmp_data=None):
-#     """ Concatenate partial dataframe with resulting dataframe
-#     """
-#     if isinstance(tmp_data, pd.DataFrame) and not tmp_data.empty:
-#         data = pd.concat([data, tmp_data])
-#     # # Group by index while keeping the metadata
-#     tmp_meta = copy_metadata(data)
-#     data = data.groupby(data.index).last()
-#     restore_metadata(tmp_meta, data)
-#     return data
+def remove_dataframe_holes(dataframe):
+    """ Concatenate partial dataframe with resulting dataframe
+    """
+    # Group by index while keeping the metadata
+    tmp_meta = copy_metadata(dataframe)
+    dataframe = dataframe.groupby(dataframe.index).last()
+    restore_metadata(tmp_meta, dataframe)
+    return dataframe
 
 
 def metadata_from_cols(data):
@@ -204,10 +202,13 @@ def select_var(dataframe, *var_names, **optional):
 def extract_df(dataframe, *var_names, **kwargs):
     """
     Returns dataframe which columns meet the criteria:
-    - When a system is selected, return all columns whose names have(not case
-    sensitive) var_names on it: COLUMN_NAME == *VAR_NAMES* (wildmarked)
-    - When no system is selected, work only with the first element of var_names
-    and return: COLUMN_NAME == *VAR_NAMES[0]* (wildmarked)
+
+     - When a system is selected, return all columns whose names have(not case
+       sensitive) var_names on it: COLUMN_NAME == *VAR_NAMES* (wildmarked)
+
+     - When no system is selected, work only with the first element of
+       var_names and return: COLUMN_NAME == *VAR_NAMES[0]* (wildmarked)
+
     """
     logger = kwargs.pop('logger') if 'logger' in kwargs else init_logger()
     if dataframe.empty:
@@ -220,9 +221,10 @@ def extract_df(dataframe, *var_names, **kwargs):
                                   **kwargs)
     if len(selected_columns):
         if row_filter:
-            selected_rows = [row.upper() == row_filter
-                             for row in dataframe[col_name]]
-            return dataframe[selected_rows][selected_columns]
+            groupped = dataframe.groupby(col_name)
+            row_filter = (k for k in groupped.groups.keys()
+                          if k.upper() == row_filter.upper()).next()
+            return groupped.get_group(row_filter)
         else:
             return dataframe[selected_columns]
     else:
