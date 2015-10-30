@@ -130,7 +130,7 @@ def clean_calcs(self, calc_file):
         self.logger.error("Could not process calculation file: %s", calc_file)
 
 
-def apply_calcs(self, calc_file):
+def apply_calcs(self, calc_file, system):
     """
     Read calculations file, make the calculations and get rid of temporary data
     """

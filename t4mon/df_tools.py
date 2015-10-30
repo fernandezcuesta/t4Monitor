@@ -51,31 +51,23 @@ def consolidate_data(partial_dataframe, dataframe=None, system=None):
     Consolidates partial_dataframe with dataframe by calling
     df_tools.consolidate_data
     """
+    if not system:
+        raise ToDfError('Need a system to consolidate the dataframe')
     if dataframe is None:
         dataframe = pd.DataFrame()
-    try:
-        if (not system) and (not partial_dataframe.system):
-            raise ToDfError('Need a system to consolidate the dataframe')
-    except AttributeError:
-        raise ToDfError('Need a system to consolidate the dataframe')
 
     if not isinstance(partial_dataframe, pd.DataFrame):
         raise ToDfError('Cannot consolidate with a non-dataframe object')
 
-    if not system:
-        system = list(partial_dataframe.system)[0]
-    elif isinstance(system, set):
-        system = list(system)[0]
     # Overwrite system column to avoid breaking cluster statistics,
     # i.e. data coming from cluster LONDON and represented by systems
     # LONDON_1 and LONDON_2
     system_column = get_column_name_case_insensitive(partial_dataframe,
                                                      'system')
     partial_dataframe[system_column] = system
-    partial_dataframe.system = set([system])
-    dataframe = pd.concat([dataframe, partial_dataframe])
-    # TODO: Check what happens now since we're not updating the .system field
-    return dataframe
+    # dataframe = dataframe.combine_first(partial_dataframe)
+    # dataframe = pd.concat([dataframe, partial_dataframe])
+    return dataframe.combine_first(partial_dataframe)
 
 
 def remove_dataframe_holes(dataframe):

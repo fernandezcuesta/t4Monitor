@@ -319,7 +319,7 @@ class Collector(object):
                                        self.settings_file)),
                                        os.sep,
                                        calc_file)
-            data.apply_calcs(calc_file)
+            data.apply_calcs(calc_file, system)
             self.logger.info('%s | Dataframe shape after calculations: %s',
                              system, data.shape)
         return data
@@ -380,7 +380,7 @@ class Collector(object):
         _df = pd.concat([df_tools.dataframize(a_file,
                                               sftp_session,
                                               self.logger)
-                         for a_file in files])
+                         for a_file in files], axis=0)
         _df = df_tools.remove_dataframe_holes(_df)
         # for a_file in files:
         #     _df = _df.combine_first(df_tools.dataframize(a_file,
@@ -496,37 +496,37 @@ def read_config(settings_file=None):
 
 
 # ADD METHODS TO PANDAS DATAFRAME
-def _custom_finalize(self, other, method=None):
-    """ As explained in http://stackoverflow.com/questions/23200524/
-        propagate-pandas-series-metadata-through-joins
-        => Custom __finalize__ function for concat, so we keep the metadata
-    """
-    def _wrapper(element, name):
-        """ Wrapper for map function """
-        _cur_meta = getattr(self, name, '')
-        _el_meta = getattr(element, name, '')
-        if _cur_meta:
-            if isinstance(_el_meta, set):
-                setattr(self, name, _cur_meta.union(_el_meta))
-            else:
-                _cur_meta.add(_el_meta)
-        else:
-            setattr(self,
-                    name,
-                    _el_meta if isinstance(_el_meta, set) else set([_el_meta]))
-    for name in self._metadata:
-        if method == 'concat':
-            # map(lambda element: _wrapper(element, name), other.objs)
-            [_wrapper(element, name) for element in other.objs]
-        else:
-            setattr(self, name, getattr(other, name, ''))
-    return self
+# def _custom_finalize(self, other, method=None):
+#     """ As explained in http://stackoverflow.com/questions/23200524/
+#         propagate-pandas-series-metadata-through-joins
+#         => Custom __finalize__ function for concat, so we keep the metadata
+#     """
+#     def _wrapper(element, name):
+#         """ Wrapper for map function """
+#         _cur_meta = getattr(self, name, '')
+#         _el_meta = getattr(element, name, '')
+#         if _cur_meta:
+#             if isinstance(_el_meta, set):
+#                 setattr(self, name, _cur_meta.union(_el_meta))
+#             else:
+#                 _cur_meta.add(_el_meta)
+#         else:
+#             setattr(self,
+#                     name,
+#                     _el_meta if isinstance(_el_meta, set) else set([_el_meta]))
+#     for name in self._metadata:
+#         if method == 'concat':
+#             # map(lambda element: _wrapper(element, name), other.objs)
+#             [_wrapper(element, name) for element in other.objs]
+#         else:
+#             setattr(self, name, getattr(other, name, ''))
+#     return self
 
 
 def add_methods_to_pandas_dataframe(logger=None):
     """ Add custom methods to pandas.DataFrame """
     pd.DataFrame._metadata = ['system']  # default metadata
-    pd.DataFrame.__finalize__ = _custom_finalize
+    # pd.DataFrame.__finalize__ = _custom_finalize
     pd.DataFrame.to_pickle = pd.to_pickle = df_tools.to_pickle
     pd.DataFrame.read_pickle = pd.read_pickle = df_tools.read_pickle
     pd.DataFrame.oper = calculations.oper
