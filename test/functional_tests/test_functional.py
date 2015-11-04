@@ -7,7 +7,6 @@
 from __future__ import print_function, absolute_import
 
 import tempfile
-import unittest
 
 import pandas as pd
 
@@ -69,7 +68,7 @@ class TestCollector(TestWithSsh):
     def test_getstatsfromhost(self):
         """ Test function for get_stats_from_host """
         test_system_id = 'System_1'
-        monitor = collector.Collector(settings_file=TEST_CONFIG, logger=LOGGER)
+        monitor = self.sandbox.collector
         monitor.init_tunnels()
         monitor.start_server()
         monitor.conf.set('DEFAULT', 'folder', MY_DIR)
@@ -101,8 +100,7 @@ class TestCollector(TestWithSsh):
     def test_getsysdata(self):
         """ Test function for get_system_data """
         test_system_id = 'System_1'
-        with collector.Collector(settings_file=TEST_CONFIG,
-                                 logger=LOGGER) as monitor:
+        with self.sandbox.collector as monitor:
             monitor.alldays = True  # Ignore timestamp on test data
             monitor.conf.set('DEFAULT', 'folder', MY_DIR)
             with SftpSession(
@@ -122,49 +120,54 @@ class TestCollector(TestWithSsh):
     def test_getsyslogs(self):
         """ Test function for get_system_logs """
         test_system_id = 'System_1'
-        with collector.Collector(settings_file=TEST_CONFIG,
-                                 logger=LOGGER) as monitor:
+        with self.sandbox.collector as col:
             with SftpSession(
                 hostname='127.0.0.1',
-                ssh_port=monitor.server.tunnelports[test_system_id],
-                logger=LOGGER
-                             ) as s:
-                logs = monitor.get_system_logs(ssh_session=s.ssh_transport,
-                                               system=test_system_id,
-                                               log_cmd='netstat -nrt')
+                logger=LOGGER,
+                ssh_port=col.server.tunnelports[test_system_id]
+            ) as s:
+                logs = col.get_system_logs(
+                           ssh_session=s.ssh_transport,
+                           system=test_system_id,
+                           log_cmd='netstat -nrt'
+                       )
                 self.assertIn('0.0.0.0', ''.join(logs))
-                logs = monitor.get_system_logs(ssh_session=s.get_channel(),
-                                               system=test_system_id)
+                logs = col.get_system_logs(
+                           ssh_session=s.get_channel(),
+                           system=test_system_id
+                       )
                 self.assertIsNone(logs)
 
     def test_collectsysdata(self):
         """ Test function for collect_system_data """
-        with collector.Collector(settings_file=TEST_CONFIG,
-                                 logger=LOGGER) as monitor:
+        with self.sandbox.collector as monitor:
             monitor.alldays = True  # Ignore timestamp on test data
-            monitor.nologs = True  # Skip log collection
-            (data, logs) = monitor.collect_system_data(system='System_1')
-            self.assertIsInstance(data, pd.DataFrame)
-            self.assertTrue(data.empty)  # sftp folder was not set
-            self.assertIn('Log collection omitted', logs)
             monitor.nologs = False
-            monitor.conf.set('DEFAULT', 'folder', MY_DIR)
+
             monitor.conf.set('MISC', 'remote_log_cmd', 'netstat -nrt')
             (data, logs) = monitor.collect_system_data(system='System_1')
             self.assertFalse(data.empty)
             self.assertNotIn('Log collection omitted', logs)
 
+            monitor.nologs = True  # Skip log collection
+            monitor.conf.set('DEFAULT', 'folder', '')
+            (data, logs) = monitor.collect_system_data(system='System_1')
+            self.assertIsInstance(data, pd.DataFrame)
+            self.assertTrue(data.empty)  # sftp folder was not set
+            self.assertIn('Log collection omitted', logs)
+
     def test_serialmain(self):
         """ Test function for main_no_threads (serial mode) """
-        monitor = collector.Collector(settings_file=TEST_CONFIG,
-                                      logger=LOGGER,
-                                      alldays=True,
-                                      nologs=True)
-        monitor.conf.set('DEFAULT', 'folder', MY_DIR)
-        monitor.main_no_threads()
-        self.assertIsInstance(monitor.data, pd.DataFrame)
-        self.assertFalse(monitor.data.empty)
-        self.assertIsInstance(monitor.logs, dict)
+        # monitor = collector.Collector(settings_file=TEST_CONFIG,
+        #                               logger=LOGGER,
+        #                               alldays=True,
+        #                               nologs=True)
+        # monitor.conf.set('DEFAULT', 'folder', MY_DIR)
+
+        self.sandbox.collector.main_no_threads()
+        self.assertIsInstance(self.sandbox.collector.data, pd.DataFrame)
+        self.assertFalse(self.sandbox.collector.data.empty)
+        self.assertIsInstance(self.sandbox.collector.logs, dict)
 
     def test_threadedmain(self):
         """ Test function for main_threads (threaded mode) """

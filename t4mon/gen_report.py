@@ -30,7 +30,7 @@ class Report(object):
         Notice the use of trim_blocks, which greatly helps control whitespace.
         """
         try:
-            assert not self.data.empty  # Check that data isn't empty
+            assert not self.collector.data.empty  # Check that data isn't empty
             assert self.system  # Check a system was specified
             env_dir = path.dirname(path.abspath(self.html_template))
             j2_env = jinja2.Environment(
@@ -94,9 +94,9 @@ class Report(object):
                                       info[0])
                     # Generate figure and encode to base64
                     plot_axis = gen_plot.plot_var(
-                        self.data,
+                        self.collector.data,
                         *[x.strip() for x in info[0].split(',')],
-                        system=self.system.upper(),
+                        system=self.system,
                         logger=self.logger,
                         **optional_kwargs
                                                    )

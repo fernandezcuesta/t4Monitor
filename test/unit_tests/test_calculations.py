@@ -19,7 +19,9 @@ from .base import LOGGER
 
 
 class TestCalculations(unittest.TestCase):
+
     """ Test functions for calculations.py """
+
     def __init__(self, *args):
         super(self.__class__, self).__init__(*args)
         self.testdf = pd.DataFrame({'A': 2,
@@ -67,7 +69,7 @@ class TestCalculations(unittest.TestCase):
                                   'R',
                                   'B * C / (64 - 32)')
         self.assertTrue(all([self.testdf.R[k] == 4
-                        for k in self.testdf.index]))
+                             for k in self.testdf.index]))
 
     def test_apply_calcs(self):
         """ Test function for apply_calcs """

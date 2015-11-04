@@ -22,7 +22,7 @@ def plot_var(dataframe, *var_names, **optional):
     all plots for each variable and silently skipping unexisting variables.
 
     - Optionally selects which system to filter on (i.e. system='localhost')
-    - Optionally sends keyworded parameters to pyplot (**optional)
+    - Optionally sends keyword parameters to pyplot (**optional)
 
     var_names: Filter column names that match any var_names; each individual
                var_item in var_names (first one if we also filter on system)
@@ -31,7 +31,7 @@ def plot_var(dataframe, *var_names, **optional):
     """
     logger = optional.pop('logger', '') or init_logger()
     try:
-        system_filter = optional.pop('system', '').upper()
+        system_filter = optional.pop('system', '')
         if dataframe.empty:
             raise TypeError
 
@@ -42,18 +42,9 @@ def plot_var(dataframe, *var_names, **optional):
                                       *var_names,
                                       system=system_filter,
                                       logger=logger)
-            if not sel:
+            if sel.empty:
                 raise TypeError
-            system_column = df_tools.get_column_name_case_insensitive(
-                                dataframe,
-                                'system'
-                            )
-            filtered_rows = [k.upper() == system_filter
-                             for k in dataframe[system_column]]
-            plotaxis = dataframe[filtered_rows][sel].dropna(
-                           axis=1,
-                           how='all'
-                       ).plot(**optional)
+            plotaxis = sel.plot(**optional)
 
         # Otherwise, var_names columns are selected for system in the dataframe
         # and matplotlib.pyplot's plot function is used once for each column.
@@ -64,22 +55,23 @@ def plot_var(dataframe, *var_names, **optional):
             plotaxis = plt.figure().gca()
             for key in optional:
                 getattr(plt, key)(optional[key])
-            for key, grp in dataframe.groupby(['system']):
+            # TODO: is there a way to directly plot a multiindex DF?
+            for key in dataframe.index.get_level_values('system').unique():
                 sel = df_tools.select_var(dataframe,
                                           *var_names,
                                           system=key,
                                           logger=logger)
-                if not sel:
+                if sel.empty:
                     # other systems may have this column with some data
                     continue
-                for item in sel:
+                for item in sel.columns:
                     logger.debug('Drawing item: %s (%s)' % (item, key))
                     # convert timestamp to number, Matplotlib requires a float
                     # format which is days since epoch
                     my_ts = [ts.to_julian_date() - 1721424.5
-                             for ts in grp[item].dropna().index]
+                             for ts in sel.dropna().index]
                     plt.plot(my_ts,
-                             grp[item].dropna(), label='%s@%s' % (item, key))
+                             sel.dropna(), label='%s@%s' % (item, key))
         # Style the resulting plot
         plotaxis.xaxis.set_major_formatter(md.DateFormatter('%d/%m/%y\n%H:%M'))
         plotaxis.legend(loc='best')

@@ -27,7 +27,7 @@
 {%      endfor %}
       <h2>Latest Log output for {{data.system}}</h2>
       <pre>
-       <code>{% for line in data.logs[data.system] %}{{line}}{% endfor %}</code>
+       <code>{% for line in data.collector.logs[data.system] %}{{line}}{% endfor %}</code>
       </pre>
     </div>
 

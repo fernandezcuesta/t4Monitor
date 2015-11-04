@@ -7,17 +7,12 @@ from __future__ import absolute_import
 
 import imghdr
 import tempfile
-import unittest
 
-import numpy as np
 import pandas as pd
 
-import t4mon as init_func
-from t4mon import df_tools
-from t4mon.gen_report import gen_report, Report
+from t4mon.gen_report import Report, gen_report
 
 from .base import (
-    LOGGER,
     TEST_CSV,
     TEST_PKL,
     TEST_GRAPHS_FILE,
@@ -34,11 +29,8 @@ class TestGenReport(BaseTestClass):
         """ Test function for gen_report """
         my_container = self.orchestrator_test.clone()
         # fill it with some data
-        my_container.data = pd.read_pickle(TEST_PKL)
-        system = list(my_container.data.system)[0].upper()
-        my_container.logs[system] = 'Skip logs here, just a test!'
-        my_container.html_template = TEST_HTMLTEMPLATE
-        my_container.graphs_definition_file = TEST_GRAPHS_FILE
+        my_container.collector.data = self.test_data
+        system = self.test_data.index.levels[1].unique()[0].upper()
 
         html_rendered = gen_report(my_container, system)
         self.assertIn('<title>Monitoring of {} at {}</title>'.format(
@@ -65,18 +57,15 @@ class TestGenReport(BaseTestClass):
 
         # Same when no data in the container or when no system was specified
         my_container.html_template = TEST_HTMLTEMPLATE
-        my_container.data = pd.DataFrame()
+        my_container.collector.data = pd.DataFrame()
         self.assertEqual(gen_report(my_container, system), '')
         self.assertEqual(gen_report(my_container, ''), '')
 
     def test_getgraphs(self):
         """ Test function for get_graphs """
         my_container = self.orchestrator_test.clone()
-        my_container.data = pd.read_pickle(TEST_PKL)
-        system = list(my_container.data.system)[0].upper()
-        my_container.logs[system] = 'Skip logs here, just a test!'
-        my_container.html_template = TEST_HTMLTEMPLATE
-        my_container.graphs_definition_file = TEST_GRAPHS_FILE
+        my_container.collector.data = self.test_data
+        system = self.test_data.index.levels[1].unique()[0].upper()
 
         _report = Report(my_container, system)
         my_graph = _report.render_graphs().next()

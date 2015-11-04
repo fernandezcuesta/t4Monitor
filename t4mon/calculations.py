@@ -120,17 +120,21 @@ def clean_calcs(self, calc_file):
         with open(calc_file, 'r') as calcfile:
             colnames = [line.split('=')[0].strip() for line in calcfile
                         if line[0] not in ';#!/%[ ' and len(line) > 3]
-            self.drop(colnames, axis=1, inplace=True)
+            # self.drop(colnames, axis=1, inplace=True)
             for col in colnames:
-                self.logger.debug('Deleted column: %s', col)
+                try:
+                    self.drop(col, axis=1, inplace=True)
+                    self.logger.debug('Deleted column: %s', col)
+                except ValueError:
+                    self.logger.debug('Error while cleaning column %s',
+                                      col)
+                    continue
         self.logger.info('Dataframe shape after cleanup: %s', self.shape)
-    except ValueError:
-        self.logger.debug('Error while processing line in clean_calcs')
     except IOError:
         self.logger.error("Could not process calculation file: %s", calc_file)
 
 
-def apply_calcs(self, calc_file, system):
+def apply_calcs(self, calc_file, system=None):
     """
     Read calculations file, make the calculations and get rid of temporary data
     """
@@ -142,8 +146,7 @@ def apply_calcs(self, calc_file, system):
             for line in calcfile:
                 if line[0] not in ';#!/%[ ' and len(line) > 3:
                     self.logger.debug('%sProcessing: %s',
-                                      '%s | ' % list(self.system)[0]
-                                      if 'system' in self else '',
+                                      '%s | ' % system if system else '',
                                       line.strip())
                     self.recursive_lis(sign_pattern,
                                        parn_pattern,

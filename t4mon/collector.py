@@ -18,20 +18,29 @@
 """
 from __future__ import absolute_import
 
+import copy
 import os
+import gzip
 import Queue
 import datetime as dt
 import threading
+import __builtin__
 import ConfigParser
 from random import randint
+from cStringIO import StringIO
 
 import pandas as pd
-from paramiko import SSHException
 import sshtunnel
+from paramiko import SSHException
+from sshtunnels.sftpsession import SftpSession, SFTPSessionError
 
 from . import df_tools, calculations
 from .logger import init_logger
-from sshtunnels.sftpsession import SftpSession, SFTPSessionError
+
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 
 __all__ = ('add_methods_to_pandas_dataframe',
            'Collector',
@@ -77,8 +86,8 @@ class Collector(object):
                  alldays=False,
                  logger=None,
                  nologs=False,
-                 settings_file=None,
                  safe=False,
+                 settings_file=None,
                  **kwargs):
 
         self.alldays = alldays
@@ -88,8 +97,8 @@ class Collector(object):
         self.logs = {}
         self.nologs = nologs
         self.results_queue = Queue.Queue()
-        self.settings_file = settings_file or DEFAULT_SETTINGS_FILE
         self.safe = safe
+        self.settings_file = settings_file or DEFAULT_SETTINGS_FILE
         self.server = None
         self.systems = [item for item in self.conf.sections()
                         if item not in ['GATEWAY', 'MISC']]
@@ -106,8 +115,8 @@ class Collector(object):
         return None
 
     def __str__(self):
-        return ('alldays/nologs: {0}/{1}\ndata shape:{2}\nlogs (keys): {3}\n'
-                'threaded:{4}\nserver is set up?: {5}\n'
+        return ('alldays/nologs: {0}/{1}\ndata shape: {2}\nlogs (keys): {3}\n'
+                'threaded: {4}\nserver is set up?: {5}\n'
                 'Settings file: {6}'.format(self.alldays,
                                             self.nologs,
                                             self.data.shape,
@@ -304,7 +313,6 @@ class Collector(object):
                                         filespec_list=tag_list,
                                         sftp_session=session,
                                         files_folder=destdir)
-        # data.system = [system]
         if data.empty:
             self.logger.warning('%s | Data size obtained is 0 Bytes, skipping '
                                 'log collection.', system)
@@ -375,17 +383,19 @@ class Collector(object):
             files = [filespec_list]  # When localfs, don't behave as filter
         if not files:
             self.logger.debug('Nothing gathered from %s, no files were '
-                              'selected', hostname or 'local system')
+                              'selected for pattern "%s"',
+                              hostname or 'local system',
+                              filespec_list)
             return _df
-        _df = pd.concat([df_tools.dataframize(a_file,
-                                              sftp_session,
-                                              self.logger)
-                         for a_file in files], axis=0)
-        _df = df_tools.remove_dataframe_holes(_df)
-        # for a_file in files:
-        #     _df = _df.combine_first(df_tools.dataframize(a_file,
-        #                                                  sftp_session,
-        #                                                  self.logger))
+        # _df = pd.concat([df_tools.dataframize(a_file,
+        #                                       sftp_session,
+        #                                       self.logger)
+        #                  for a_file in files], axis=0)
+        # _df = df_tools.remove_dataframe_holes(_df)
+        for a_file in files:
+            _df = _df.combine_first(df_tools.dataframize(a_file,
+                                                         sftp_session,
+                                                         self.logger))
         if close_me:
             self.logger.debug('Closing sftp session')
             sftp_session.close()
@@ -417,7 +427,9 @@ class Collector(object):
             result_log = 'Could not get information from this system'
         # self.results_queue.put((system, data, log))
         self.logger.debug('%s | Consolidating results', system)
-        self.data = df_tools.consolidate_data(result_data, self.data, system)
+        self.data = df_tools.consolidate_data(result_data,
+                                              dataframe=self.data,
+                                              system=system)
         self.logs[system] = result_log
         self.results_queue.put(system)
 
@@ -475,9 +487,44 @@ class Collector(object):
         except SSHException:
             self.logger.error('Could not open remote connection')
         except Exception as exc:
-            self.logger.error('Unexpected error: %s)', repr(exc))
-        finally:
-            return (self.data, self.logs)
+            self.logger.error('Unexpected error: %s', repr(exc))
+
+    def to_pickle(self, name, compress=False):
+        """ Save collector object to [optionally] gzipped pickle """
+        buffer_object = StringIO()
+        col_copy = copy.copy(self)
+        # cannot pickle a Queue, logging or sshtunnel objects
+        col_copy.results_queue = col_copy.logger = col_copy.server = None
+        pickle.dump(obj=col_copy,
+                    file=buffer_object,
+                    protocol=pickle.HIGHEST_PROTOCOL)
+        buffer_object.flush()
+        if name.endswith('.gz'):
+            compress = True
+            name = name.rsplit('.gz')[0]  # we append the gz extension below
+
+        if compress:
+            output = gzip
+            name = "%s.gz" % name
+        else:
+            output = __builtin__
+
+        with output.open(name, 'wb') as pkl_out:
+            pkl_out.write(buffer_object.getvalue())
+        buffer_object.close()
+
+
+def read_pickle(name, compress=False, logger=None):
+    """ Properly restore dataframe plus its metadata from pickle store """
+    if compress or name.endswith('.gz'):
+        mode = gzip
+    else:
+        mode = __builtin__
+
+    with mode.open(name, 'rb') as picklein:
+        collector = pickle.load(picklein)
+    collector.logger = logger or init_logger()
+    return collector
 
 
 def read_config(settings_file=None):
@@ -495,40 +542,10 @@ def read_config(settings_file=None):
     return config
 
 
-# ADD METHODS TO PANDAS DATAFRAME
-# def _custom_finalize(self, other, method=None):
-#     """ As explained in http://stackoverflow.com/questions/23200524/
-#         propagate-pandas-series-metadata-through-joins
-#         => Custom __finalize__ function for concat, so we keep the metadata
-#     """
-#     def _wrapper(element, name):
-#         """ Wrapper for map function """
-#         _cur_meta = getattr(self, name, '')
-#         _el_meta = getattr(element, name, '')
-#         if _cur_meta:
-#             if isinstance(_el_meta, set):
-#                 setattr(self, name, _cur_meta.union(_el_meta))
-#             else:
-#                 _cur_meta.add(_el_meta)
-#         else:
-#             setattr(self,
-#                     name,
-#                     _el_meta if isinstance(_el_meta, set) else set([_el_meta]))
-#     for name in self._metadata:
-#         if method == 'concat':
-#             # map(lambda element: _wrapper(element, name), other.objs)
-#             [_wrapper(element, name) for element in other.objs]
-#         else:
-#             setattr(self, name, getattr(other, name, ''))
-#     return self
-
-
 def add_methods_to_pandas_dataframe(logger=None):
     """ Add custom methods to pandas.DataFrame """
-    pd.DataFrame._metadata = ['system']  # default metadata
-    # pd.DataFrame.__finalize__ = _custom_finalize
-    pd.DataFrame.to_pickle = pd.to_pickle = df_tools.to_pickle
-    pd.DataFrame.read_pickle = pd.read_pickle = df_tools.read_pickle
+    # pd.DataFrame.to_pickle = pd.to_pickle = df_tools.to_pickle
+    # pd.DataFrame.read_pickle = pd.read_pickle = df_tools.read_pickle
     pd.DataFrame.oper = calculations.oper
     pd.DataFrame.oper_wrapper = calculations.oper_wrapper
     pd.DataFrame.recursive_lis = calculations.recursive_lis

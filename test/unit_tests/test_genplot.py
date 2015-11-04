@@ -5,18 +5,18 @@
 """
 from __future__ import absolute_import
 
-import unittest
-
 import pandas as pd
 from matplotlib import pyplot as plt
 
 from t4mon import df_tools, gen_plot
 
-from .base import LOGGER, TEST_CSV, TEST_DATAFRAME
+from .base import LOGGER, TEST_CSV, TEST_DATAFRAME, BaseTestClass
 
 
-class TestGenPlot(unittest.TestCase):
+class TestGenPlot(BaseTestClass):
+
     """ Test functions for gen_plot.py """
+
     def test_tobase64(self):
         """ Test function for to_base64 """
         plot_fig = TEST_DATAFRAME.plot()
@@ -28,10 +28,7 @@ class TestGenPlot(unittest.TestCase):
 
     def test_plotvar(self):
         """ Test function for plot_var """
-        with open(TEST_CSV, 'r') as filedescriptor:
-            fields, data, metadata = df_tools.extract_t4csv(filedescriptor)
-        dataframe = df_tools.to_dataframe(fields, data, metadata)
-        object.__setattr__(dataframe, 'system', ('SYSTEM1',))
+        dataframe = df_tools.consolidate_data(self.test_data, system='SYSTEM1')
         # make a plot filtering by system, uses dataframe.plot()
         myplot = gen_plot.plot_var(dataframe,
                                    'FRONTEND_11_OUTPUT_OK',

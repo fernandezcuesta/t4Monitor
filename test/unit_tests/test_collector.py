@@ -7,6 +7,7 @@ from __future__ import print_function, absolute_import
 
 import Queue
 import logging
+import tempfile
 import ConfigParser
 
 import pandas as pd
@@ -14,7 +15,7 @@ from pandas.util.testing import assert_frame_equal
 
 from t4mon import df_tools, collector
 
-from .base import TEST_CSV, TEST_PKL, TEST_CONFIG, BaseTestClass
+from .base import TEST_CSV, TEST_PKL, TEST_CALC, TEST_CONFIG, BaseTestClass
 
 
 class TestCollector(BaseTestClass):
@@ -39,14 +40,19 @@ class TestCollector(BaseTestClass):
     def test_getstats(self):
         """ Test function for get_stats_from_host """
         df1 = self.collector_test.get_stats_from_host(filespec_list=TEST_CSV)
-        df2 = df_tools.read_pickle(TEST_PKL)
-        df1 = df_tools.consolidate_data(df1, system=df2.system)
+        col = collector.read_pickle(TEST_PKL)
+        df2 = col.data
+        df2.clean_calcs(TEST_CALC)  # undo calculations
+        df1 = df_tools.consolidate_data(
+                  df1,
+                  system=df2.index.get_level_values('system').unique()[0]
+              )
 
         self.assertIsInstance(df1, pd.DataFrame)
         self.assertIsInstance(df2, pd.DataFrame)
         assert_frame_equal(df1, df2)
 
-    def test_Collector_class(self):
+    def test_collector_class(self):
         """ Test methods related to the Collector class """
         # first of all, check default values
         my_collector = collector.Collector()
@@ -68,11 +74,11 @@ class TestCollector(BaseTestClass):
 
         # Test also CollectorSandbox class methods
         coll_clone = self.collector_test.clone()
-        coll_clone.alldays = coll_clone.safe = True
+        coll_clone.alldays = coll_clone.nologs = False
         self.assertNotEqual(self.collector_test.alldays,
                             coll_clone.alldays)
-        self.assertNotEqual(self.collector_test.safe,
-                            coll_clone.safe)
+        self.assertNotEqual(self.collector_test.nologs,
+                            coll_clone.nologs)
 
         self.assertEqual(self.collector_test.logger,
                          coll_clone.logger)
@@ -82,22 +88,32 @@ class TestCollector(BaseTestClass):
                          coll_clone.server)
         self.assertEqual(self.collector_test.conf,
                          coll_clone.conf)
-        self.assertEqual(self.collector_test.nologs,
-                         coll_clone.nologs)
+        self.assertEqual(self.collector_test.safe,
+                         coll_clone.safe)
 
         self.assertIn('Settings file: {}'.format(
                       self.collector_test.settings_file
                       ),
                       self.collector_test.__str__())
 
-    # def test_consolidate_data(self):
-    #     """ Test dataframe consolidation function """
-    #     dataframe = pd.read_pickle(TEST_PKL)
-    #     # Consolidate with nothing should produce a valid dataframe,
-    #     # in this case tehre shouldn't be any changes
-    #     assert_frame_equal(collector.consolidate_data(dataframe),
-    #                        dataframe)
+    def test_compressed_pickle(self):
+        """ Test to_pickle and read_pickle for compressed pkl.gz files """
+        with tempfile.NamedTemporaryFile() as picklegz:
+            self.collector_test.to_pickle(name=picklegz.name,
+                                          compress=True)
+            picklegz.file.close()
+            picklegz.name = '{}.gz'.format(picklegz.name)
+            assert_frame_equal(self.collector_test.data,
+                               collector.read_pickle(picklegz.name,
+                                                     compress=True).data)
+            # We should be able to know this is a compressed pickle just by
+            # looking at the .gz extension
+            self.collector_test.to_pickle(name=picklegz.name)
+            picklegz.file.close()
+            assert_frame_equal(self.collector_test.data,
+                               collector.read_pickle(picklegz.name).data)
 
-    #     # If we specify a system, the 'system' column should be overwritten
-    #     df2 = collector.consolidation(dataframe, system='MY_SYS')
-    #     self.assertTrue(df2.)
+            # Uncompressed still works ;)
+            self.collector_test.to_pickle(picklegz.name.rstrip('.gz'))
+            assert_frame_equal(self.collector_test.data,
+                               collector.read_pickle(picklegz.name).data)

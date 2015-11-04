@@ -11,7 +11,7 @@ from datetime import datetime as dt
 import pandas as pd
 from pandas.util.testing import assert_frame_equal
 
-from t4mon import collector
+from t4mon import collector, df_tools
 from t4mon.orchestrator import Orchestrator
 
 from .base import TEST_CSV, TEST_PKL, BAD_CONFIG, TEST_CONFIG, BaseTestClass
@@ -35,13 +35,14 @@ class TestOrchestrator(BaseTestClass):
     def test_orchestrator(self):
         """ Check that Orchestrator has the correct fields by default """
         self.assertDictEqual(self.orchestrator_test.graphs, {})
-        self.assertDictEqual(self.orchestrator_test.logs,
+        self.assertDictEqual(self.orchestrator_test.collector.logs,
                              {'my_sys': 'These are my dummy log results'}
                              )
         self.assertGreaterEqual(dt.today().toordinal(),
                                 dt.strptime(self.orchestrator_test.date_time,
                                             '%d/%m/%Y %H:%M:%S').toordinal())
-        assert_frame_equal(pd.DataFrame(), self.orchestrator_test.data)
+        assert_frame_equal(pd.DataFrame(),
+                           self.orchestrator_test.collector.data)
         self.assertIn('html_template', self.orchestrator_test.__dict__)
         self.assertIn('graphs_definition_file',
                       self.orchestrator_test.__dict__)
@@ -52,7 +53,7 @@ class TestOrchestrator(BaseTestClass):
 
     def test_clone(self):
         """ Test function for Orchestrator.clone() """
-        _orchestrator = self.orchestrator_test.clone(system='my_sys')
+        _orchestrator = self.orchestrator_test.clone()
         self.assertEqual(self.orchestrator_test.date_time,
                          _orchestrator.date_time)
 
@@ -84,16 +85,22 @@ class TestOrchestrator(BaseTestClass):
     def test_reports_generator(self):
         """ Test function for Orchestrator.reports_generator() """
         _orchestrator = self.orchestrator_test.clone()
-        _orchestrator.data = pd.read_pickle(TEST_PKL)
+        _orchestrator.collector.data = self.test_data
         _orchestrator.reports_generator()
         self.assertNotEqual(_orchestrator.reports_written, [])
         for report_file in _orchestrator.reports_written:
             self.assertTrue(os.path.exists(report_file))
         # Test the non-threaded version
-        _orchestrator.safe = True
-        _orchestrator.data.system.add('SYS2')
+        _orchestrator.reports_written = []  # reset the count
+        _orchestrator.set_threaded_mode(safe=True)
+        _orchestrator.collector.data = df_tools.consolidate_data(
+                                           partial_dataframe=self.test_data,
+                                           dataframe=self.test_data,
+                                           system='SYS2'
+                                       )
         _orchestrator.reports_generator()
         self.assertNotEqual(_orchestrator.reports_written, [])
+        self.assertEqual(len(_orchestrator.reports_written), 2)
         for report_file in _orchestrator.reports_written:
             self.assertTrue(os.path.exists(report_file))
 
@@ -125,7 +132,7 @@ class TestOrchestrator(BaseTestClass):
         """ Test that data can be stored locally in both PKL and CSV formats
         """
         _orchestrator = self.orchestrator_test.clone()
-        _orchestrator.data = pd.read_pickle(TEST_PKL)
+        _orchestrator.collector.data = self.test_data
         _orchestrator.local_store()
         for extension in ['pkl.gz', 'csv']:
             filename = '{0}/data_{1}.{2}'.format(_orchestrator.store_folder,

@@ -12,7 +12,8 @@ import t4mon as init_func
 
 
 class TestInit(unittest.TestCase):
-    """ Set of test functions for __init__.py """
+
+    """ Set of unit tests for __init__.py """
 
     def test_dump_config(self):
         """ Test function for dump_config """

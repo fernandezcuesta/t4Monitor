@@ -8,12 +8,16 @@ from __future__ import absolute_import
 import tempfile
 import unittest
 
+import numpy as np
 import pandas as pd
 from pandas.util.testing import assert_frame_equal
 
 from t4mon import df_tools, collector
 
-from .base import LOGGER, TEST_CSV, TEST_PKL
+from .base import LOGGER, TEST_CSV, TEST_PKL, BaseTestClass
+
+TEST_CSV_SHAPE = (286, 930)  # dataframe shape as generated from CSV
+TEST_PKL_SHAPE = (286, 942)  # dataframe shape after calculations (as stored)
 
 
 class TestAuxiliaryFunctions(unittest.TestCase):
@@ -27,31 +31,23 @@ class TestAuxiliaryFunctions(unittest.TestCase):
     def setUpClass(cls):
         collector.add_methods_to_pandas_dataframe(LOGGER)
 
-    def test_reload_from_csv_and_metadata_from_cols(self):
+    def test_reload_from_csv(self):
         """ Test loading a dataframe from CSV file (plain or T4 format)
         """
         # Test with a T4-CSV
         df1 = df_tools.reload_from_csv(TEST_CSV)
-        for _metadata in pd.DataFrame._metadata:
-            self.assertIn(_metadata, df1._metadata)
-            self.assertIn(_metadata, df1)
+        self.assertTupleEqual(df1.shape, TEST_CSV_SHAPE)
         # Test with a plain CSV
         with tempfile.NamedTemporaryFile() as plaincsv:
             df1.to_csv(plaincsv)
             plaincsv.file.close()
             df2 = df_tools.reload_from_csv(plaincsv.name, plain=True)
-            self.assertIn(_metadata, df2._metadata)
-            self.assertIn(_metadata, df2)
             assert_frame_equal(df1, df2)
 
 
-class TestDFTools(unittest.TestCase):
+class TestDFTools(BaseTestClass):
 
     """ Set of test functions for df_tools.py """
-
-    @classmethod
-    def setUpClass(cls):
-        collector.add_methods_to_pandas_dataframe(LOGGER)
 
     def test_extract_t4csv(self):
         """ Test function for extract_t4csv """
@@ -73,68 +69,49 @@ class TestDFTools(unittest.TestCase):
 
     def test_select_var(self):
         """ Test function for select_var """
-        dataframe = pd.read_pickle(TEST_PKL)
 
-        self.assertListEqual(list(dataframe.columns),
-                             df_tools.select_var(dataframe, '',
-                                                 logger=LOGGER))
-        self.assertListEqual(df_tools.select_var(dataframe,
-                                                 'NONEXISTING_COLUMN',
-                                                 logger=LOGGER),
-                             [])
-        # Filtering by a non-existing system returns no items
-        self.assertListEqual(df_tools.select_var(dataframe,
-                                                 'NONEXISTING_COLUMN',
-                                                 system='no-system',
-                                                 logger=LOGGER),
-                             [])
-        # Specific for test data
-        self.assertEqual(len(df_tools.select_var(dataframe,
-                                                 'Above_Peek',
-                                                 logger=LOGGER)),
-                         12)
-
-        self.assertEqual(len(df_tools.select_var(dataframe,
-                                                 'Counter0',
-                                                 logger=LOGGER)),
-                         370)
-        # Bad additional filter returns as if no filters were applied
-        self.assertEqual(len(df_tools.select_var(dataframe,
-                                                 'Above_Peek',
-                                                 position='UP',  # wrong filter
-                                                 logger=LOGGER)),
-                         12)
-        # When no filter is selected and more than 1 parameter is passed, only
-        # the first one is considered
-        self.assertEqual(len(df_tools.select_var(dataframe,
-                                                 'Above_Peek',
-                                                 'Counter0',
-                                                 logger=LOGGER)),
-                         12)
-
-    def test_extractdf(self):
-        """ Test function for extract_df """
-        dataframe = pd.read_pickle(TEST_PKL)
         # Extract non existing -> empty
-        self.assertTrue(df_tools.extract_df(dataframe,
+        self.assertTrue(df_tools.select_var(self.test_data,
                                             'NONEXISTING_COLUMN',
                                             logger=LOGGER).empty)
         # Extract none -> original
-        assert_frame_equal(dataframe, df_tools.extract_df(dataframe,
-                                                          '',
-                                                          logger=LOGGER))
+        assert_frame_equal(self.test_data, df_tools.select_var(self.test_data,
+                                                               '',
+                                                               logger=LOGGER))
         # Extract none, filtering by a non-existing system
-        assert_frame_equal(pd.DataFrame(), df_tools.extract_df(dataframe,
+        assert_frame_equal(pd.DataFrame(), df_tools.select_var(self.test_data,
                                                                system='BAD_ID',
                                                                logger=LOGGER))
         # Extract filtering by an existing system (only one in this case)
-        assert_frame_equal(dataframe,
-                           df_tools.extract_df(dataframe,
-                                               system='SYSTEM_1',
-                                               logger=LOGGER))
+        self.assertTupleEqual(df_tools.select_var(self.test_data,
+                                                  system='SYSTEM_1',
+                                                  logger=LOGGER).shape,
+                              TEST_PKL_SHAPE)  # calcs applied, 930->944
         # Extract an empty DF should return empty DF
-        assert_frame_equal(pd.DataFrame(), df_tools.extract_df(pd.DataFrame(),
+        assert_frame_equal(pd.DataFrame(), df_tools.select_var(pd.DataFrame(),
                                                                logger=LOGGER))
+        # Specific for test data
+        self.assertEqual(df_tools.select_var(self.test_data,
+                                             'Above_Peek',
+                                             logger=LOGGER).shape[1],
+                         12)
+
+        self.assertEqual(df_tools.select_var(self.test_data,
+                                             'Counter0',
+                                             logger=LOGGER).shape[1],
+                         382)
+        # Bad additional filter returns empty dataframe
+        assert_frame_equal(df_tools.select_var(self.test_data,
+                                               'Above_Peek',
+                                               position='UP',  # wrong filter
+                                               logger=LOGGER),
+                           pd.DataFrame())
+        # When a wrong variable is selected, it is ignored
+        self.assertEqual(df_tools.select_var(self.test_data,
+                                             'I_do_not_exist',
+                                             'Above_Peek',
+                                             logger=LOGGER).shape[1],
+                         12)
 
     def test_todataframe(self):
         """ Test function for to_dataframe """
@@ -142,7 +119,7 @@ class TestDFTools(unittest.TestCase):
             (field_names, data, metadata) = df_tools.extract_t4csv(testcsv)
         dataframe = df_tools.to_dataframe(field_names, data, metadata)
         self.assertIsInstance(dataframe, pd.DataFrame)
-        self.assertTupleEqual(dataframe.shape, (286, 931))
+        self.assertTupleEqual(dataframe.shape, TEST_CSV_SHAPE)
         # Missing header should return an empty DF
         self.assertTrue(df_tools.to_dataframe([], data, metadata).empty)
         # # Missing data should return an empty DF
@@ -172,27 +149,10 @@ class TestDFTools(unittest.TestCase):
         with self.assertRaises(df_tools.ToDfError):
             df_tools.to_dataframe(field_names, data, metadata)
 
-    def test_metadata_copyrestore(self):
-        """ Test function for copy_metadata() and restore_metadata()
-        """
-        my_df = df_tools.to_dataframe(['COL1', 'My Sample Time'],
-                                      ['7, 2000-01-01 00:00:01',
-                                       '23, 2000-01-01 00:01:00',
-                                       '30, 2000-01-01 00:01:58'],
-                                      {'addressing': 'LOCAL',
-                                       'missing': 107,
-                                       'fresh': False})
-        metadata_bck = df_tools.copy_metadata(my_df)
-        empty_df = pd.DataFrame()
-        df_tools.restore_metadata(metadata_bck, empty_df)
-        # Check that empty_df._metadata values are copied
-        for item in my_df._metadata:
-            self.assertIn(item, empty_df._metadata)
-
     def test_dataframize(self):
         """ Test function for dataframize """
         dataframe = df_tools.dataframize(TEST_CSV, logger=LOGGER)
-        self.assertTupleEqual(dataframe.shape, (286, 931))
+        self.assertTupleEqual(dataframe.shape, TEST_CSV_SHAPE)
         self.assertTrue(hasattr(dataframe, '_metadata'))
         # Check that metadata is in place and extra columns were created too
         for item in dataframe._metadata:
@@ -208,36 +168,35 @@ class TestDFTools(unittest.TestCase):
         assert_frame_equal(pd.DataFrame(),
                            df_tools.dataframize('non-existing-file'))
 
-    def consolidate_data(self):
-        """ Test for consolidate_data """
-        dataframe = df_tools.dataframize(TEST_CSV, logger=LOGGER)
-        # Consolidate a dataframe with nothing should return the original df
-        assert_frame_equal(df_tools.consolidate_data(dataframe), dataframe)
-        # Consolidating a df with itself shouldn't modify anything
-        assert_frame_equal(df_tools.consolidate_data(dataframe, dataframe),
-                           dataframe)
-        # Consolidating a df with itself should return the original dataframe
-        assert_frame_equal(df_tools.consolidate_data(dataframe,
-                                                     pd.DataFrame()),
-                           dataframe)
-    def test_compressed_pickle(self):
-        """ Test to_pickle and read_pickle for compressed pkl.gz files """
-        dataframe = df_tools.dataframize(TEST_CSV, logger=LOGGER)
-        with tempfile.NamedTemporaryFile() as picklegz:
-            dataframe.to_pickle(picklegz.name, compress=True)
-            picklegz.file.close()
-            picklegz.name = '{}.gz'.format(picklegz.name)
-            assert_frame_equal(dataframe,
-                               pd.read_pickle(picklegz.name,
-                                              compress=True))
-            # We should be able to know this is a compressed pickle just by
-            # looking at the .gz extension
-            dataframe.to_pickle(picklegz.name)
-            picklegz.file.close()
-            assert_frame_equal(dataframe,
-                               pd.read_pickle(picklegz.name))
+    def test_consolidate_data(self):
+        """ Test dataframe consolidation function """
+        midx = pd.MultiIndex(levels=[[0, 1, 2, 3, 4], ['sys1']],
+                             labels=[[0, 1, 2, 3, 4], [0, 0, 0, 0, 0]],
+                             names=[None, 'system'])
 
-            # Uncompressed still works ;)
-            dataframe.to_pickle(picklegz.name.rstrip('.gz'))
-            assert_frame_equal(dataframe,
-                               pd.read_pickle(picklegz.name))
+        df1 = pd.DataFrame(np.random.randint(0, 10, (5, 3)),
+                           columns=['A', 'B', 'C'])
+        df1_midx = df1.set_index(midx)
+
+        df2 = pd.DataFrame(np.random.randint(0, 10, (5, 3)),
+                           columns=['A', 'B', 'C'])
+
+        # Consolidate with nothing should raise a ToDfError
+        with self.assertRaises(df_tools.ToDfError):
+            df_tools.consolidate_data(df1)
+
+        # Consolidate with a system name should return MultiIndex dataframe
+        assert_frame_equal(df_tools.consolidate_data(df1.copy(),
+                                                     system='sys1'),
+                           df1_midx)
+
+        data = pd.DataFrame()
+        for (i, partial_dataframe) in enumerate([df1, df2]):
+            data = df_tools.consolidate_data(partial_dataframe,
+                                             dataframe=data,
+                                             system='sys{}'.format(i+1))
+        self.assertTupleEqual(data.shape, (10, 3))
+        self.assertTupleEqual(data.index.levshape, (5, 2))
+
+        assert_frame_equal(df1, data.xs('sys1', level='system'))
+        assert_frame_equal(df2, data.xs('sys2', level='system'))
