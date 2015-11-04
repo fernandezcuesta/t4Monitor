@@ -6,6 +6,7 @@
 from __future__ import absolute_import
 
 import os
+import logging
 from datetime import datetime as dt
 
 import pandas as pd
@@ -139,3 +140,38 @@ class TestOrchestrator(BaseTestClass):
                                                  _orchestrator.date_tag(),
                                                  extension)
             self.assertTrue(os.path.exists(filename))
+
+    def test_set_settings_file(self):
+        """
+        Test that set_settings_file changes both Orchestrator and
+        Collector classes `settings_file` parameter
+        """
+        _orchestrator = self.orchestrator_test.clone()
+        _orchestrator.set_settings_file(collector.DEFAULT_SETTINGS_FILE)
+        self.assertEqual(_orchestrator.settings_file,
+                         collector.DEFAULT_SETTINGS_FILE)
+        self.assertEqual(_orchestrator.collector.settings_file,
+                         collector.DEFAULT_SETTINGS_FILE)
+
+    def test_set_threaded_mode(self):
+        """
+        Test that set_threaded_mode changes both Orchestrator and
+        Collector classes `safe` parameter
+        """
+        _orchestrator = self.orchestrator_test.clone()
+        original_mode = _orchestrator.safe
+        _orchestrator.set_threaded_mode(not original_mode)
+        self.assertNotEqual(_orchestrator.safe, original_mode)
+        self.assertEqual(_orchestrator.safe, _orchestrator.collector.safe)
+
+    def test_set_logger_level(self):
+        """
+        Test that set_threaded_mode changes both Orchestrator and
+        Collector classes `logger.level` parameter
+        """
+        _orchestrator = self.orchestrator_test.clone()
+        original_level = _orchestrator.logger.level
+        _orchestrator.set_logger_level((original_level + 10) % logging.FATAL)
+        self.assertNotEqual(_orchestrator.logger.level, original_level)
+        self.assertEqual(_orchestrator.logger.level,
+                         _orchestrator.collector.logger.level)

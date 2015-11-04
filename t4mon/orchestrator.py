@@ -313,7 +313,7 @@ class Orchestrator(object):
         self.collector.settings_file = self.settings_file
         self.collector.conf = collector.read_config(self.settings_file)
 
-    def set_logger_level(self, loglevel='None'):
+    def set_logger_level(self, loglevel=None):
         """ Change the loglevel for orchestrator and collector objects """
         if not loglevel:
             loglevel = DEFAULT_LOGLEVEL
