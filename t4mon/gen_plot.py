@@ -100,7 +100,6 @@ def to_base64(dataframe_plot):
         fbuffer = StringIO()
         fig = dataframe_plot.get_figure()
         fig.savefig(fbuffer, format='png', bbox_inches='tight')
-        # plt.close(fig)
         encoded_plot = 'data:image/png;base64,%s' %\
                        fbuffer.getvalue().encode("base64")
         fbuffer.close()

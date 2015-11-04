@@ -21,7 +21,7 @@ from matplotlib import pyplot as plt  # isort:skip
 from . import collector  # isort:skip
 from .logger import DEFAULT_LOGLEVEL, init_logger  # isort:skip
 from .gen_report import gen_report  # isort:skip
-from .df_tools import reload_from_csv # isort:skip
+from .df_tools import reload_from_csv  # isort:skip
 
 
 __all__ = ('Orchestrator')

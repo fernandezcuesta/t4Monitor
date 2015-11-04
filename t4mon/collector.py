@@ -387,11 +387,6 @@ class Collector(object):
                               hostname or 'local system',
                               filespec_list)
             return _df
-        # _df = pd.concat([df_tools.dataframize(a_file,
-        #                                       sftp_session,
-        #                                       self.logger)
-        #                  for a_file in files], axis=0)
-        # _df = df_tools.remove_dataframe_holes(_df)
         for a_file in files:
             _df = _df.combine_first(df_tools.dataframize(a_file,
                                                          sftp_session,
@@ -456,15 +451,6 @@ class Collector(object):
                 self.init_tunnels(system)
                 self.start_server()
                 self.thread_wrapper(system)
-
-                # if not self.check_if_tunnel_is_up(system):
-                #     self.logger.error('%s | System not reachable!', system)
-                #     raise IOError
-                # (result_data,
-                #  self.logs[system]) = self.collect_system_data(system)
-                # consolidate_data(self.data, result_data, system)
-                # self.logger.info('%s | Done collecting data!', system)
-
                 self.stop_server()
             except (sshtunnel.BaseSSHTunnelForwarderError,
                     IOError,
@@ -544,12 +530,9 @@ def read_config(settings_file=None):
 
 def add_methods_to_pandas_dataframe(logger=None):
     """ Add custom methods to pandas.DataFrame """
-    # pd.DataFrame.to_pickle = pd.to_pickle = df_tools.to_pickle
-    # pd.DataFrame.read_pickle = pd.read_pickle = df_tools.read_pickle
     pd.DataFrame.oper = calculations.oper
     pd.DataFrame.oper_wrapper = calculations.oper_wrapper
     pd.DataFrame.recursive_lis = calculations.recursive_lis
     pd.DataFrame.apply_calcs = calculations.apply_calcs
     pd.DataFrame.clean_calcs = calculations.clean_calcs
     pd.DataFrame.logger = logger or init_logger()
-# END OF ADD METHODS TO PANDAS DATAFRAME

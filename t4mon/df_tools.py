@@ -225,8 +225,6 @@ def to_dataframe(field_names, data, metadata):
             _df = pd.read_csv(fbuffer, names=field_names,
                               parse_dates={'datetime': [df_timecol]},
                               index_col='datetime')
-        # # Add fake columns based in metadata
-        # metadata_to_cols(_df, metadata)
     except Exception as exc:
         raise ToDfError(exc)
     return _df
