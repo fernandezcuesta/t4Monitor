@@ -59,27 +59,89 @@ LINE = 80 * '-'
 
 class ConfigReadError(Exception):
 
-    """Exception raised while reading configuration file"""
-    pass
-
-
-class InitTunnelError(Exception):
-
-    """Exception raised by InitTunnel"""
-    pass
-
-
-class NoFileFound(Exception):
-
-    """Exception raised by get_stats_from_host"""
+    """Exception subclass raised while reading configuration file"""
     pass
 
 
 class Collector(object):
 
     """
-    Defines the main Collector class for carrying the data, logs and additional
-    options
+    Main data collection class
+    Takes care of:
+
+    - Initialize the SSH tunnels towards the remote clusters over a common
+      gateway
+    - Collecting the data (T4-CSV) from remote clusters
+    - Optionally collect remote commmand output
+    - Create a dataframe containing processed data from all systems
+    - Apply calculations to resulting dataframe, saving the result in new
+      columns
+
+    Additional methods allow storing/loading the class into a gzipped pickle
+    file.
+
+    Modes:
+        - threaded: default mode, most operations are executed in parallel for
+                    each system
+        - safe: serial mode, slower. All operations are executed system by
+                system
+
+    Class __init__ arguments:
+        - alldays
+          Type: bool
+          Default: False
+          Description: Define whether or not filter remote files on current
+                       date. If true, remote files will be filtered on a
+                       timestamp DDMMMYYY (i.e. '20may2015')
+        - logger
+          Type: logging.Logger
+          Default: None
+          Description: Logger object passed from an external function.
+                       A new logger is created by calling logger.init_logger()
+                       if nothing is passed
+        - nologs
+          Type: bool
+          Default: False
+          Description: Skip remote log collection. An indication message will
+                       be shown in the report showing that the log collection
+                       was omitted
+        - safe
+          Type: bool
+          Default: False
+          Description: Define the mode (safe or threaded) for most of the class
+                       methods
+        - settings_file
+          Type: str
+          Default: DEFAULT_SETTINGS_FILE
+          Description: Define the name of the configuration file
+
+
+      Class objects:
+
+          - All class __init__ arguments as defined above
+          - logs
+              Type: dict
+          - results_queue
+          - server
+          - systems
+      Usage:
+
+          with Collector(**options) as col:
+              ...
+                  operations
+              ...
+
+       or
+
+           col = Collector(**options)
+           col.init_tunnels()
+           col.start_server()
+           ...
+               operations
+           ...
+           col.stop_server()
+
+
     """
 
     def __init__(self,
@@ -127,8 +189,19 @@ class Collector(object):
 
     def init_tunnels(self, system=None):
         """
-        Calls sshtunnel and returns a ssh server with all tunnels established
-        server instance is returned non-started
+        Description:
+        Arguments:
+            - sytem
+                Type: str
+                Default: None
+                Description: system to initialize the tunnels. If nothing given
+                             it initializes tunnels for all systems in
+                             self.systems
+        Returns:
+            SSHTunnelForwarder instance (non-started)
+
+            Calls sshtunnel and returns a ssh server with all tunnels
+            established SSHTunnelForwarder instance is returned non-started
         """
         self.logger.info('Initializing tunnels')
         if not self.conf:
