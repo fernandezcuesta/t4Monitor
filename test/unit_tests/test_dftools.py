@@ -14,7 +14,7 @@ from pandas.util.testing import assert_frame_equal
 
 from t4mon import df_tools, collector
 
-from .base import LOGGER, TEST_CSV, TEST_PKL, BaseTestClass
+from .base import LOGGER, TEST_CSV, BaseTestClass
 
 TEST_CSV_SHAPE = (286, 930)  # dataframe shape as generated from CSV
 TEST_PKL_SHAPE = (286, 942)  # dataframe shape after calculations (as stored)
