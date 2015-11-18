@@ -57,9 +57,7 @@ def create_parser(args=None):
     parser.add_argument(
         '--settings', dest='settings_file',
         default=collector.DEFAULT_SETTINGS_FILE,
-        help='Settings file (default {})'.format(
-            os.path.relpath(collector.DEFAULT_SETTINGS_FILE)
-            )
+        help='Settings file (check defaults with t4mon-config)'
         )
     parser.add_argument('--loglevel', default=DEFAULT_LOGLEVEL,
                         choices=['DEBUG',
