@@ -225,7 +225,7 @@ def dataframe_to_t4csv(dataframe, output, t4format=2):
                         columns=data.columns.drop(system_column))
             buffer_object.seek(0)
             _to_t4csv(buffer_object,
-                      output='{0}_{2}{1}'.format(splitext(output), system),
+                      output='{0}_{2}{1}'.format(*splitext(output), system),
                       t4format=t4format,
                       system_id=system)
         finally:
