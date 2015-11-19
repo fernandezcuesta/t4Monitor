@@ -7,13 +7,11 @@
 from __future__ import absolute_import
 
 import __builtin__
-from binascii import hexlify, unhexlify
 from re import split
 from cStringIO import StringIO
 from itertools import takewhile
 from collections import OrderedDict
 
-import numpy as np
 import pandas as pd
 from paramiko import SFTPClient
 
@@ -216,7 +214,7 @@ def t4csv_to_plain(t4_csv, output):
 
 def dataframe_to_t4csv(dataframe, output, t4format=2):
     """ Save dataframe to Format1/2 T4-compliant CSV files, one per system """
-    system_column = find_in_iterable_case_insensitive(dataframe,
+    system_column = find_in_iterable_case_insensitive(dataframe.columns,
                                                       'system')
     for (system, data) in dataframe.groupby(system_column):
         try:
