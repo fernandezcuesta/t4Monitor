@@ -7,6 +7,7 @@
 from __future__ import absolute_import
 
 import __builtin__
+from binascii import hexlify, unhexlify
 from re import split
 from cStringIO import StringIO
 from itertools import takewhile
@@ -214,23 +215,22 @@ def t4csv_to_plain(t4_csv, output):
 
 
 def dataframe_to_t4csv(dataframe, output, t4format=2):
-    """ Save dataframe to Format1/2 T4-compliant CSV file """
-    # We must remove the 'system' column from the dataframe
-    system_column = find_in_iterable_case_insensitive(dataframe.columns,
+    """ Save dataframe to Format1/2 T4-compliant CSV files, one per system """
+    system_column = find_in_iterable_case_insensitive(dataframe,
                                                       'system')
-    data_sys = ','.join(np.unique(dataframe[system_column]))
-    try:
-        buffer_object = StringIO()
-        dataframe.to_csv(buffer_object,
-                         date_format=T4_DATE_FORMAT,
-                         columns=dataframe.columns.drop(system_column))
-        buffer_object.seek(0)
-        _to_t4csv(buffer_object,
-                  output=output,
-                  t4format=t4format,
-                  system_id=data_sys)
-    finally:
-        buffer_object.close()
+    for (system, data) in dataframe.groupby(system_column):
+        try:
+            buffer_object = StringIO()
+            data.to_csv(buffer_object,
+                        date_format=T4_DATE_FORMAT,
+                        columns=data.columns.drop(system_column))
+            buffer_object.seek(0)
+            _to_t4csv(buffer_object,
+                      output='{}_{}'.format(system, output),
+                      t4format=t4format,
+                      system_id=system)
+        finally:
+            buffer_object.close()
 
 
 def plain_to_t4csv(plain_csv, output, t4format=2):
