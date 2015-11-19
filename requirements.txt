@@ -8,4 +8,4 @@ pyparsing==2.0.3
 python-dateutil==2.4.1
 pytz==2014.10
 six==1.9.0
--e git+git@github.com:fernandezcuesta/sshtunnel#egg=sshtunnel-0.0.4.5
+-e git+https://github.com/fernandezcuesta/sshtunnel.git#egg=sshtunnel-0.0.4.5
