@@ -13,17 +13,19 @@ from collections import OrderedDict
 from cStringIO import StringIO
 from itertools import takewhile
 
+import numpy as np
 import pandas as pd
 from paramiko import SFTPClient
 
 from .logger import init_logger
+from t4mon import __version__
 
 
 SEPARATOR = ','  # CSV separator, usually a comma
 START_HEADER_TAG = "$$$ START COLUMN HEADERS $$$"  # Start of Format-2 header
 END_HEADER_TAG = "$$$ END COLUMN HEADERS $$$"  # End of Format-2 header
 DATETIME_TAG = 'Sample Time'  # Column containing sample datetime
-
+T4_DATE_FORMAT = '%Y-%b-%d %H:%M:%S.00'  # Format for date column
 
 __all__ = ('select_var',  't4csv_to_plain', 'plain_to_t4csv',
            'to_dataframe', 'dataframize')
@@ -209,46 +211,46 @@ def t4csv_to_plain(t4_csv, output):
     """ Convert a T4-compliant CSV file into plain (excel dialect) CSV file """
     data = reload_from_csv(t4_csv, plain=False)
     data.to_csv(output,
-                date_format='%Y-%b-%d %H:%M:%S.00')
+                date_format=T4_DATE_FORMAT)
 
 
 def dataframe_to_t4csv(dataframe, output, t4format=2):
     """ Save dataframe to Format1/2 T4-compliant CSV file """
+    # We must remove the 'system' column from the dataframe
+    system_column = find_in_iterable_case_insensitive(dataframe.columns,
+                                                      'system')
+    data_sys = ','.join(np.unique(dataframe[system_column]))
     try:
         buffer_object = StringIO()
         dataframe.to_csv(buffer_object,
-                         date_format='%Y-%b-%d %H:%M:%S.00')
+                         date_format=T4_DATE_FORMAT,
+                         columns=dataframe.columns.drop(system_column))
         buffer_object.seek(0)
         _to_t4csv(buffer_object,
                   output=output,
-                  t4format=t4format)
+                  t4format=t4format,
+                  system_id=data_sys)
     finally:
         buffer_object.close()
 
 
 def plain_to_t4csv(plain_csv, output, t4format=2):
     """ Convert plain CSV into T4-compliant Format1/2 CSV file """
-    try:
-        buffer_object = StringIO()
-        with open(plain_csv, 'r') as plain_content:
-            csv_content = csv.reader(plain_content)
-            csv_writer = csv.writer(buffer_object)
-            csv_writer.writerows(csv_content)
-        buffer_object.seek(0)
-        _to_t4csv(buffer_object,
-                  output=output,
-                  t4format=t4format)
-    finally:
-        buffer_object.close()
+    data = reload_from_csv(plain_csv)
+    dataframe_to_t4csv(dataframe=data,
+                       output=output,
+                       t4format=t4format)
 
 
-def _to_t4csv(file_object, output, t4format=2):
+def _to_t4csv(file_object, output, t4format=2, system_id=None):
     """ Save file_object contents to Format1/2 T4-compliant CSV file"""
     if t4format not in [1, 2]:
         raise AttributeError('Bad T4-CSV format {} (must be either 1 '
                              'or 2)'.format(t4format))
     with open(output, 'w') as csvfile:
-        csvfile.write('T4MONITOR, T4EXTR Version: T4 Version: V4.4\n')
+        csvfile.write('{}, t4Monitor Version {}\n'.format(
+                      system_id or 'SYSTEM', __version__)
+                      )
         if t4format == 2:
             csvfile.write('{}\n'.format(START_HEADER_TAG))
             csvfile.write(file_object.readline())  # Fields in 1st line
