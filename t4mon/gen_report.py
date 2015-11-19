@@ -44,8 +44,8 @@ class Report(object):
                      path.basename(self.html_template)
                      )
             j2_tpl.globals['render_graphs'] = self.render_graphs
-            self.logger.info('%s | Generating graphics and rendering report',
-                             self.system)
+            self.logger.info('%s | Generating graphics and rendering report '
+                             '(may take a while)', self.system)
             return j2_tpl.render(data=self)
         except AssertionError:
             self.logger.error(

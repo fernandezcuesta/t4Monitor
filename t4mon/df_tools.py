@@ -25,7 +25,7 @@ END_HEADER_TAG = "$$$ END COLUMN HEADERS $$$"  # End of Format-2 header
 DATETIME_TAG = 'Sample Time'  # Column containing sample datetime
 
 
-__all__ = ('select_var',  'to_t4csv',
+__all__ = ('select_var',  't4csv_to_plain', 'plain_to_t4csv',
            'to_dataframe', 'dataframize')
 
 
@@ -205,26 +205,26 @@ def extract_t4csv(file_descriptor):
         raise ExtractCSVException
 
 
-def t4csv_to_plain(t4_csv, name):
+def t4csv_to_plain(t4_csv, output):
     """ Convert a T4-compliant CSV file into plain (excel dialect) CSV file """
     data = reload_from_csv(t4_csv, plain=False)
-    data.to_csv(name)
+    data.to_csv(output)
 
 
-def dataframe_to_t4csv(dataframe, name, t4format=2):
+def dataframe_to_t4csv(dataframe, output, t4format=2):
     """ Save dataframe to Format1/2 T4-compliant CSV file """
     try:
         buffer_object = StringIO()
         dataframe.to_csv(buffer_object)
         buffer_object.seek(0)
         _to_t4csv(buffer_object,
-                  name=name,
+                  output=output,
                   t4format=t4format)
     finally:
         buffer_object.close()
 
 
-def plain_to_t4csv(plain_csv, name, t4format=2):
+def plain_to_t4csv(plain_csv, output, t4format=2):
     """ Convert plain CSV into T4-compliant Format1/2 CSV file """
     try:
         buffer_object = StringIO()
@@ -234,26 +234,24 @@ def plain_to_t4csv(plain_csv, name, t4format=2):
             csv_writer.writerows(csv_content)
         buffer_object.seek(0)
         _to_t4csv(buffer_object,
-                  name=name,
+                  output=output,
                   t4format=t4format)
     finally:
         buffer_object.close()
 
 
-def _to_t4csv(file_object, name, t4format=2):
+def _to_t4csv(file_object, output, t4format=2):
     """ Save file_object contents to Format1/2 T4-compliant CSV file"""
-    with open(name, 'w') as csvfile:
-        if t4format == 1:
-            csvfile.write('T4MONITOR, T4EXTR Version: T4 Version: V4.4\n')
-            csvfile.write(file_object.read())
-        elif t4format == 2:
+    if t4format not in [1, 2]:
+        raise AttributeError('Bad T4-CSV format {} (must be either 1 '
+                             'or 2)'.format(t4format))
+    with open(output, 'w') as csvfile:
+        csvfile.write('T4MONITOR, T4EXTR Version: T4 Version: V4.4\n')
+        if t4format == 2:
             csvfile.write('{}\n'.format(START_HEADER_TAG))
             csvfile.write(file_object.readline())  # Fields in 1st line
             csvfile.write('{}\n'.format(END_HEADER_TAG))
-            csvfile.write(file_object.read())  # Data in other lines
-        else:
-            raise AttributeError('Bad T4-CSV format {} (must be either 1 '
-                                 'or 2)'.format(t4format))
+        csvfile.write(file_object.read())
 
 
 def to_dataframe(field_names, data, metadata):

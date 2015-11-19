@@ -14,8 +14,6 @@ from t4mon.gen_report import Report, gen_report
 
 from .base import (
     TEST_CSV,
-    TEST_PKL,
-    TEST_GRAPHS_FILE,
     TEST_HTMLTEMPLATE,
     BaseTestClass
 )
