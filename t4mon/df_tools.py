@@ -7,19 +7,18 @@
 from __future__ import absolute_import
 
 import __builtin__
-import csv
 from re import split
-from collections import OrderedDict
 from cStringIO import StringIO
 from itertools import takewhile
+from collections import OrderedDict
 
 import numpy as np
 import pandas as pd
 from paramiko import SFTPClient
 
-from .logger import init_logger
-from t4mon import __version__
+import t4mon
 
+from .logger import init_logger
 
 SEPARATOR = ','  # CSV separator, usually a comma
 START_HEADER_TAG = "$$$ START COLUMN HEADERS $$$"  # Start of Format-2 header
@@ -249,7 +248,7 @@ def _to_t4csv(file_object, output, t4format=2, system_id=None):
                              'or 2)'.format(t4format))
     with open(output, 'w') as csvfile:
         csvfile.write('{}, t4Monitor Version {}\n'.format(
-                      system_id or 'SYSTEM', __version__)
+                      system_id or 'SYSTEM', t4mon.__version__)
                       )
         if t4format == 2:
             csvfile.write('{}\n'.format(START_HEADER_TAG))
