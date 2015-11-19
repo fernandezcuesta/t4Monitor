@@ -208,14 +208,16 @@ def extract_t4csv(file_descriptor):
 def t4csv_to_plain(t4_csv, output):
     """ Convert a T4-compliant CSV file into plain (excel dialect) CSV file """
     data = reload_from_csv(t4_csv, plain=False)
-    data.to_csv(output)
+    data.to_csv(output,
+                date_format='%Y-%b-%d %H:%M:%S.00')
 
 
 def dataframe_to_t4csv(dataframe, output, t4format=2):
     """ Save dataframe to Format1/2 T4-compliant CSV file """
     try:
         buffer_object = StringIO()
-        dataframe.to_csv(buffer_object)
+        dataframe.to_csv(buffer_object,
+                         date_format='%Y-%b-%d %H:%M:%S.00')
         buffer_object.seek(0)
         _to_t4csv(buffer_object,
                   output=output,
