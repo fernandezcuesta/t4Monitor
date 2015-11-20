@@ -165,7 +165,7 @@ class Collector(object):
         self.server = None
         self.systems = [item for item in self.conf.sections()
                         if item not in ['GATEWAY', 'MISC']]
-        self.use_gateway = self.conf.defaults()['use_gateway'] \
+        self.use_gateway = self.conf.getboolean('DEFAULT', 'use_gateway') \
             if 'use_gateway' in self.conf.defaults() else True
         self.__str__()
         add_methods_to_pandas_dataframe(self.logger)
@@ -223,15 +223,15 @@ class Collector(object):
             self.conf = read_config(self.settings_file)
 
         jumpbox_addr = self.conf.get('GATEWAY', 'ip_or_hostname')
-        jumpbox_port = int(self.conf.get('GATEWAY', 'ssh_port'))
+        jumpbox_port = self.conf.getint('GATEWAY', 'ssh_port')
         rbal = []
         lbal = []
         tunnelports = {}
 
         for _sys in [system] if system else self.systems:
             rbal.append((self.conf.get(_sys, 'ip_or_hostname'),
-                         int(self.conf.get(_sys, 'ssh_port'))))
-            lbal.append(('', int(self.conf.get(_sys, 'tunnel_port')) or
+                         self.conf.getint(_sys, 'ssh_port')))
+            lbal.append(('', self.conf.getint(_sys, 'tunnel_port') or
                          randint(61001, 65535)))  # if local port is 0, random
             tunnelports[_sys] = lbal[-1][-1]
             self.conf.set(_sys, 'tunnel_port', str(tunnelports[_sys]))
