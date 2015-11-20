@@ -165,11 +165,14 @@ class Collector(object):
         self.server = None
         self.systems = [item for item in self.conf.sections()
                         if item not in ['GATEWAY', 'MISC']]
+        self.use_gateway = self.conf.defaults()['use_gateway'] \
+            if 'use_gateway' in self.conf.defaults() else True
         self.__str__()
         add_methods_to_pandas_dataframe(self.logger)
 
     def __enter__(self, system=None):
-        self.init_tunnels(system)
+        if self.use_gateway:
+            self.init_tunnels(system)
         return self
 
     def __exit__(self, etype, *args):
@@ -291,13 +294,11 @@ class Collector(object):
         """
         if system not in self.conf.sections():
             return (None, None)
-        over_tunnel = self.conf.defaults()['use_gateway'] \
-            if 'use_gateway' in self.conf.defaults() else True
-
         self.logger.info('%s | Connecting to %sport %s',
                          system,
-                         'tunnel ' if over_tunnel else '',
-                         self.server.tunnelports[system] if over_tunnel else 22
+                         'tunnel ' if self.use_gateway else '',
+                         self.server.tunnelports[system] if self.use_gateway
+                         else 22
                          )
 
         ssh_pass = self.conf.get(system, 'password').strip("\"' ") or None \
@@ -309,7 +310,7 @@ class Collector(object):
 
         user = self.conf.get(system, 'username') or None \
             if self.conf.has_option(system, 'username') else None
-        if over_tunnel:
+        if self.use_gateway:
             remote_system_address = '127.0.0.1'
             remote_system_port = self.server.tunnelports[system]
         else:
@@ -609,7 +610,8 @@ class Collector(object):
         for system in self.systems:
             self.logger.info('%s | Initializing tunnel', system)
             try:
-                self.init_tunnels(system)
+                if self.use_gateway:
+                    self.init_tunnels(system)
                 self.thread_wrapper(system)
                 self.stop_server()
             except (sshtunnel.BaseSSHTunnelForwarderError,
