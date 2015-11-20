@@ -299,9 +299,8 @@ class Collector(object):
         except AttributeError as msg:
             raise sshtunnel.BaseSSHTunnelForwarderError(msg)
 
-    def collect_system_data(self, system):
-        """ Open an sftp session to system and collects the CSVs, generating a
-            pandas dataframe as outcome
+    def get_sftp_session(self, system):
+        """ Open an sftp session to system
             By default the connection is done via SSH tunnels.
         """
         if system not in self.conf.sections():
@@ -329,31 +328,42 @@ class Collector(object):
         user = self.conf.get(system, 'username') or None \
             if self.conf.has_option(system, 'username') else None
         try:
-            with SftpSession(hostname=remote_system_address,
-                             ssh_user=user,
-                             ssh_pass=ssh_pass,
-                             ssh_key=ssh_key,
-                             ssh_timeout=self.conf.get(system, 'ssh_timeout'),
-                             ssh_port=remote_system_port,
-                             logger=self.logger) as sftp_session:
-                if not sftp_session:
-                    raise SftpSession.Break  # break the with statement
-                data = self.get_system_data(sftp_session, system)
-
-                # Done gathering data, now get the logs
-                if self.nologs or data.empty \
-                   or not self.conf.has_option('MISC', 'remote_log_cmd'):
-                    logs = '{0} | Log collection omitted'.format(system)
-                    self.logger.info(logs)
-                else:
-                    logs = self.get_system_logs(
-                        sftp_session.ssh_transport,
-                        system,
-                        self.conf.get('MISC', 'remote_log_cmd')) or \
-                        '{} | Missing logs!'.format(system)
-            return (data, logs)
+            return SftpSession(hostname=remote_system_address,
+                               ssh_user=user,
+                               ssh_pass=ssh_pass,
+                               ssh_key=ssh_key,
+                               ssh_timeout=self.conf.get(system,
+                                                         'ssh_timeout'),
+                               ssh_port=remote_system_port,
+                               logger=self.logger)
         except SFTPSessionError:
+            return None
+
+    def collect_system_data(self, system):
+        """ Open an sftp session to system and collects the CSVs, generating a
+            pandas dataframe as outcome
+            By default the connection is done via SSH tunnels.
+        """
+        sftp_session = self.get_sftp_session(system)
+
+        if not sftp_session:
             return (None, None)
+        sftp_session.open()
+        data = self.get_system_data(sftp_session, system)
+
+        # Done gathering data, now get the logs
+        if self.nologs or data.empty \
+           or not self.conf.has_option('MISC', 'remote_log_cmd'):
+            logs = '{0} | Log collection omitted'.format(system)
+            self.logger.info(logs)
+        else:
+            logs = self.get_system_logs(
+                sftp_session.ssh_transport,
+                system,
+                self.conf.get('MISC', 'remote_log_cmd')) or \
+                '{} | Missing logs!'.format(system)
+        sftp_session.close()
+        return (data, logs)
 
     def get_system_logs(self, ssh_session, system, log_cmd=None):
         """ Get log info from the remote system, assumes an already established
@@ -452,10 +462,6 @@ class Collector(object):
         - sftp_session: already established sftp session
         - files_folder: folder where files are located, either on sftp srv or
                         local filesystem
-        Passed transparently to SftpSession:
-        - ssh_user, ssh_pass, ssh_pkey_file, ssh_configfile, ssh_port
-        Otherwise: checks ~/.ssh/config
-
         """
         sftp_session = kwargs.pop('sftp_session', None)
         files_folder = kwargs.pop('files_folder', '.')
@@ -472,7 +478,7 @@ class Collector(object):
             self.logger.debug('Using established sftp session...')
         elif hostname:
             try:
-                sftp_session = SftpSession(hostname, **kwargs).connect()
+                sftp_session = self.get_sftp_session(hostname).open()
                 if not sftp_session:
                     raise SFTPSessionError('connect failed')
             except SFTPSessionError as _exc:

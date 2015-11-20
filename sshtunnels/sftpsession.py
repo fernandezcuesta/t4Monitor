@@ -127,9 +127,13 @@ class SftpSession(object):
         except AttributeError:
             return -1
 
+    def open(self):
+        """ Close an initialised SFTP connection """
+        return self.__enter__()
+
     def close(self):
-        """ Close an existing SSH connection """
-        self.__exit__(None)  # (self.Break)
+        """ Close an existing SFTP connection """
+        return self.__exit__(None)
 
     def _load_ssh_config(self):
         """
