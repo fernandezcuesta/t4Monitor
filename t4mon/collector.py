@@ -169,7 +169,6 @@ class Collector(object):
 
     def __enter__(self, system=None):
         self.init_tunnels(system)
-        self.start_server()
         return self
 
     def __exit__(self, etype, *args):
@@ -244,6 +243,7 @@ class Collector(object):
             self.server.tunnelports = tunnelports
             self.logger.debug('Registered tunnels: %s',
                               self.server.tunnelports)
+            self.start_server()
         except AssertionError:
             self.logger.error('Local tunnel ports MUST be different: %s',
                               tunnelports)
@@ -503,7 +503,7 @@ class Collector(object):
 
     def main_threads(self):
         """ Threaded method for main() """
-        with self:
+        with self:  # calls init_tunnels and start_server
             for system in self.systems:
                 thread = threading.Thread(target=self.thread_wrapper,
                                           name=system,
@@ -522,7 +522,6 @@ class Collector(object):
             self.logger.info('%s | Initializing tunnel', system)
             try:
                 self.init_tunnels(system)
-                self.start_server()
                 self.thread_wrapper(system)
                 self.stop_server()
             except (sshtunnel.BaseSSHTunnelForwarderError,
