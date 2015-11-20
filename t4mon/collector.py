@@ -181,14 +181,26 @@ class Collector(object):
 
     def __str__(self):
         return ('alldays/nologs: {0}/{1}\ndata shape: {2}\nlogs (keys): {3}\n'
-                'threaded: {4}\nserver is set up?: {5}\n'
-                'Settings file: {6}'.format(self.alldays,
-                                            self.nologs,
-                                            self.data.shape,
-                                            self.logs.keys(),
-                                            not self.safe,
-                                            'Yes' if self.server else 'No',
-                                            self.settings_file))
+                'threaded: {4}\nserver is set up?: {5}\nusing gateway? {7}\n'
+                'Settings file: {6}\n\n{8}'
+                ''.format(self.alldays,
+                          self.nologs,
+                          self.data.shape,
+                          self.logs.keys(),
+                          not self.safe,
+                          'Yes' if self.server else 'No',
+                          self.settings_file,
+                          self.use_gateway,
+                          self.dump_config()
+                          )
+                )
+
+    def dump_config(self):
+        """ Returns a string with the configuration file contents """
+        config = StringIO()
+        self.conf.write(config)
+        config.seek(0)
+        return config.read()
 
     def init_tunnels(self, system=None):
         """
