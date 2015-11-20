@@ -43,13 +43,15 @@ from __future__ import print_function, absolute_import
 import sys
 
 from .collector import add_methods_to_pandas_dataframe, read_config
+from .gen_plot import plot_var
+
 from .orchestrator import Orchestrator
 from . arguments_parser import (parse_arguments_local_csv,
                                 parse_arguments_local_pkl,
                                 parse_arguments_main)
 
 
-__version_info__ = (0, 10, 1)
+__version_info__ = (0, 10, 2)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 

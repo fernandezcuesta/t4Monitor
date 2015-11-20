@@ -248,7 +248,7 @@ class Orchestrator(object):
         """ Main method, gets data and logs, store and render the HTML output
         """
 
-        # Open the tunnels and gather all data&logs
+        # Open the connection and gather all data and logs
         self.collector.start()
         if self.collector.data.empty:
             self.logger.error('Could not retrieve data!!! Aborting.')

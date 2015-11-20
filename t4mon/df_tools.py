@@ -282,28 +282,28 @@ def to_dataframe(field_names, data, metadata):
     return _df
 
 
-def dataframize(a_file, sftp_session=None, logger=None):
+def dataframize(data_file, sftp_session=None, logger=None):
     """
-    Wrapper for to_dataframe, leading with non-existing files over sftp
-    If sftp_session is not a valid session, work with local filesystem
+     Wrapper for to_dataframe, leading with non-existing files over sftp.
+     If sftp_session is not a valid session, work with local filesystem
     """
 
     logger = logger or init_logger()
-    logger.info('Loading file %s...', a_file)
+    logger.info('Loading file %s...', data_file)
     try:
         if not isinstance(sftp_session, SFTPClient):
             sftp_session = __builtin__  # open local file
-        with sftp_session.open(a_file) as file_descriptor:
+        with sftp_session.open(data_file) as file_descriptor:
             _single_df = to_dataframe(*extract_t4csv(file_descriptor))
         return _single_df
     except IOError:  # non-existing files also return an empty dataframe
-        logger.error('File not found: %s', a_file)
+        logger.error('File not found: %s', data_file)
         return pd.DataFrame()
     except ExtractCSVException:
         logger.error('An error occured while extracting the CSV file: %s',
-                     a_file)
+                     data_file)
         return pd.DataFrame()
     except ToDfError:
         logger.error('Error occurred while internally processing CSV file: %s',
-                     a_file)
+                     data_file)
         return pd.DataFrame()
