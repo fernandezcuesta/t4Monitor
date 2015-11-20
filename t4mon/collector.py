@@ -306,12 +306,18 @@ class Collector(object):
         """
         if system not in self.conf.sections():
             return (None, None)
+
+        if self.use_gateway:
+            remote_system_address = '127.0.0.1'
+            remote_system_port = self.server.tunnelports[system]
+        else:
+            remote_system_address = self.conf.get(system, 'ip_or_hostname')
+            remote_system_port = self.conf.get(system, 'ssh_port')
+
         self.logger.info('%s | Connecting to %sport %s',
                          system,
                          'tunnel ' if self.use_gateway else '',
-                         self.server.tunnelports[system] if self.use_gateway
-                         else 22
-                         )
+                         remote_system_port)
 
         ssh_pass = self.conf.get(system, 'password').strip("\"' ") or None \
             if self.conf.has_option(system, 'password') else None
@@ -322,12 +328,6 @@ class Collector(object):
 
         user = self.conf.get(system, 'username') or None \
             if self.conf.has_option(system, 'username') else None
-        if self.use_gateway:
-            remote_system_address = '127.0.0.1'
-            remote_system_port = self.server.tunnelports[system]
-        else:
-            remote_system_address = self.conf.get(system, 'ip_or_hostname')
-            remote_system_port = self.conf.get(system, 'ssh_port')
         try:
             with SftpSession(hostname=remote_system_address,
                              ssh_user=user,
