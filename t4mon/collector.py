@@ -523,7 +523,10 @@ class Collector(object):
          Inflate a zip file and call get_stats_from_host with the decompressed
         CSV files
         """
-        self.logger.info('Decompressing ZIP file %s...', zip_file)
+        temp_dir = tempfile.gettempdir()
+        self.logger.info('Decompressing ZIP file %s into %s...',
+                         zip_file,
+                         temp_dir)
         _df = pd.DataFrame()
         if not isinstance(sftp_session, SFTPClient):
             sftp_session = __builtin__  # open local file
@@ -531,25 +534,25 @@ class Collector(object):
             c = StringIO()
             c.write(file_descriptor.read())
             c.seek(0)
+        decompressed_files = []
         try:
             with zipfile.ZipFile(c, 'r') as zip_data:
                 # extract all to /tmp
-                zip_data.extractall(tempfile.gettempdir())
+                zip_data.extractall(temp_dir)
                 # Recursive call to get_stats_from_host using localfs
-                decompressed_files = [os.path.join(tempfile.gettempdir(),
-                                                   f.filename) for f in
-                                      zip_data.filelist]
+                decompressed_files = [os.path.join(temp_dir,
+                                                   f.filename)
+                                      for f in zip_data.filelist]
                 _df = self.get_stats_from_host(
                     filespec_list=decompressed_files
                 )
-                for a_file in decompressed_files:
-                    self.logger.debug('Deleting file %s', a_file)
-                    os.remove(a_file)
-
         except (zipfile.BadZipfile, zipfile.LargeZipFile) as exc:
             self.logger.error('Bad ZIP file: %s', zip_file)
             self.logger.error(exc)
         finally:
+            for a_file in decompressed_files:
+                self.logger.debug('Deleting file %s', a_file)
+                # os.remove(a_file)
             c.close()
 
         return _df
@@ -587,11 +590,14 @@ class Collector(object):
             if compressed:
                 _dff = self.load_zipfile(zip_file=a_file,
                                          sftp_session=sftp_session)
+                _df = pd.concat([_df, _dff])
             else:
-                _dff = df_tools.dataframize(data_file=a_file,
-                                            sftp_session=sftp_session,
-                                            logger=self.logger)
-            _df = _df.combine_first(_dff)
+                self.logger.info(a_file)
+                _df = _df.combine_first(
+                    df_tools.dataframize(data_file=a_file,
+                                         sftp_session=sftp_session,
+                                         logger=self.logger)
+                )
         if sftp_session:
             self.logger.debug('Closing sftp session')
             sftp_session.close()

@@ -246,9 +246,12 @@ def _to_t4csv(file_object, output, t4format=2, system_id=None):
         raise AttributeError('Bad T4-CSV format {} (must be either 1 '
                              'or 2)'.format(t4format))
     with open(output, 'w') as csvfile:
-        csvfile.write('{}, t4Monitor Version {}\n'.format(
-                      system_id or 'SYSTEM', t4mon.__version__)
-                      )
+        csvfile.write('{0}, t4Monitor Version: {1}, '
+                      'File Type Format {2}\n'.format(
+                          system_id or 'SYSTEM',
+                          t4mon.__version__,
+                          t4format
+                      ))
         if t4format == 2:
             csvfile.write('{}\n'.format(START_HEADER_TAG))
             csvfile.write(file_object.readline())  # Fields in 1st line
@@ -258,10 +261,13 @@ def _to_t4csv(file_object, output, t4format=2, system_id=None):
 
 def to_dataframe(field_names, data, metadata):
     """
-    Loads CSV data into a pandas DataFrame
-    Return an empty DataFrame if fields and data aren't correct,
+     Loads CSV data into a pandas DataFrame
+     Return an empty DataFrame if fields and data aren't correct,
     otherwhise it will interpret it with NaN values.
-    Column named DATETIME_TAG (i.e. 'Sample Time') is used as index
+     Column named DATETIME_TAG (i.e. 'Sample Time') is used as index
+     It is common in T4 files to have several columns with a sample time, most
+    probably due to an horizontal merge of different CSVs. In those cases the
+    first column having 'Sample Time' on its name will be used.
     """
     _df = pd.DataFrame()  # default to be returned if exception is found
     try:
@@ -270,15 +276,28 @@ def to_dataframe(field_names, data, metadata):
             fbuffer = StringIO()
             fbuffer.writelines(('%s\n' % line for line in data))
             fbuffer.seek(0)
-            # Multiple columns may have a sample time, parse dates from all
-            df_timecol = (s for s in field_names if DATETIME_TAG in s).next()
-            if df_timecol == '':
-                raise ToDfError
-            _df = pd.read_csv(fbuffer, names=field_names,
-                              parse_dates={'datetime': [df_timecol]},
-                              index_col='datetime')
-    except Exception as exc:
+            # Remove duplicate columns to avoid problems with combine_first()
+            field_names = list(OrderedDict.fromkeys((f for f in field_names)))
+            # Multiple columns may have a sample time, only use first
+            df_timecol = (s for s in field_names if DATETIME_TAG in s)
+            index_col = df_timecol.next()
+            if index_col:
+                _df = pd.read_csv(fbuffer,
+                              header=None,
+                              parse_dates={'datetime': [index_col]},
+                              index_col='datetime',
+                              names=field_names,
+                              usecols=field_names)
+            else:
+                _df = pd.read_csv(fbuffer,
+                                  header=None,
+                                  names=field_names,
+                                  usecols=field_names)
+            # Finally remove redundant time columns
+            _df.drop(df_timecol, axis=1, inplace=True)
+    except (StopIteration, Exception) as exc:  # Not t4-compliant!
         raise ToDfError(exc)
+
     return _df
 
 
@@ -303,7 +322,8 @@ def dataframize(data_file, sftp_session=None, logger=None):
         logger.error('An error occured while extracting the CSV file: %s',
                      data_file)
         return pd.DataFrame()
-    except ToDfError:
-        logger.error('Error occurred while internally processing CSV file: %s',
-                     data_file)
+    except ToDfError as exc:
+        logger.error('Error occurred while processing CSV file: %s (%s)',
+                     data_file,
+                     exc)
         return pd.DataFrame()

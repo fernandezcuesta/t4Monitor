@@ -158,7 +158,7 @@ class TestDFTools(BaseTestClass):
         for item in dataframe._metadata:
             self.assertTrue(hasattr(dataframe, item))
             self.assertIn(item, dataframe)
-        # test with a non-T4Format2 CSV, should return empty DF
+        # test with a non-T4Format CSV, should return empty DF
         with tempfile.NamedTemporaryFile() as plaincsv:
             dataframe.to_csv(plaincsv)
             plaincsv.file.close()
