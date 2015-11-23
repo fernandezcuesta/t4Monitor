@@ -348,21 +348,19 @@ class Collector(object):
 
         if not sftp_session:
             return (None, None)
-        sftp_session.open()
-        data = self.get_system_data(sftp_session, system)
-
-        # Done gathering data, now get the logs
-        if self.nologs or data.empty \
-           or not self.conf.has_option('MISC', 'remote_log_cmd'):
-            logs = '{0} | Log collection omitted'.format(system)
-            self.logger.info(logs)
-        else:
-            logs = self.get_system_logs(
-                sftp_session.ssh_transport,
-                system,
-                self.conf.get('MISC', 'remote_log_cmd')) or \
-                '{} | Missing logs!'.format(system)
-        sftp_session.close()
+        with sftp_session as session:
+            data = self.get_system_data(session, system)
+            # Done gathering data, now get the logs
+            if self.nologs or data.empty \
+               or not self.conf.has_option('MISC', 'remote_log_cmd'):
+                logs = '{0} | Log collection omitted'.format(system)
+                self.logger.info(logs)
+            else:
+                logs = self.get_system_logs(
+                    sftp_session.ssh_transport,
+                    system,
+                    self.conf.get('MISC', 'remote_log_cmd')) or \
+                    '{} | Missing logs!'.format(system)
         return (data, logs)
 
     def get_system_logs(self, ssh_session, system, log_cmd=None):
