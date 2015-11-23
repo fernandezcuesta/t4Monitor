@@ -28,9 +28,10 @@ import threading
 import zipfile
 import __builtin__
 import ConfigParser
-from random import randint
+from contextlib import contextmanager
 from cStringIO import StringIO
 from paramiko import SFTPClient
+from random import randint
 
 import pandas as pd
 import sshtunnel
@@ -58,7 +59,15 @@ MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
 LINE = 80 * '-'
 
 
-# CLASSES
+@contextmanager
+def change_dir(directory, module):
+    """ Context manager for restoring the current working directory """
+    module = module or os
+    current_dir = module.getcwd()
+    module.chdir(directory)
+    yield
+    module.chdir(current_dir)
+
 
 class ConfigReadError(Exception):
 
@@ -448,8 +457,13 @@ class Collector(object):
                      compressed=False,
                      **kwargs):
         """
-        Connects to a remote system via SFTP and looks for the filespec_list
-        in the remote host.
+         Connects to a remote system via SFTP and looks for the filespec_list
+        in the remote host. Also works locally.
+         Files that will be returned must match every item in filespec_list,
+        i.e. data*2015*csv would match data_2015.csv, 2015_data_full.csv.
+         When working with the local filesystem, filespec_list may contain
+        absolute paths.
+
         Working with local filesystem if hostname is None
 
         Returns: tuple (files, sftp_session)
@@ -485,17 +499,18 @@ class Collector(object):
                                   'to %s: %s', hostname, _exc)
                 return (None, sftp_session)
         else:
-            self.logger.info('Using local filesystem to get the files')
+            self.logger.debug('Using local filesystem to get the files')
 
         filesource = sftp_session if sftp_session else os
         # get file list by filtering with taglist (case insensitive)
 
         try:
-            filesource.chdir(files_folder)
-            files = ['{}/{}'.format(filesource.getcwd(), f)
-                     for f in filesource.listdir('.')
-                     if all([val.upper() in f.upper()
-                             for val in filespec_list])]
+            with change_dir(directory=files_folder,
+                            module=filesource):
+                files = ['{}/{}'.format(filesource.getcwd(), f)
+                         for f in filesource.listdir('.')
+                         if all([val.upper() in f.upper()
+                                 for val in filespec_list])]
             if not files and not hostname:
                 files = filespec_list  # For absolute paths
         except OSError:
@@ -521,20 +536,22 @@ class Collector(object):
                 # extract all to /tmp
                 zip_data.extractall(tempfile.gettempdir())
                 # Recursive call to get_stats_from_host using localfs
-                decompressed_files = [f.filename for f in
+                decompressed_files = [os.path.join(tempfile.gettempdir(),
+                                                   f.filename) for f in
                                       zip_data.filelist]
                 _df = self.get_stats_from_host(
-                    filespec_list=decompressed_files,
-                    files_folder=tempfile.gettempdir()
+                    filespec_list=decompressed_files
                 )
                 for a_file in decompressed_files:
-                    a_file = os.path.join(tempfile.gettempdir(), a_file)
                     self.logger.debug('Deleting file %s', a_file)
                     os.remove(a_file)
 
         except (zipfile.BadZipfile, zipfile.LargeZipFile) as exc:
             self.logger.error('Bad ZIP file: %s', zip_file)
             self.logger.error(exc)
+        finally:
+            c.close()
+
         return _df
 
     def get_stats_from_host(self, hostname=None,
@@ -568,15 +585,13 @@ class Collector(object):
             return _df
         for a_file in files:
             if compressed:
-                _df = _df.combine_first(
-                    self.load_zipfile(zip_file=a_file,
-                                      sftp_session=sftp_session))
+                _dff = self.load_zipfile(zip_file=a_file,
+                                         sftp_session=sftp_session)
             else:
-                _df = _df.combine_first(
-                    df_tools.dataframize(data_file=a_file,
-                                         sftp_session=sftp_session,
-                                         logger=self.logger)
-                )
+                _dff = df_tools.dataframize(data_file=a_file,
+                                            sftp_session=sftp_session,
+                                            logger=self.logger)
+            _df = _df.combine_first(_dff)
         if sftp_session:
             self.logger.debug('Closing sftp session')
             sftp_session.close()
