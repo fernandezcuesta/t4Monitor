@@ -30,6 +30,7 @@ import __builtin__
 import ConfigParser
 from random import randint
 from cStringIO import StringIO
+from paramiko import SFTPClient
 
 import pandas as pd
 import sshtunnel
@@ -503,31 +504,35 @@ class Collector(object):
 
         return (files, sftp_session)
 
-    def load_zipfile(self, zip_file):
+    def load_zipfile(self, zip_file, sftp_session=None):
         """
-        Inflate a zip file and call dataframize with the compressed CSV files
+         Inflate a zip file and call get_stats_from_host with the decompressed
+        CSV files
         """
         self.logger.info('Decompressing ZIP file %s...', zip_file)
         _df = pd.DataFrame()
-        try:
-            with zipfile.ZipFile(zip_file, 'r') as zip_data:
-                # extract all to /tmp
-                zip_data.extractall(tempfile.gettempdir())
-                # Recursive call to get_stats_from_host using localfs
-                decompressed_files = [f.filename for f in
-                                      zip_data.filelist]
-                _df = self.get_stats_from_host(
-                    filespec_list=decompressed_files,
-                    files_folder=tempfile.gettempdir()
-                )
-                for a_file in decompressed_files:
-                    a_file = os.path.join(tempfile.gettempdir(), a_file)
-                    self.logger.debug('Deleting file %s', a_file)
-                    os.remove(a_file)
+        if not isinstance(sftp_session, SFTPClient):
+            sftp_session = __builtin__  # open local file
+        with sftp_session.open(zip_file) as file_descriptor:
+            try:
+                with zipfile.ZipFile(file_descriptor, 'r') as zip_data:
+                    # extract all to /tmp
+                    zip_data.extractall(tempfile.gettempdir())
+                    # Recursive call to get_stats_from_host using localfs
+                    decompressed_files = [f.filename for f in
+                                          zip_data.filelist]
+                    _df = self.get_stats_from_host(
+                        filespec_list=decompressed_files,
+                        files_folder=tempfile.gettempdir()
+                    )
+                    for a_file in decompressed_files:
+                        a_file = os.path.join(tempfile.gettempdir(), a_file)
+                        self.logger.debug('Deleting file %s', a_file)
+                        os.remove(a_file)
 
-        except (zipfile.BadZipfile, zipfile.LargeZipFile) as exc:
-            self.logger.error('Bad ZIP file: %s', zip_file)
-            self.logger.error(exc)
+            except (zipfile.BadZipfile, zipfile.LargeZipFile) as exc:
+                self.logger.error('Bad ZIP file: %s', zip_file)
+                self.logger.error(exc)
         return _df
 
     def get_stats_from_host(self, hostname=None,
@@ -561,7 +566,9 @@ class Collector(object):
             return _df
         for a_file in files:
             if compressed:
-                _df = _df.combine_first(self.load_zipfile(zip_file=a_file))
+                _df = _df.combine_first(
+                    self.load_zipfile(zip_file=a_file,
+                                      sftp_session=sftp_session))
             else:
                 _df = _df.combine_first(
                     df_tools.dataframize(data_file=a_file,
