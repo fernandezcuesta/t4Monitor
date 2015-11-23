@@ -304,7 +304,9 @@ class Collector(object):
             By default the connection is done via SSH tunnels.
         """
         if system not in self.conf.sections():
-            return (None, None)
+            self.logger.error('%s | System not found in configuration',
+                              system)
+            raise SFTPSessionError('connection to %s failed' % system)
 
         if self.use_gateway:
             remote_system_address = '127.0.0.1'
@@ -337,7 +339,7 @@ class Collector(object):
                                ssh_port=remote_system_port,
                                logger=self.logger)
         except SFTPSessionError:
-            return None
+            raise SFTPSessionError('connection to %s failed' % system)
 
     def collect_system_data(self, system):
         """ Open an sftp session to system and collects the CSVs, generating a
@@ -452,7 +454,7 @@ class Collector(object):
         Returns: tuple (files, sftp_session)
         Where:
          - files is a list of files matching the filespec_list in the remote
-           host
+           host or a string with wildmarks (*), i.e. data*2015*.csv
          - sftp_session is an already open sftp session or None if working
            locally
 
@@ -468,7 +470,8 @@ class Collector(object):
             files_folder = files_folder[:-1]  # remove trailing separator (/)
 
         # default if no filter given is just the extension of the files
-        filespec_list = filespec_list or ['.zip' if compressed else '.csv']
+        filespec_list = filespec_list.split('*') or ['.zip' if compressed
+                                                     else '.csv']
         if not isinstance(filespec_list, list):
             filespec_list = [filespec_list]
 
@@ -477,8 +480,6 @@ class Collector(object):
         elif hostname:
             try:
                 sftp_session = self.get_sftp_session(hostname).open()
-                if not sftp_session:
-                    raise SFTPSessionError('connect failed')
             except SFTPSessionError as _exc:
                 self.logger.error('Error occurred while SFTP session '
                                   'to %s: %s', hostname, _exc)
