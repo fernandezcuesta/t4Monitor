@@ -401,18 +401,19 @@ class Collector(object):
         system_addr = self.conf.get(system, 'ip_or_hostname')
         data = pd.DataFrame()
 
-        try:  # Test if destination folder is reachable
-            destdir = self.conf.get(system, 'folder') or '.'
-            session.chdir(destdir)
-            self.logger.debug('%s | Changing to remote folder: %s',
-                              system,
-                              destdir)
-            session.chdir()  # revert back to home folder
-        except IOError:
-            self.logger.error('%s | Directory "%s" not found at destination',
-                              system,
-                              self.conf.get(system, 'folder'))
-            return data
+        destdir = self.conf.get(system, 'folder') or '.'
+        # try:  # Test if remote folder is reachable
+        #     with changedir(destdir, module=session):
+        #     # session.chdir(destdir)
+        #         self.logger.debug('%s | Changing to remote folder: %s',
+        #                           system,
+        #                           destdir)
+        #     # session.chdir()  # revert back to home folder
+        # except IOError:
+        #     self.logger.error('%s | Directory "%s" not found at destination',
+        #                       system,
+        #                       self.conf.get(system, 'folder'))
+        #     return data
 
         # filter remote files on extension and date
         # using MONTHS to avoid problems with locale rather than English
@@ -460,26 +461,26 @@ class Collector(object):
          Connects to a remote system via SFTP and looks for the filespec_list
         in the remote host. Also works locally.
          Files that will be returned must match every item in filespec_list,
-        i.e. data*2015*csv would match data_2015.csv, 2015_data_full.csv.
+        i.e. data*2015*csv would match data_2015.csv, 2015_data_full.csv but
+        not data_2016.csv.
          When working with the local filesystem, filespec_list may contain
         absolute paths.
 
         Working with local filesystem if hostname is None
 
-        Returns: tuple (files, sftp_session)
-        Where:
-         - files is a list of files matching the filespec_list in the remote
+        Returns:
+         - files: list of files matching the filespec_list in the remote
            host or a string with wildmarks (*), i.e. data*2015*.csv
-         - sftp_session is an already open sftp session or None if working
-           locally
 
         **kwargs (optional):
         - sftp_session: already established sftp session
         - files_folder: folder where files are located, either on sftp srv or
                         local filesystem
+        - system: filter also on system name (case insensitive)
         """
-        sftp_session = kwargs.pop('sftp_session', None)
-        files_folder = kwargs.pop('files_folder', '.')
+        sftp_session = kwargs.get('sftp_session', None)
+        files_folder = kwargs.get('files_folder', '.')
+        system = kwargs.get('system', None)
 
         if files_folder[-1] == os.sep:
             files_folder = files_folder[:-1]  # remove trailing separator (/)
@@ -488,22 +489,17 @@ class Collector(object):
         filespec_list = filespec_list or ['.zip' if compressed else '.csv']
         if not isinstance(filespec_list, list):
             filespec_list = filespec_list.split('*')
+        if system:  # filter on system ID too
+            filespec_list.append(system)
 
         if sftp_session:
             self.logger.debug('Using established sftp session...')
-        elif hostname:
-            try:
-                sftp_session = self.get_sftp_session(hostname).open()
-            except SFTPSessionError as _exc:
-                self.logger.error('Error occurred while SFTP session '
-                                  'to %s: %s', hostname, _exc)
-                return (None, sftp_session)
+            filesource = sftp_session
         else:
             self.logger.debug('Using local filesystem to get the files')
+            filesource = os
 
-        filesource = sftp_session if sftp_session else os
         # get file list by filtering with taglist (case insensitive)
-
         try:
             with change_dir(directory=files_folder,
                             module=filesource):
@@ -513,12 +509,14 @@ class Collector(object):
                                  for val in filespec_list])]
             if not files and not hostname:
                 files = filespec_list  # For absolute paths
-        except OSError:
-            files = filespec_list  # When localfs, don't behave as filter
+        except EnvironmentError:  # cannot do the chdir
+            self.logger.error('%s | Directory "%s" not found at destination',
+                              system,
+                              files_folder)
+            return
+        return files
 
-        return (files, sftp_session)
-
-    def load_zipfile(self, zip_file, sftp_session=None):
+    def load_zipfile(self, zip_file, sftp_session=None, system=None):
         """
          Inflate a zip file and call get_stats_from_host with the decompressed
         CSV files
@@ -557,9 +555,11 @@ class Collector(object):
 
         return _df
 
-    def get_stats_from_host(self, hostname=None,
+    def get_stats_from_host(self,
+                            hostname=None,
                             filespec_list=None,
                             compressed=False,
+                            sftp_session=None,
                             **kwargs):
         """
          Connects to a remote system via SFTP and reads the CSV files, which
@@ -569,17 +569,18 @@ class Collector(object):
          Returns: pandas dataframe
 
         **kwargs (optional):
-        sftp_session: already established sftp session
-        ssh_user, ssh_pass, ssh_pkey_file, ssh_configfile, ssh_port
         files_folder: folder where files are located, either on sftp server or
                       local filesystem
-        Otherwise: checks ~/.ssh/config
         """
         _df = pd.DataFrame()
-        (files, sftp_session) = self.files_lookup(hostname=hostname,
-                                                  filespec_list=filespec_list,
-                                                  compressed=compressed,
-                                                  **kwargs)
+        if hostname and not sftp_session:
+            self.logger.error('Cannot gather remote data without a session')
+            return _df
+        files = self.files_lookup(hostname=hostname,
+                                  filespec_list=filespec_list,
+                                  compressed=compressed,
+                                  sftp_session=sftp_session,
+                                  **kwargs)
         if not files:
             self.logger.debug('Nothing gathered from %s, no files were '
                               'selected for pattern "%s"',
@@ -587,20 +588,27 @@ class Collector(object):
                               filespec_list)
             return _df
         for a_file in files:
+            self.logger.info(a_file)
             if compressed:
-                _dff = self.load_zipfile(zip_file=a_file,
-                                         sftp_session=sftp_session)
-                _df = pd.concat([_df, _dff])
+                _df = _df.combine_first(
+                    self.load_zipfile(zip_file=a_file,
+                                      sftp_session=sftp_session)
+                )
+                system = kwargs.get('system')
+                if system:
+                    _df = df_tools.consolidate_data(_df,
+                                                    dataframe=self.data,
+                                                    system=system)
+
             else:
-                self.logger.info(a_file)
                 _df = _df.combine_first(
                     df_tools.dataframize(data_file=a_file,
                                          sftp_session=sftp_session,
                                          logger=self.logger)
                 )
-        if sftp_session:
-            self.logger.debug('Closing sftp session')
-            sftp_session.close()
+        # if sftp_session:
+        #     self.logger.debug('Closing sftp session')
+        #     sftp_session.close()
         return _df
 
     def check_if_tunnel_is_up(self, system):

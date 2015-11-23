@@ -51,7 +51,7 @@ from . arguments_parser import (parse_arguments_local_csv,
                                 parse_arguments_main)
 
 
-__version_info__ = (0, 10, 2)
+__version_info__ = (0, 10, 3)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 

@@ -1,3 +1,4 @@
+- [0.10.3] - API fixes
 - [0.10.2] - Add load_zipfile to collector.py
 - [0.10.1] - Add plain<>t4 format CSV conversion methods
 - [0.10.0] - Large refactoring done, test functions improved

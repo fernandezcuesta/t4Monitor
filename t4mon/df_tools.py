@@ -103,7 +103,8 @@ def find_in_iterable_case_insensitive(iterable, name):
     """
     From an iterable, return the value that matches `name`, case insensitive
     """
-    iterupper = list(OrderedDict.fromkeys([k.upper() for k in iterable]))
+    iterable = list(OrderedDict.fromkeys([k for k in iterable]))
+    iterupper = [k.upper() for k in iterable]
     try:
         match = iterable[iterupper.index(name.upper())]
     except (ValueError, AttributeError):
@@ -293,7 +294,7 @@ def to_dataframe(field_names, data, metadata):
                                   header=None,
                                   names=field_names,
                                   usecols=field_names)
-            # Finally remove redundant time columns
+            # Finally remove redundant time columns (if any)
             _df.drop(df_timecol, axis=1, inplace=True)
     except (StopIteration, Exception) as exc:  # Not t4-compliant!
         raise ToDfError(exc)
@@ -322,8 +323,7 @@ def dataframize(data_file, sftp_session=None, logger=None):
         logger.error('An error occured while extracting the CSV file: %s',
                      data_file)
         return pd.DataFrame()
-    except ToDfError as exc:
-        logger.error('Error occurred while processing CSV file: %s (%s)',
-                     data_file,
-                     exc)
+    except ToDfError:
+        logger.error('Error occurred while processing CSV file: %s',
+                     data_file)
         return pd.DataFrame()

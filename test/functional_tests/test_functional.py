@@ -53,12 +53,10 @@ class TestCollector(TestWithSsh):
         """ Test function for init_tunnels """
         monitor = self.sandbox.collector
         monitor.init_tunnels()
-        # before start, tunnel should not be started
-        self.assertFalse(monitor.server._is_started)
-        # Stopping it should not do any harm
-        self.assertIsNone(monitor.stop_server())
-        # Start and check tunnel ports
-        self.assertIsNone(monitor.start_server())  # starting should be silent
+        # after init, tunnel should be already started
+        self.assertTrue(monitor.server._is_started)
+        # Starting again should be silent
+        self.assertIsNone(monitor.start_server())
         self.assertTrue(monitor.server._is_started)
         self.assertIsInstance(monitor.server.tunnel_is_up, dict)
         for port in monitor.server.tunnel_is_up:
@@ -158,12 +156,6 @@ class TestCollector(TestWithSsh):
 
     def test_serialmain(self):
         """ Test function for main_no_threads (serial mode) """
-        # monitor = collector.Collector(settings_file=TEST_CONFIG,
-        #                               logger=LOGGER,
-        #                               alldays=True,
-        #                               nologs=True)
-        # monitor.conf.set('DEFAULT', 'folder', MY_DIR)
-
         self.sandbox.collector.main_no_threads()
         self.assertIsInstance(self.sandbox.collector.data, pd.DataFrame)
         self.assertFalse(self.sandbox.collector.data.empty)

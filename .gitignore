@@ -31,4 +31,4 @@ test_local/
 build/
 dist/
 .tox/
-.ipynb*
+*.ipynb*
