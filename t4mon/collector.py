@@ -471,10 +471,9 @@ class Collector(object):
             files_folder = files_folder[:-1]  # remove trailing separator (/)
 
         # default if no filter given is just the extension of the files
-        filespec_list = filespec_list.split('*') or ['.zip' if compressed
-                                                     else '.csv']
+        filespec_list = filespec_list or ['.zip' if compressed else '.csv']
         if not isinstance(filespec_list, list):
-            filespec_list = [filespec_list]
+            filespec_list = filespec_list.split('*')
 
         if sftp_session:
             self.logger.debug('Using established sftp session...')
@@ -514,25 +513,28 @@ class Collector(object):
         if not isinstance(sftp_session, SFTPClient):
             sftp_session = __builtin__  # open local file
         with sftp_session.open(zip_file) as file_descriptor:
-            try:
-                with zipfile.ZipFile(file_descriptor, 'r') as zip_data:
-                    # extract all to /tmp
-                    zip_data.extractall(tempfile.gettempdir())
-                    # Recursive call to get_stats_from_host using localfs
-                    decompressed_files = [f.filename for f in
-                                          zip_data.filelist]
-                    _df = self.get_stats_from_host(
-                        filespec_list=decompressed_files,
-                        files_folder=tempfile.gettempdir()
-                    )
-                    for a_file in decompressed_files:
-                        a_file = os.path.join(tempfile.gettempdir(), a_file)
-                        self.logger.debug('Deleting file %s', a_file)
-                        os.remove(a_file)
+            c = StringIO()
+            c.write(file_descriptor.read())
+            c.seek(0)
+        try:
+            with zipfile.ZipFile(c, 'r') as zip_data:
+                # extract all to /tmp
+                zip_data.extractall(tempfile.gettempdir())
+                # Recursive call to get_stats_from_host using localfs
+                decompressed_files = [f.filename for f in
+                                      zip_data.filelist]
+                _df = self.get_stats_from_host(
+                    filespec_list=decompressed_files,
+                    files_folder=tempfile.gettempdir()
+                )
+                for a_file in decompressed_files:
+                    a_file = os.path.join(tempfile.gettempdir(), a_file)
+                    self.logger.debug('Deleting file %s', a_file)
+                    os.remove(a_file)
 
-            except (zipfile.BadZipfile, zipfile.LargeZipFile) as exc:
-                self.logger.error('Bad ZIP file: %s', zip_file)
-                self.logger.error(exc)
+        except (zipfile.BadZipfile, zipfile.LargeZipFile) as exc:
+            self.logger.error('Bad ZIP file: %s', zip_file)
+            self.logger.error(exc)
         return _df
 
     def get_stats_from_host(self, hostname=None,
