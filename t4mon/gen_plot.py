@@ -51,14 +51,15 @@ def plot_var(dataframe, *var_names, **optional):
         # Otherwise, var_names columns are selected for system in the dataframe
         # and matplotlib.pyplot's plot function is used once for each column.
         else:
+            # TODO: is there a way to directly plot a multiindex DF?
+            plotaxis = plt.figure().gca()
             plt.set_cmap(optional.pop('cmap',
                                       optional.pop('colormap', DFLT_COLORMAP)))
             optional['title'] = optional.pop('title', var_names[0].upper())
-            plotaxis = plt.figure().gca()
             for key in optional:
                 getattr(plt, key)(optional[key])
-            # TODO: is there a way to directly plot a multiindex DF?
-            for key in dataframe.index.get_level_values('system').unique():
+            systems = dataframe.index.get_level_values('system').unique()
+            for key in systems:
                 sel = df_tools.select_var(dataframe,
                                           *var_names,
                                           system=key,
@@ -68,12 +69,16 @@ def plot_var(dataframe, *var_names, **optional):
                     continue
                 for item in sel.columns:
                     logger.debug('Drawing item: %s (%s)' % (item, key))
-                    # convert timestamp to number, Matplotlib requires a float
-                    # format which is days since epoch
-                    my_ts = [ts.to_julian_date() - 1721424.5
-                             for ts in sel.dropna().index]
-                    plt.plot(my_ts,
-                             sel.dropna(), label='%s@%s' % (item, key))
+                # convert timestamp to number, Matplotlib requires a float
+                # format which is days since epoch
+                my_ts = [ts.to_julian_date() - 1721424.5
+                         for ts in sel.dropna().index]
+                plt.plot(my_ts,
+                         sel.dropna())
+                plt.xlim(my_ts[0], my_ts[-1])  # adjust horizontal axis
+            plt.legend(labels=['%s@%s' % (item, key)
+                               for item in sel.columns
+                               for key in systems])
         # Style the resulting plot
         plotaxis.xaxis.set_major_formatter(md.DateFormatter('%d/%m/%y\n%H:%M'))
         plotaxis.legend(loc='best')
