@@ -219,6 +219,13 @@ class Collector(object):
                                  logger=self.logger,
                                  **kwargs)
 
+    def select(self, *args, **kwargs):
+        """ Convenience method for calling df_tools.select_var """
+        return df_tools.select_var(self.data,
+                                   *args,
+                                   logger=self.logger,
+                                   **kwargs)
+
     def init_tunnels(self, system=None):
         """
         Description:

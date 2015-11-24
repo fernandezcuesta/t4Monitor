@@ -15,6 +15,7 @@ from matplotlib import pyplot as plt
 from . import df_tools
 from .logger import init_logger
 
+DFLT_COLORMAP = 'Reds'  # default matplotlib colormap if nothing specified
 
 def plot_var(dataframe, *var_names, **optional):
     """
@@ -51,7 +52,7 @@ def plot_var(dataframe, *var_names, **optional):
         # and matplotlib.pyplot's plot function is used once for each column.
         else:
             plt.set_cmap(optional.pop('cmap',
-                                      optional.pop('colormap', 'Reds')))
+                                      optional.pop('colormap', DFLT_COLORMAP)))
             optional['title'] = optional.pop('title', var_names[0].upper())
             plotaxis = plt.figure().gca()
             for key in optional:
