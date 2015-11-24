@@ -38,7 +38,7 @@ import sshtunnel
 from paramiko import SSHException
 from sshtunnels.sftpsession import SftpSession, SFTPSessionError
 
-from . import df_tools, calculations
+from . import df_tools, calculations, gen_plot
 from .logger import init_logger
 
 try:
@@ -212,6 +212,13 @@ class Collector(object):
         config.seek(0)
         return config.read()
 
+    def plot(self, *args, **kwargs):
+        """ Convenience method for calling gen_plot.plot_var """
+        return gen_plot.plot_var(self.data,
+                                 *args,
+                                 logger=self.logger,
+                                 **kwargs)
+
     def init_tunnels(self, system=None):
         """
         Description:
@@ -351,13 +358,11 @@ class Collector(object):
         except SFTPSessionError:
             raise SFTPSessionError('connection to %s failed' % system)
 
-    def get_data_and_logs(self, system, alldays=None):
+    def get_data_and_logs(self, system):
         """ Open an sftp session to system and collects the CSVs, generating a
             pandas dataframe as outcome
             By default the connection is done via SSH tunnels.
         """
-        if alldays:
-            self.alldays = alldays
         sftp_session = self.get_sftp_session(system)
 
         if not sftp_session:
