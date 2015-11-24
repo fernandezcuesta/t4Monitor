@@ -499,12 +499,12 @@ class Collector(object):
         if files_folder[-1] == os.sep:
             files_folder = files_folder[:-1]  # remove trailing separator (/)
 
-        # default if no filter given is just the extension of the files
-        filespec_list = filespec_list or ['.zip' if compressed else '.csv']
-        if not isinstance(filespec_list, list):
+        if filespec_list and not isinstance(filespec_list, list):
             filespec_list = filespec_list.split('*')
+        # default if no filter given is just the extension of the files
+        spec_list = filespec_list or ['.zip' if compressed else '.csv']
         if system:  # filter on system ID too
-            filespec_list.append(system)
+            spec_list.append(system)
 
         if sftp_session:
             self.logger.debug('Using established sftp session...')
@@ -520,7 +520,7 @@ class Collector(object):
                 files = ['{}/{}'.format(filesource.getcwd(), f)
                          for f in filesource.listdir('.')
                          if all([val.upper() in f.upper()
-                                 for val in filespec_list])]
+                                 for val in spec_list])]
             if not files and not hostname:
                 files = filespec_list  # For absolute paths
         except EnvironmentError:  # cannot do the chdir
@@ -570,8 +570,8 @@ class Collector(object):
         return _df
 
     def get_stats_from_host(self,
-                            hostname=None,
                             filespec_list=None,
+                            hostname=None,
                             compressed=False,
                             sftp_session=None,
                             **kwargs):
