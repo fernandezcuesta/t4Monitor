@@ -9,13 +9,26 @@ from __future__ import absolute_import
 import sys
 from cStringIO import StringIO
 
+import numpy as np
 from matplotlib import dates as md
-from matplotlib import pyplot as plt
+from matplotlib import pylab, pyplot as plt
 
 from . import df_tools
 from .logger import init_logger
 
 DFLT_COLORMAP = 'Reds'  # default matplotlib colormap if nothing specified
+
+
+
+def update_colors(ax, cmap=None):
+    if not cmap:
+        cmap = DFLT_COLORMAP
+    cm = pylab.get_cmap(cmap)
+    lines = ax.lines
+    colors = cm(np.linspace(0, 1, len(lines)))
+    for line, c in zip(lines, colors):
+        line.set_color(c)
+
 
 def plot_var(dataframe, *var_names, **optional):
     """
@@ -53,9 +66,8 @@ def plot_var(dataframe, *var_names, **optional):
         else:
             # TODO: is there a way to directly plot a multiindex DF?
             plotaxis = plt.figure().gca()
-            plt.set_cmap(optional.pop('cmap',
-                                      optional.pop('colormap', DFLT_COLORMAP)))
             optional['title'] = optional.pop('title', var_names[0].upper())
+            cmap = optional.pop('cmap', DFLT_COLORMAP)
             for key in optional:
                 getattr(plt, key)(optional[key])
             systems = dataframe.index.get_level_values('system').unique()
@@ -73,12 +85,12 @@ def plot_var(dataframe, *var_names, **optional):
                 # format which is days since epoch
                 my_ts = [ts.to_julian_date() - 1721424.5
                          for ts in sel.dropna().index]
-                plt.plot(my_ts,
-                         sel.dropna())
+                plt.plot(my_ts, sel.dropna())
                 plt.xlim(my_ts[0], my_ts[-1])  # adjust horizontal axis
             plt.legend(labels=['%s@%s' % (item, key)
                                for item in sel.columns
                                for key in systems])
+            update_colors(plotaxis, cmap)
         # Style the resulting plot
         plotaxis.xaxis.set_major_formatter(md.DateFormatter('%d/%m/%y\n%H:%M'))
         plotaxis.legend(loc='best')
