@@ -502,7 +502,7 @@ class Collector(object):
         if filespec_list and not isinstance(filespec_list, list):
             filespec_list = filespec_list.split('*')
         # default if no filter given is just the extension of the files
-        spec_list = filespec_list or ['.zip' if compressed else '.csv']
+        spec_list = filespec_list[:] or ['.zip' if compressed else '.csv']
         if system:  # filter on system ID too
             spec_list.append(system)
 
