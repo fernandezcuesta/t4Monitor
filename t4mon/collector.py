@@ -4,10 +4,10 @@
     start() ------------------.
      |                       | no threads (legacy serial mode)
      v                       |
-    thread_wrapper()         |
+    collect_system_data()    |
      |                       |
      v                       |
-    collect_system_data()  <-'
+    get_data_and_logs()    <-'
      |                \
      v                 \
     get_system_data()   `---> get_system_logs()
@@ -351,11 +351,13 @@ class Collector(object):
         except SFTPSessionError:
             raise SFTPSessionError('connection to %s failed' % system)
 
-    def collect_system_data(self, system):
+    def get_data_and_logs(self, system, alldays=None):
         """ Open an sftp session to system and collects the CSVs, generating a
             pandas dataframe as outcome
             By default the connection is done via SSH tunnels.
         """
+        if alldays:
+            self.alldays = alldays
         sftp_session = self.get_sftp_session(system)
 
         if not sftp_session:
@@ -622,9 +624,9 @@ class Collector(object):
                    in self.server.tunnel_is_up.iterkeys()
                    if self.server.tunnel_is_up[address_tuple])
 
-    def thread_wrapper(self, system):
+    def collect_system_data(self, system):
         """
-        Single thread wrapper method common for threaded/serial modes
+        Collect everything for a given system
         """
         # Get data from the remote system
         try:
@@ -632,7 +634,7 @@ class Collector(object):
             if not self.check_if_tunnel_is_up(system):
                 self.logger.error('%s | System not reachable!', system)
                 raise IOError
-            (result_data, result_log) = self.collect_system_data(system)
+            (result_data, result_log) = self.get_data_and_logs(system)
             # self.logger.debug('%s | Putting results in queue', system)
         except (IOError, SFTPSessionError):
             result_data = pd.DataFrame()
@@ -649,7 +651,7 @@ class Collector(object):
         """ Threaded method for main() """
         with self:  # calls init_tunnels and start_server
             for system in self.systems:
-                thread = threading.Thread(target=self.thread_wrapper,
+                thread = threading.Thread(target=self.collect_system_data,
                                           name=system,
                                           args=(system, ))
                 thread.daemon = True
@@ -667,7 +669,7 @@ class Collector(object):
             try:
                 if self.use_gateway:
                     self.init_tunnels(system)
-                self.thread_wrapper(system)
+                self.collect_system_data(system)
                 self.stop_server()
             except (sshtunnel.BaseSSHTunnelForwarderError,
                     IOError,
