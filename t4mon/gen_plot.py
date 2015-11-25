@@ -65,7 +65,9 @@ def plot_var(dataframe, *var_names, **optional):
         # and matplotlib.pyplot's plot function is used once for each column.
         else:
             # TODO: is there a way to directly plot a multiindex DF?
-            plotaxis = plt.figure().gca()
+            plotaxis = optional.pop('ax')
+            if not plotaxis:
+                plotaxis = plt.figure().gca()
             optional['title'] = optional.pop('title', var_names[0].upper())
             cmap = optional.pop('cmap', DFLT_COLORMAP)
             for key in optional:
@@ -79,17 +81,17 @@ def plot_var(dataframe, *var_names, **optional):
                 if sel.empty:
                     # other systems may have this column with some data
                     continue
+                my_ts = [ts.to_julian_date() - 1721424.5
+                         for ts in sel.index]
                 for item in sel.columns:
                     logger.debug('Drawing item: %s (%s)' % (item, key))
-                # convert timestamp to number, Matplotlib requires a float
-                # format which is days since epoch
-                my_ts = [ts.to_julian_date() - 1721424.5
-                         for ts in sel.dropna().index]
-                plt.plot(my_ts, sel.dropna())
+                    # convert timestamp to number, Matplotlib requires a float
+                    # format which is days since epoch
+                    plt.plot(my_ts, sel[item].interpolate(), label='{} {}'.format(item, key))
                 plt.xlim(my_ts[0], my_ts[-1])  # adjust horizontal axis
-            plt.legend(labels=['%s@%s' % (item, key)
-                               for item in sel.columns
-                               for key in systems])
+            # plt.legend(labels=['%s@%s' % (item, key)
+            #                    for item in sel.columns
+            #                    for key in systems])
             update_colors(plotaxis, cmap)
         # Style the resulting plot
         plotaxis.xaxis.set_major_formatter(md.DateFormatter('%d/%m/%y\n%H:%M'))

@@ -661,7 +661,7 @@ class Collector(object):
 
     def main_threads(self):
         """ Threaded method for main() """
-        with self:  # calls init_tunnels and start_server
+        with self:  # calls init_tunnels
             for system in self.systems:
                 thread = threading.Thread(target=self.collect_system_data,
                                           name=system,
