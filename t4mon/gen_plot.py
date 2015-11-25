@@ -65,7 +65,7 @@ def plot_var(dataframe, *var_names, **optional):
         # and matplotlib.pyplot's plot function is used once for each column.
         else:
             # TODO: is there a way to directly plot a multiindex DF?
-            plotaxis = optional.pop('ax')
+            plotaxis = optional.pop('ax', None)
             if not plotaxis:
                 plotaxis = plt.figure().gca()
             optional['title'] = optional.pop('title', var_names[0].upper())
