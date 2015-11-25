@@ -564,7 +564,7 @@ class Collector(object):
         finally:
             for a_file in decompressed_files:
                 self.logger.debug('Deleting file %s', a_file)
-                # os.remove(a_file)
+                os.remove(a_file)
             c.close()
 
         return _df
@@ -587,6 +587,9 @@ class Collector(object):
                       local filesystem
         """
         _df = pd.DataFrame()
+        _dz = pd.DataFrame()
+
+        system = kwargs.get('system')
         if hostname and not sftp_session:
             self.logger.error('Cannot gather remote data without a session')
             return _df
@@ -602,17 +605,18 @@ class Collector(object):
                               filespec_list)
             return _df
         for a_file in files:
-            self.logger.info(a_file)
+            # self.logger.info(a_file)
             if compressed:
-                _df = _df.combine_first(
+                _dz = _dz.combine_first(
                     self.load_zipfile(zip_file=a_file,
                                       sftp_session=sftp_session)
                 )
-                system = kwargs.get('system')
                 if system:
-                    _df = df_tools.consolidate_data(_df,
-                                                    dataframe=self.data,
+                    _df = df_tools.consolidate_data(_dz,
+                                                    dataframe=_df,
                                                     system=system)
+                else:
+                    return _dz
 
             else:
                 _df = _df.combine_first(
