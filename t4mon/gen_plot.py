@@ -4,7 +4,7 @@ Created on Mon May 25 11:10:57 2015
 
 @author: fernandezjm
 """
-from __future__ import absolute_import
+from __future__ import absolute_import #, unicode_literals
 
 import sys
 from cStringIO import StringIO
@@ -87,7 +87,8 @@ def plot_var(dataframe, *var_names, **optional):
                     logger.debug('Drawing item: %s (%s)' % (item, key))
                     # convert timestamp to number, Matplotlib requires a float
                     # format which is days since epoch
-                    plt.plot(my_ts, sel[item].interpolate(), label='{} {}'.format(item, key))
+                    plt.plot(my_ts, sel[item].interpolate(),
+                             label='%s %s' % (item, key))
                 plt.xlim(my_ts[0], my_ts[-1])  # adjust horizontal axis
             # plt.legend(labels=['%s@%s' % (item, key)
             #                    for item in sel.columns
