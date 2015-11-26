@@ -68,7 +68,7 @@ def plot_var(dataframe, *var_names, **optional):
             plotaxis = optional.pop('ax', None)
             if not plotaxis:
                 plotaxis = plt.figure().gca()
-            optional['title'] = optional.pop('title', var_names[0].upper())
+            optional['title'] = optional.pop('title', '')
             cmap = optional.pop('cmap', DFLT_COLORMAP)
             for key in optional:
                 getattr(plt, key)(optional[key])

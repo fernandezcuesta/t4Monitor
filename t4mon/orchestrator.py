@@ -200,6 +200,7 @@ class Orchestrator(object):
         """
         # Initialize default figure sizes and styling
         pylab.rcParams['figure.figsize'] = 13, 10
+
         plt.style.use('ggplot')
 
         if self.safe:
