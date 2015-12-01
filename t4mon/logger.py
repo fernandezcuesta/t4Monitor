@@ -25,8 +25,9 @@ def init_logger(loglevel=None, name=__name__):
                    '%(lineno)04d@%(module)-10.9s| %(message)s'
             console_handler.setFormatter(logging.Formatter(_fmt))
         else:
-            console_handler.setFormatter(
-                logging.Formatter('%(asctime)s| %(levelname)-8s| %(message)s'))
+            console_handler.setFormatter(logging.Formatter(
+                '%(asctime)s| %(levelname)-8s| %(message)s'
+            ))
         logger.addHandler(console_handler)
 
     logger.info('Initialized logger with level: %s',

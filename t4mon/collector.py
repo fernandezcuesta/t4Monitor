@@ -416,22 +416,7 @@ class Collector(object):
         data = pd.DataFrame()
 
         destdir = self.conf.get(system, 'folder') or '.'
-        # try:  # Test if remote folder is reachable
-        #     with changedir(destdir, module=session):
-        #     # session.chdir(destdir)
-        #         self.logger.debug('%s | Changing to remote folder: %s',
-        #                           system,
-        #                           destdir)
-        #     # session.chdir()  # revert back to home folder
-        # except IOError:
-        #     self.logger.error('%s | Directory "%s" not found at destination',
-        #                       system,
-        #                       self.conf.get(system, 'folder'))
-        #     return data
 
-        # filter remote files on extension and date
-        # using MONTHS to avoid problems with locale rather than English
-        # especially under Windows environments
         if self.alldays:
             tag_list = ['.csv']
         else:
@@ -560,7 +545,7 @@ class Collector(object):
                 )
         except (zipfile.BadZipfile, zipfile.LargeZipFile) as exc:
             self.logger.error('Bad ZIP file: %s', zip_file)
-            self.logger.error(exc)
+            self.logger.exception(exc)
         finally:
             for a_file in decompressed_files:
                 self.logger.debug('Deleting file %s', a_file)
@@ -708,7 +693,7 @@ class Collector(object):
         except SSHException:
             self.logger.error('Could not open remote connection')
         except Exception as exc:
-            self.logger.error('Unexpected error: %s', repr(exc))
+            self.logger.exception(exc)
 
     def to_pickle(self, name, compress=False):
         """ Save collector object to [optionally] gzipped pickle """

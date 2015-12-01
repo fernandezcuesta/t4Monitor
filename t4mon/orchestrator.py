@@ -134,14 +134,14 @@ class Orchestrator(object):
         Returns: Boolean (whether or not everything is in place)
         """
         if not os.path.isfile(self.settings_file):
-            self.logger.error('Settings file not found: %s',
-                              self.settings_file)
+            self.logger.critical('Settings file not found: %s',
+                                 self.settings_file)
             raise collector.ConfigReadError
         try:
             self.get_external_files_from_config()
         except (collector.ConfigReadError,
                 collector.ConfigParser.Error) as _exc:
-            self.logger.error(repr(_exc))
+            self.logger.exception(_exc)
             raise collector.ConfigReadError
 
         # Create store folder if needed
@@ -168,7 +168,9 @@ class Orchestrator(object):
                 raise collector.ConfigReadError
             self.logger.info('Cheking %s: %s', option, self_attribute)
             if not self_attribute or not os.path.isfile(self_attribute):
-                self.logger.error('%s NOT found: %s', option, self_attribute)
+                self.logger.critical('%s NOT found: %s',
+                                     option,
+                                     self_attribute)
                 raise collector.ConfigReadError
 
     def date_tag(self):
@@ -252,7 +254,7 @@ class Orchestrator(object):
         # Open the connection and gather all data and logs
         self.collector.start()
         if self.collector.data.empty:
-            self.logger.error('Could not retrieve data!!! Aborting.')
+            self.logger.critical('Could not retrieve data!!! Aborting.')
             return
 
         # Store the data locally
