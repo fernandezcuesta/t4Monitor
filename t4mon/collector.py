@@ -35,6 +35,7 @@ from random import randint
 
 import pandas as pd
 import sshtunnel
+import tqdm
 from paramiko import SSHException
 from sshtunnels.sftpsession import SftpSession, SFTPSessionError
 
@@ -169,6 +170,7 @@ class Collector(object):
         self.logger = logger or init_logger()
         self.logs = {}
         self.nologs = nologs
+        self.progress_bar = tqdm.tqdm()
         self.results_queue = Queue.Queue()
         self.safe = safe
         self.settings_file = settings_file or DEFAULT_SETTINGS_FILE
@@ -589,8 +591,13 @@ class Collector(object):
                               hostname or 'local system',
                               filespec_list)
             return _df
+
+        if self.progress_bar.total:
+            self.progress_bar.total += len(files)
+        else:
+            self.progress_bar.total = len(files)
+
         for a_file in files:
-            # self.logger.info(a_file)
             if compressed:
                 _dz = _dz.combine_first(
                     self.load_zipfile(zip_file=a_file,
@@ -609,9 +616,7 @@ class Collector(object):
                                          sftp_session=sftp_session,
                                          logger=self.logger)
                 )
-        # if sftp_session:
-        #     self.logger.debug('Closing sftp session')
-        #     sftp_session.close()
+        self.progress_bar.update()
         return _df
 
     def check_if_tunnel_is_up(self, system):
@@ -683,6 +688,7 @@ class Collector(object):
         Main method for the data collection
         """
         try:
+            self.progress_bar.total = 0
             if self.safe:
                 self.main_no_threads()
             else:
