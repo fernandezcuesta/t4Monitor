@@ -705,8 +705,9 @@ class Collector(object):
         """ Save collector object to [optionally] gzipped pickle """
         buffer_object = StringIO()
         col_copy = copy.copy(self)
-        # cannot pickle a Queue, logging or sshtunnel objects
-        col_copy.results_queue = col_copy.logger = col_copy.server = None
+        # cannot pickle a Queue, logging, progressbar or sshtunnel objects
+        col_copy.results_queue = col_copy.logger = None
+        col_copy.progress_bar = col_copy.server = None
         pickle.dump(obj=col_copy,
                     file=buffer_object,
                     protocol=pickle.HIGHEST_PROTOCOL)
