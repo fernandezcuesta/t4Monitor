@@ -152,26 +152,27 @@ class SftpSession(object):
             # gather settings for user, port and identity file
             username = hostname_info.get('user',
                                          getpass.getuser())  # Current username
-            identityfile = hostname_info.get('identityfile', '')[0]
-            tcp_port = hostname_info.get('port', '22')
-
-            # if a username was specified, override settings (if any)
-            username = self.ssh_arguments.get('ssh_user',
-                                              locals().get('username'))
-            # if a public key file was specified, override settings (if found)
-            identityfile = self.ssh_arguments.get(
-                'ssh_key',
-                locals().get('identityfile', '')
-                                                  )
-            # if a TCP port was specified, override configuration (if found)
-            self.tcp_port = int(self.ssh_arguments.get(
-                'ssh_port',
-                locals().get('tcp_port', self.tcp_port))
-                                                       )
-            return (username, identityfile, tcp_port)
         except IOError:
             self.logger.warning('Could not read SSH configuration file: %s',
                                 cfg_file)
+            hostname_info = {}
+        identityfile = hostname_info.get('identityfile', [''])[0]
+        tcp_port = hostname_info.get('port', '22')
+
+        # if a username was specified, override settings (if any)
+        username = self.ssh_arguments.get('ssh_user',
+                                          locals().get('username'))
+        # if a public key file was specified, override settings (if found)
+        identityfile = self.ssh_arguments.get(
+            'ssh_key',
+            locals().get('identityfile', '')
+                                              )
+        # if a TCP port was specified, override configuration (if found)
+        self.tcp_port = int(self.ssh_arguments.get(
+            'ssh_port',
+            locals().get('tcp_port', self.tcp_port))
+                                                   )
+        return (username, identityfile, tcp_port)
 
     def __init__(self, hostname, **ssh_arguments):
         """

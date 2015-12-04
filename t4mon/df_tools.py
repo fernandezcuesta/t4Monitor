@@ -13,6 +13,7 @@ from itertools import takewhile
 from collections import OrderedDict
 
 import pandas as pd
+import numpy as np
 from paramiko import SFTPClient
 
 import t4mon
@@ -324,8 +325,8 @@ def to_dataframe(field_names, data):
 
 def dataframize(data_file, sftp_session=None, logger=None):
     """
-     Wrapper for to_dataframe, leading with non-existing files over sftp.
-     If sftp_session is not a valid session, work with local filesystem
+    Wrapper for to_dataframe, leading with non-existing files over sftp.
+    If sftp_session is not a valid session, work with local filesystem
     """
 
     logger = logger or init_logger()
@@ -347,3 +348,14 @@ def dataframize(data_file, sftp_session=None, logger=None):
         logger.error('Error occurred while processing CSV file: %s',
                      data_file)
         return pd.DataFrame()
+
+
+def remove_outliers(dataframe, n_std=2):
+    """
+    Remove all rows that have outliers in at least one column from a dataframe
+    by default larger than n_std standard deviations from the mean, in absolute
+    value, by default 2-std.
+    """
+    return dataframe[dataframe.apply(lambda x:
+                                     np.abs(x - x.mean()) <= n_std * x.std()
+                                     ).all(axis=1)]

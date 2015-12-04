@@ -57,6 +57,20 @@ class TestAuxiliaryFunctions(unittest.TestCase):
             with open(TEST_PLAINCSV, 'r') as this:
                 self.assertTrue(this.read(), that.read())
 
+    def test_remove_outliers(self):
+        """ Test removing outliers from a dataframe """
+        df1 = pd.DataFrame(np.random.randn(8, 4), columns=['A', 'B', 'C', 'D'])
+        df2 = df1.copy()
+        # Add some outliers in random positions
+        a = range(len(df2))
+        np.random.shuffle(a)
+        rnd_row = a[:1]
+        a = df2.columns.values
+        rnd_col = a[:3]
+        df2.update(df2[rnd_col].ix[rnd_row] * 10.0)
+        df2 = df_tools.remove_outliers(df2, n_std=2)
+        assert_frame_equal(df1.drop(rnd_row, axis=0), df2)
+
 
 class TestDFTools(BaseTestClass):
 

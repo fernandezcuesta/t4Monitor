@@ -74,44 +74,45 @@ class Report(object):
         try:
             progressbar_prefix = 'Rendering report for {}'.format(self.system)
             with open(self.graphs_definition_file, 'r') as graphs_txt:
-                for line in tqdm.tqdm(graphs_txt,
-                                      leave=True,
-                                      desc=progressbar_prefix,
-                                      unit='Graphs'):
-                    line = line.strip()
+                graphs_txt_contents = graphs_txt.readlines()
+            for line in tqdm.tqdm(graphs_txt_contents,
+                                  leave=True,
+                                  desc=progressbar_prefix,
+                                  unit='Graphs'):
+                line = line.strip()
 
-                    if not len(line) or line[0] == '#':
-                        continue
-                    info = line.split(';')
-                    # info[0] contains a comma-separated list of parameters to
-                    # be drawn
-                    # info[1] contains the title
-                    # info[2] contains the plot options
-                    if len(info) == 1:
-                        self.logger.warning('Bad format in current line: '
-                                            '"%s"...', line[1:20])
-                        continue
-                    try:
-                        optional_kwargs = literal_eval("dict(%s)" % info[2]) \
-                                          if len(info) == 3 else {'ylim': 0.0}
-                    except ValueError:
-                        optional_kwargs = {'ylim': 0.0}
+                if not len(line) or line[0] == '#':
+                    continue
+                info = line.split(';')
+                # info[0] contains a comma-separated list of parameters to
+                # be drawn
+                # info[1] contains the title
+                # info[2] contains the plot options
+                if len(info) == 1:
+                    self.logger.warning('Bad format in current line: '
+                                        '"%s"...', line[1:20])
+                    continue
+                try:
+                    optional_kwargs = literal_eval("dict(%s)" % info[2]) \
+                                      if len(info) == 3 else {'ylim': 0.0}
+                except ValueError:
+                    optional_kwargs = {'ylim': 0.0}
 
-                    self.logger.debug('%s |  Plotting %s',
-                                      self.system,
-                                      info[0])
-                    # Generate figure and encode to base64
-                    plot_axis = gen_plot.plot_var(
-                        self.data,
-                        *[x.strip() for x in info[0].split(',')],
-                        system=self.system,
-                        logger=self.logger,
-                        **optional_kwargs
-                                                   )
-                    _b64figure = gen_plot.to_base64(plot_axis)
-                    plt.close(plot_axis.get_figure())  # close figure
-                    if _b64figure:
-                        yield (info[1].strip(), _b64figure)
+                self.logger.debug('%s |  Plotting %s',
+                                  self.system,
+                                  info[0])
+                # Generate figure and encode to base64
+                plot_axis = gen_plot.plot_var(
+                    self.data,
+                    *[x.strip() for x in info[0].split(',')],
+                    system=self.system,
+                    logger=self.logger,
+                    **optional_kwargs
+                                               )
+                _b64figure = gen_plot.to_base64(plot_axis)
+                plt.close(plot_axis.get_figure())  # close figure
+                if _b64figure:
+                    yield (info[1].strip(), _b64figure)
         except IOError:
             self.logger.error('Graphs definition file not found: %s',
                               self.graphs_definition_file)

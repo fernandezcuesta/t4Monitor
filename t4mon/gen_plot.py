@@ -57,8 +57,10 @@ def plot_var(dataframe, *var_names, **optional):
                                       logger=logger)
             if sel.empty:
                 raise TypeError
+            # Remove outliers (>3 std away from mean)
+            sel = df_tools.remove_outliers(sel.dropna())
             # Linear interpolation for missing values
-            plotaxis = sel.interpolate().plot(**optional)
+            plotaxis = sel.plot(**optional)
 
         # Otherwise, var_names columns are selected for system in the dataframe
         # and matplotlib.pyplot's plot function is used once for each column.

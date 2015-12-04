@@ -24,8 +24,9 @@ def get_input(text):
 
 
 def check_for_sysargs(parser, args=None):
-    """ Check if relevant parameters were specified or ask the user to
-    proceed with defaults
+    """
+    Check if relevant parameters were specified or ask the user to proceed
+    with defaults
     """
     # Default for collector is 'settings.cfg' in /conf
     if not args:
@@ -34,18 +35,19 @@ def check_for_sysargs(parser, args=None):
         print('')
         while True:
             ans = get_input('No arguments were specified, continue with '
-                            'defaults (check with t4mon-config)? ([Y]|n) ')
-            if not ans or ans in ('y', 'Y'):
+                            'defaults (check with t4mon-config)? (y|[N]) ')
+            if ans in ('y', 'Y'):
                 print('Proceeding with default settings')
                 break
-            elif ans in ('n', 'N'):
+            elif not ans or ans in ('n', 'N'):
                 sys.exit('Aborting')
             print('Please enter y or n.')
     return vars(parser.parse_args(args))
 
 
 def create_parser(args=None):
-    """ Common parser parts for parse_arguments_local and parse_arguments_main
+    """
+    Common parser parts for parse_arguments_local and parse_arguments_main
     """
     parser = argparse.ArgumentParser(formatter_class=argparse.
                                      RawTextHelpFormatter,
@@ -71,7 +73,8 @@ def create_parser(args=None):
 
 
 def parse_arguments_local_pkl(args=None):
-    """ Argument parser for create_reports_from_local_pkl
+    """
+    Argument parser for create_reports_from_local_pkl
     """
     parser = create_parser()
     parser.add_argument('pkl_file',
@@ -81,7 +84,8 @@ def parse_arguments_local_pkl(args=None):
 
 
 def parse_arguments_local_csv(args=None):
-    """ Argument parser for create_reports_from_local_csv
+    """
+    Argument parser for create_reports_from_local_csv
     """
     parser = create_parser()
     parser.add_argument('csv_file',
@@ -91,7 +95,8 @@ def parse_arguments_local_csv(args=None):
 
 
 def parse_arguments_main(args=None):
-    """ Argument parser for main method
+    """
+    Argument parser for main method
     """
     parser = create_parser()
     parser.add_argument('--all', action='store_true', dest='alldays',

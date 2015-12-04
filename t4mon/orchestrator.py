@@ -157,7 +157,7 @@ class Orchestrator(object):
                 self_attribute = self.__getattribute__(option)
             except AttributeError:
                 raise collector.ConfigReadError
-            self.logger.info('Cheking %s: %s', option, self_attribute)
+            self.logger.info('Checking %s: %s', option, self_attribute)
             if not self_attribute or not os.path.isfile(self_attribute):
                 self.logger.critical('%s NOT found: %s',
                                      option,
