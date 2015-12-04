@@ -4,7 +4,7 @@ Created on Mon May 25 11:10:57 2015
 
 @author: fernandezjm
 """
-from __future__ import absolute_import #, unicode_literals
+from __future__ import absolute_import
 
 import sys
 from cStringIO import StringIO
@@ -17,7 +17,6 @@ from . import df_tools
 from .logger import init_logger
 
 DFLT_COLORMAP = 'Reds'  # default matplotlib colormap if nothing specified
-
 
 
 def update_colors(ax, cmap=None):
@@ -64,7 +63,6 @@ def plot_var(dataframe, *var_names, **optional):
         # Otherwise, var_names columns are selected for system in the dataframe
         # and matplotlib.pyplot's plot function is used once for each column.
         else:
-            # TODO: is there a way to directly plot a multiindex DF?
             plotaxis = optional.pop('ax', None)
             if not plotaxis:
                 plotaxis = plt.figure().gca()
@@ -90,9 +88,6 @@ def plot_var(dataframe, *var_names, **optional):
                     plt.plot(my_ts, sel[item].interpolate(),
                              label='%s %s' % (item, key))
                 plt.xlim(my_ts[0], my_ts[-1])  # adjust horizontal axis
-            # plt.legend(labels=['%s@%s' % (item, key)
-            #                    for item in sel.columns
-            #                    for key in systems])
             update_colors(plotaxis, cmap)
         # Style the resulting plot
         plotaxis.xaxis.set_major_formatter(md.DateFormatter('%d/%m/%y\n%H:%M'))

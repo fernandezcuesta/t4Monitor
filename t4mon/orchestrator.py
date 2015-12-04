@@ -7,14 +7,6 @@ import logging
 import datetime as dt
 import threading
 
-import matplotlib  # isort:skip
-# Set matplotlib's backend before first import of pyplot or pylab,
-# Qt4 doesn't like threads
-if os.name == 'posix':
-    matplotlib.use('Cairo')
-else:
-    matplotlib.use('TkAgg')
-# Required by matplotlib when using TkAgg backend
 from matplotlib import pylab as pylab  # isort:skip
 from matplotlib import pyplot as plt  # isort:skip
 
@@ -51,8 +43,7 @@ class Orchestrator(object):
         self.graphs = {}  # will be filled by calls from within jinja for loop
         self.graphs_definition_file = ''
         self.html_template = ''
-        self.logger = logger or init_logger(loglevel if loglevel
-                                            else DEFAULT_LOGLEVEL)
+        self.logger = logger or init_logger(loglevel)
         self.noreports = noreports
         self.reports_written = []
         self.reports_folder = './reports'
@@ -180,8 +171,10 @@ class Orchestrator(object):
         return dt.date.strftime(current_date,
                                 "%Y%m%d_%H%M")
 
-    def create_report(self, system=None):  # , container=None):
+    def create_report(self, system=None):
         """ Method for creating a single report for a particular system """
+        if not system:
+            raise AttributeError('Need a value for system!')
         report_name = '{0}/Report_{1}_{2}.html'.format(self.reports_folder,
                                                        self.date_tag(),
                                                        system)
@@ -247,7 +240,7 @@ class Orchestrator(object):
                           'w') as logtxt:
                     logtxt.writelines(self.collector.logs[system])
 
-    def start(self):
+    def start(self):  # pragma: no cover
         """ Main method, gets data and logs, store and render the HTML output
         """
 
@@ -293,9 +286,12 @@ class Orchestrator(object):
         if not os.path.exists(csv_file):
             self.logger.error('CSV file %s cannot be found', csv_file)
             raise IOError
-        self.collector.data = reload_from_csv(csv_file, plain)
+        self.collector.data = reload_from_csv(csv_file,
+                                              plain=plain)
         self.collector.systems = system if isinstance(system,
                                                       list) else [system]
+        if not self.collector.systems:
+            self.collector.systems = [os.path.splitext(csv_file)[0]]
         # Populate the log info with fake data
         for system in self.collector.systems:
             self.collector.logs[system] = 'Log collection omitted for '\

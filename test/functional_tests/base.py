@@ -56,6 +56,7 @@ class TestWithTempConfig(TestWithSsh):
         cls.orchestrator_test.logger.info('Using temporary dir: %s',
                                           cls.temporary_dir)
 
+        # Copy all required files to the temporary directory
         calcs_file = cls.orchestrator_test.get_absolute_path(
             cls.conf.get('MISC', 'calculations_file'))
         shutil.copy(calcs_file,

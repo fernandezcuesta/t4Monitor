@@ -31,18 +31,15 @@ def init_logger(loglevel=None, name=__name__):
         # Add a console handler
         _handler = logging.StreamHandler()
         _add_handler(logger,
-                     handler=_handler)
-
-
-    logger.info('Initialized logger with level: %s',
-                logging.getLevelName(logger.level))
+                     handler=_handler,
+                     loglevel=loglevel)
+    logger.info('Initialized logger with level: %s', logger.handlers[1].level)
     return logger
 
 
-def _add_handler(logger, handler=None, loglevel=DEFAULT_LOGLEVEL):
+def _add_handler(logger, handler=None, loglevel=None):
     """ Add a handler to an existing logging.Logger object """
-
-    handler.setLevel(loglevel)
+    handler.setLevel(loglevel or DEFAULT_LOGLEVEL)
     if handler.level == 10:  # 'DEBUG'
         _fmt = '%(asctime)s| %(levelname)-4.3s|%(threadName)10.9s/' \
                '%(lineno)04d@%(module)-10.9s| %(message)s'

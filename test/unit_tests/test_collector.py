@@ -15,7 +15,14 @@ from pandas.util.testing import assert_frame_equal
 
 from t4mon import df_tools, collector
 
-from .base import TEST_CSV, TEST_PKL, TEST_CALC, TEST_CONFIG, BaseTestClass
+from .base import (
+    TEST_CSV,
+    TEST_PKL,
+    TEST_CALC,
+    TEST_CONFIG,
+    TEST_ZIPFILE,
+    BaseTestClass
+)
 
 
 class TestCollector(BaseTestClass):
@@ -117,3 +124,12 @@ class TestCollector(BaseTestClass):
             self.collector_test.to_pickle(picklegz.name.rstrip('.gz'))
             assert_frame_equal(self.collector_test.data,
                                collector.read_pickle(picklegz.name).data)
+
+    def test_load_zipfile(self):
+        """ Test function for load_zipfile """
+        _df = collector.load_zipfile(TEST_ZIPFILE, system='CSV')
+        self.assertIsInstance(_df, pd.DataFrame)
+        self.assertTupleEqual(_df.shape, (2876, 787))
+        # Bad zipfile should return an empty dataframe
+        _df = collector.load_zipfile(TEST_PKL)
+        self.assertTrue(_df.empty)

@@ -7,8 +7,7 @@
 from __future__ import absolute_import
 
 import __builtin__
-from os.path import splitext
-from re import split
+import os.path
 from cStringIO import StringIO
 from itertools import takewhile
 from collections import OrderedDict
@@ -42,6 +41,15 @@ class ExtractCSVException(Exception):
     pass
 
 
+def remove_duplicate_columns(dataframe):
+    """ Remove columns with duplicate names from a dataframe """
+    columns = list(dataframe.columns)
+    field_names = list(OrderedDict.fromkeys((f for f in columns)))
+    unique_columns = [columns.index(field_names[k])
+                      for k in range(len(field_names))]
+    return dataframe[unique_columns]
+
+
 def consolidate_data(partial_dataframe, dataframe=None, system=None):
     """
     Consolidates partial_dataframe which corresponds to `system` with
@@ -53,17 +61,7 @@ def consolidate_data(partial_dataframe, dataframe=None, system=None):
         raise ToDfError('Need a system to consolidate the dataframe')
     if dataframe is None:
         dataframe = pd.DataFrame()
-    # Add a secondary index based in the value of `system` in order to avoid
-    # breaking cluster statistics, i.e. data coming from cluster LONDON and
-    # represented by systems LONDON-1 and LONDON-2
-    index_len = len(partial_dataframe.index)
-    midx = pd.MultiIndex(
-               levels=[partial_dataframe.index.get_level_values(0),
-                       [system]],
-               labels=[range(index_len), [0]*index_len],
-               names=[partial_dataframe.index.names[0], 'system']
-           )
-    partial_dataframe = partial_dataframe.set_index(midx)
+    partial_dataframe = add_secondary_index(partial_dataframe, system)
     return pd.concat([dataframe, partial_dataframe])
 
 
@@ -78,7 +76,7 @@ def reload_from_csv(csv_filename, plain=False):
         data = dataframize(csv_filename)
     data.index = pd.to_datetime(data.index)
     if plain:  # Restore the index name
-        data.index.name = 'datetime'
+        data.index.name = DATETIME_TAG
     return data
 
 
@@ -133,7 +131,7 @@ def select_var(dataframe, *var_names, **optional):
         logger.warning('Bad filter found: "%s" not found in index '
                        '(case insensitive)',
                        ix_level)
-        filter_by = None
+        return pd.DataFrame()
 
     if ix_level:
         ix_level = find_in_iterable_case_insensitive(
@@ -176,16 +174,12 @@ def extract_t4csv(file_descriptor):
     """ Reads Format1/Format2 T4-CSV and returns:
          * field_names: List of strings (column names)
          * data_lines: List of strings (each one representing a sample)
-         * metadata: Cluster name as found in the first line of Format1/2 CSV
     """
     try:
         data_lines = [li.rstrip()
                       for li in takewhile(lambda x:
                                           not x.startswith('Column Average'),
                                           file_descriptor)]
-        _l0 = split(r'/|%c *| *' % SEPARATOR, data_lines[0])
-        metadata = {'system': _l0[1] if _l0[0] == 'Merged' else _l0[0]}
-
         if START_HEADER_TAG in data_lines[1]:  # Format 2
             # Search from the bottom in case there's a format2 violation,
             # common with t4 merge where files are glued just as with cat,
@@ -202,7 +196,7 @@ def extract_t4csv(file_descriptor):
         else:  # Format 1
             field_names = data_lines[3].split(SEPARATOR)
             data_lines = data_lines[4:]
-        return (field_names, data_lines, metadata)
+        return (field_names, data_lines)
     except:
         raise ExtractCSVException
 
@@ -215,27 +209,57 @@ def t4csv_to_plain(t4_csv, output):
 
 
 def dataframe_to_t4csv(dataframe, output, t4format=2):
-    """ Save dataframe to Format1/2 T4-compliant CSV files, one per system """
-    system_column = find_in_iterable_case_insensitive(dataframe.columns,
-                                                      'system')
-    for (system, data) in dataframe.groupby(system_column):
+    """
+    Save dataframe to Format1/2 T4-compliant CSV files, one per system
+    Returns: dict with the matching {system: filename}
+    """
+    output_names = {}
+    for system in dataframe.index.levels[1]:
+        data = dataframe.xs(system, level='system')
         try:
             buffer_object = StringIO()
             data.to_csv(buffer_object,
-                        date_format=T4_DATE_FORMAT,
-                        columns=data.columns.drop(system_column))
+                        date_format=T4_DATE_FORMAT)
             buffer_object.seek(0)
+            (_dir, output) = os.path.split(output)
+            output = '{0}{1}{3}_{2}{4}'.format(_dir,
+                                               os.sep if _dir else '',
+                                               system,
+                                               *os.path.splitext(output))
+            output_names[system] = output
             _to_t4csv(buffer_object,
-                      output='{1}_{0}{2}'.format(system, *splitext(output)),
+                      output=output,
                       t4format=t4format,
                       system_id=system)
         finally:
             buffer_object.close()
+    return output_names
 
 
-def plain_to_t4csv(plain_csv, output, t4format=2):
+def add_secondary_index(dataframe, system):
+    """
+    From a dataframe with a DateTimeIndex index, get a 2-indices dataframe
+    with (dataframe.DateTimeIndex, system) as the new index
+    """
+    # Add a secondary index based in the value of `system` in order to avoid
+    # breaking cluster statistics, i.e. data coming from cluster LONDON and
+    # represented by systems LONDON-1 and LONDON-2
+    index_len = len(dataframe.index)
+    midx = pd.MultiIndex(
+               levels=[dataframe.index.get_level_values(0),
+                       [system]],
+               labels=[range(index_len), [0]*index_len],
+               names=[DATETIME_TAG, 'system']
+           )
+    return dataframe.set_index(midx)
+
+
+def plain_to_t4csv(plain_csv, output, t4format=2, system=None):
     """ Convert plain CSV into T4-compliant Format1/2 CSV file """
-    data = reload_from_csv(plain_csv)
+    data = reload_from_csv(plain_csv, plain=True)
+    if not system:  # if no system, just set the file name as system
+        system = os.path.splitext(os.path.basename(plain_csv))[0]
+    data = add_secondary_index(data, system)
     dataframe_to_t4csv(dataframe=data,
                        output=output,
                        t4format=t4format)
@@ -260,7 +284,7 @@ def _to_t4csv(file_object, output, t4format=2, system_id=None):
         csvfile.write(file_object.read())
 
 
-def to_dataframe(field_names, data, metadata):
+def to_dataframe(field_names, data):
     """
      Loads CSV data into a pandas DataFrame
      Return an empty DataFrame if fields and data aren't correct,
@@ -277,25 +301,21 @@ def to_dataframe(field_names, data, metadata):
             fbuffer = StringIO()
             fbuffer.writelines(('%s\n' % line for line in data))
             fbuffer.seek(0)
-            # Remove duplicate columns to avoid problems with combine_first()
-            field_names = list(OrderedDict.fromkeys((f for f in field_names)))
-            # Multiple columns may have a sample time, only use first
-            df_timecol = (s for s in field_names if DATETIME_TAG in s)
+            # Multiple columns may have a 'sample time' alike column,
+            # only use first (case insensitive search)
+            df_timecol = (s for s in field_names
+                          if DATETIME_TAG.upper() in s.upper())
             index_col = df_timecol.next()
-            if index_col:
-                _df = pd.read_csv(fbuffer,
+            _df = pd.read_csv(fbuffer,
                               header=None,
-                              parse_dates={'datetime': [index_col]},
-                              index_col='datetime',
-                              names=field_names,
-                              usecols=field_names)
-            else:
-                _df = pd.read_csv(fbuffer,
-                                  header=None,
-                                  names=field_names,
-                                  usecols=field_names)
-            # Finally remove redundant time columns (if any)
+                              parse_dates=index_col,
+                              index_col=index_col,
+                              names=field_names)
+            # Remove redundant time columns (if any)
             _df.drop(df_timecol, axis=1, inplace=True)
+            # Remove duplicate columns to avoid problems with combine_first()
+            _df = remove_duplicate_columns(_df)
+
     except (StopIteration, Exception) as exc:  # Not t4-compliant!
         raise ToDfError(exc)
 

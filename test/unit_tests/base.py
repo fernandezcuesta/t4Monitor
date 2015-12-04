@@ -4,7 +4,6 @@
 *t4mon* - T4 monitoring base test functions for functional tests
 """
 
-import Queue
 import shutil
 import unittest
 from os import path
@@ -47,6 +46,7 @@ TEST_DATAFRAME = pd.DataFrame(np.random.randn(100, 4),
 TEST_GRAPHS_FILE = 'test/test_graphs.cfg'
 TEST_HTMLTEMPLATE = 'test/test_template.html'
 TEST_PKL = 'test/test_data.pkl.gz'
+TEST_ZIPFILE = 'test/test_t4.zip'
 
 
 class OrchestratorSandbox(Orchestrator):
@@ -58,8 +58,8 @@ class OrchestratorSandbox(Orchestrator):
             copied from the original and logs and graphs are left unmodified.
             This method is ONLY used in test functions.
         """
-        my_clone = Orchestrator(logger=self.logger,
-                                settings_file=self.settings_file)
+        my_clone = OrchestratorSandbox(logger=self.logger,
+                                       settings_file=self.settings_file)
         my_clone.calculations_file = self.calculations_file
         my_clone.collector = self.collector.clone()
         my_clone.date_time = self.date_time
@@ -72,17 +72,24 @@ class OrchestratorSandbox(Orchestrator):
 
         return my_clone
 
+    def __init__(self, *args, **kwargs):
+        super(OrchestratorSandbox, self).__init__(*args, **kwargs)
+        self.collector = CollectorSandbox(logger=self.logger,
+                                          settings_file=self.settings_file,
+                                          nologs=True,
+                                          alldays=True)
+
 
 class CollectorSandbox(Collector):
 
     def clone(self, system=''):
         """ Makes a copy of a Collector object
         """
-        my_clone = Collector(alldays=self.alldays,
-                             logger=self.logger,
-                             nologs=self.nologs,
-                             safe=self.safe,
-                             settings_file=self.settings_file)
+        my_clone = CollectorSandbox(alldays=self.alldays,
+                                    logger=self.logger,
+                                    nologs=self.nologs,
+                                    safe=self.safe,
+                                    settings_file=self.settings_file)
         my_clone.conf = self.conf
         my_clone.data = self.data.copy()  # call by reference
         if system in self.logs:

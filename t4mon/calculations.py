@@ -126,8 +126,9 @@ def clean_calcs(self, calc_file):
                     self.drop(col, axis=1, inplace=True)
                     self.logger.debug('Deleted column: %s', col)
                 except ValueError:
-                    self.logger.debug('Error while cleaning column %s',
-                                      col)
+                    if len(col) > 20:  # truncate the column name if too long
+                        col = '{}...'.format(col[:20])
+                    self.logger.debug('Error while cleaning column %s', col)
                     continue
         self.logger.info('Dataframe shape after cleanup: %s', self.shape)
     except IOError:

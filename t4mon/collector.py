@@ -1,19 +1,18 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-    start() ------------------.
-     |                       | no threads (legacy serial mode)
-     v                       |
-    collect_system_data()    |
-     |                       |
-     v                       |
-    get_data_and_logs()    <-'
-     |                \
-     v                 \
-    get_system_data()   `---> get_system_logs()
-     |
-     v
-    get_stats_from_host()
+              start()
+                 |
+(serial_handler or threaded_handler)
+                 v
+          get_data_and_logs()
+             /            \
+            |              |
+            v              v
+   get_system_data()  get_system_logs()
+            |
+            v
+ get_stats_from_host()
 
 """
 from __future__ import absolute_import
@@ -170,7 +169,6 @@ class Collector(object):
         self.logger = logger or init_logger()
         self.logs = {}
         self.nologs = nologs
-        self.progress_bar = tqdm.tqdm()
         self.results_queue = Queue.Queue()
         self.safe = safe
         self.settings_file = settings_file or DEFAULT_SETTINGS_FILE
@@ -214,14 +212,14 @@ class Collector(object):
         config.seek(0)
         return config.read()
 
-    def plot(self, *args, **kwargs):
+    def plot(self, *args, **kwargs):  # pragma: no cover
         """ Convenience method for calling gen_plot.plot_var """
         return gen_plot.plot_var(self.data,
                                  *args,
                                  logger=self.logger,
                                  **kwargs)
 
-    def select(self, *args, **kwargs):
+    def select(self, *args, **kwargs):  # pragma: no cover
         """ Convenience method for calling df_tools.select_var """
         return df_tools.select_var(self.data,
                                    *args,
@@ -260,7 +258,7 @@ class Collector(object):
             lbal.append(('', self.conf.getint(_sys, 'tunnel_port') or
                          randint(61001, 65535)))  # if local port is 0, random
             tunnelports[_sys] = lbal[-1][-1]
-            self.conf.set(_sys, 'tunnel_port', str(tunnelports[_sys]))
+            # self.conf.set(_sys, 'tunnel_port', str(tunnelports[_sys]))
         try:
             # Assert local tunnel ports are different
             assert len(tunnelports) == len(set(tunnelports.values()))
@@ -277,7 +275,7 @@ class Collector(object):
                 ssh_password=pwd,
                 remote_bind_addresses=rbal,
                 local_bind_addresses=lbal,
-                threaded=False,
+                threaded=True,
                 logger=self.logger,
                 ssh_private_key=pkey
             )
@@ -298,7 +296,7 @@ class Collector(object):
                               jumpbox_port)
             raise sshtunnel.BaseSSHTunnelForwarderError
 
-    def start_server(self):
+    def start_server(self):  # pragma: no cover
         """
         Dummy function to start SSH servers
         """
@@ -314,7 +312,7 @@ class Collector(object):
         except AttributeError as msg:
             raise sshtunnel.BaseSSHTunnelForwarderError(msg)
 
-    def stop_server(self):
+    def stop_server(self):  # pragma: no cover
         """
         Dummy function to stop SSH servers
         """
@@ -324,6 +322,19 @@ class Collector(object):
                 self.server.stop()
         except AttributeError as msg:
             raise sshtunnel.BaseSSHTunnelForwarderError(msg)
+
+    def check_if_tunnel_is_up(self, system):
+        """
+        Return true if there's a tuple in self.server.tunnel_is_up such as:
+            {('0.0.0.0', port): True}
+        where port is the tunnel listen port for 'system'
+        """
+        if not self.server or system not in self.server.tunnelports:
+            return False
+        port = self.server.tunnelports[system]
+        return any(port in address_tuple for address_tuple
+                   in self.server.tunnel_is_up.iterkeys()
+                   if self.server.tunnel_is_up[address_tuple])
 
     def get_sftp_session(self, system):
         """ Open an sftp session to system
@@ -339,7 +350,7 @@ class Collector(object):
             remote_system_port = self.server.tunnelports[system]
         else:
             remote_system_address = self.conf.get(system, 'ip_or_hostname')
-            remote_system_port = self.conf.get(system, 'ssh_port')
+            remote_system_port = self.conf.getint(system, 'ssh_port')
 
         self.logger.info('%s | Connecting to %sport %s',
                          system,
@@ -367,29 +378,129 @@ class Collector(object):
         except SFTPSessionError:
             raise SFTPSessionError('connection to %s failed' % system)
 
-    def get_data_and_logs(self, system):
-        """ Open an sftp session to system and collects the CSVs, generating a
-            pandas dataframe as outcome
-            By default the connection is done via SSH tunnels.
+    def files_lookup(self,
+                     hostname=None,
+                     filespec_list=None,
+                     compressed=False,
+                     **kwargs):
         """
-        sftp_session = self.get_sftp_session(system)
+         Connects to a remote system via SFTP and looks for the filespec_list
+        in the remote host. Also works locally.
+         Files that will be returned must match every item in filespec_list,
+        i.e. data*2015*csv would match data_2015.csv, 2015_data_full.csv but
+        not data_2016.csv.
+         When working with the local filesystem, filespec_list may contain
+        absolute paths.
 
-        if not sftp_session:
-            return (None, None)
-        with sftp_session as session:
-            data = self.get_system_data(session, system)
-            # Done gathering data, now get the logs
-            if self.nologs or data.empty \
-               or not self.conf.has_option('MISC', 'remote_log_cmd'):
-                logs = '{0} | Log collection omitted'.format(system)
-                self.logger.info(logs)
+        Working with local filesystem if not a valid sftp_session is passed
+
+        Returns:
+         - files: list of files matching the filespec_list in the remote
+           host or a string with wildmarks (*), i.e. data*2015*.csv
+
+        **kwargs (optional):
+        - sftp_session: already established sftp session
+        - files_folder: folder where files are located, either on sftp srv or
+                        local filesystem
+        """
+        sftp_session = kwargs.get('sftp_session', None)
+        files_folder = kwargs.get('files_folder', '.')
+
+        if files_folder[-1] == os.sep:
+            files_folder = files_folder[:-1]  # remove trailing separator (/)
+
+        if filespec_list and not isinstance(filespec_list, list):
+            filespec_list = filespec_list.split('*')
+        # default if no filter given is just the extension of the files
+        spec_list = filespec_list[:] or ['.zip' if compressed else '.csv']
+
+        if sftp_session:
+            self.logger.debug('Using established sftp session...')
+            filesource = sftp_session
+        else:
+            self.logger.debug('Using local filesystem to get the files')
+            filesource = os
+
+        # get file list by filtering with taglist (case insensitive)
+        try:
+            with change_dir(directory=files_folder,
+                            module=filesource):
+                files = ['{}/{}'.format(filesource.getcwd(), f)
+                         for f in filesource.listdir('.')
+                         if all([v.upper() in f.upper() for v in spec_list])
+                         ]
+            if not files and not sftp_session:
+                files = filespec_list  # Relative and absolute paths (local)
+        except EnvironmentError:  # cannot do the chdir
+            self.logger.error('%s | Directory "%s" not found at destination',
+                              hostname,
+                              files_folder)
+            return
+        return files
+
+    def get_stats_from_host(self,
+                            filespec_list=None,
+                            hostname=None,
+                            compressed=False,
+                            sftp_session=None,
+                            **kwargs):
+        """
+         Connects to a remote system via SFTP and reads the CSV files, which
+        might be compressed in ZIP files, then call the csv-pandas conversion
+        function.
+         Working with local filesystem if hostname is None
+         Returns: pandas dataframe
+
+        **kwargs (optional):
+        files_folder: folder where files are located, either on sftp server or
+                      local filesystem
+        """
+        _df = pd.DataFrame()
+        _dz = pd.DataFrame()
+
+        # if hostname and not sftp_session:
+        #     self.logger.error('Cannot gather remote data without a session')
+        #     return _df
+        files = self.files_lookup(hostname=hostname,
+                                  filespec_list=filespec_list,
+                                  compressed=compressed,
+                                  sftp_session=sftp_session,
+                                  **kwargs)
+        if not files:
+            self.logger.debug('Nothing gathered from %s, no files were '
+                              'selected for pattern "%s"',
+                              hostname or 'local system',
+                              filespec_list)
+            return _df
+
+        progressbar_prefix = 'Loading {}files{}'.format(
+                                  'compressed ' if compressed else '',
+                                  ' for %s' % hostname if hostname else ''
+                              )
+        for a_file in tqdm.tqdm(files,
+                                leave=True,
+                                desc=progressbar_prefix,
+                                disable=compressed,
+                                unit='Archives' if compressed else 'Files'):
+            if compressed:
+                _dz = _dz.combine_first(
+                    self._load_zipfile(zip_file=a_file,
+                                       sftp_session=sftp_session)
+                )
+                if hostname:
+                    _df = df_tools.consolidate_data(_dz,
+                                                    dataframe=_df,
+                                                    system=hostname)
+                else:
+                    return _dz
+
             else:
-                logs = self.get_system_logs(
-                    sftp_session.ssh_transport,
-                    system,
-                    self.conf.get('MISC', 'remote_log_cmd')) or \
-                    '{} | Missing logs!'.format(system)
-        return (data, logs)
+                _df = _df.combine_first(
+                    df_tools.dataframize(data_file=a_file,
+                                         sftp_session=sftp_session,
+                                         logger=self.logger)
+                )
+        return _df
 
     def get_system_logs(self, ssh_session, system, log_cmd=None):
         """ Get log info from the remote system, assumes an already established
@@ -414,7 +525,6 @@ class Collector(object):
         """
         Create pandas DF from current session CSV files downloaded via SFTP
         """
-        system_addr = self.conf.get(system, 'ip_or_hostname')
         data = pd.DataFrame()
 
         destdir = self.conf.get(system, 'folder') or '.'
@@ -430,7 +540,7 @@ class Collector(object):
         except Exception:
             pass
 
-        data = self.get_stats_from_host(hostname=system_addr,
+        data = self.get_stats_from_host(hostname=system,
                                         filespec_list=tag_list,
                                         sftp_session=session,
                                         files_folder=destdir)
@@ -453,71 +563,120 @@ class Collector(object):
                              system, data.shape)
         return data
 
-    def files_lookup(self,
-                     hostname=None,
-                     filespec_list=None,
-                     compressed=False,
-                     **kwargs):
+    def get_data_and_logs(self, system):
+        """ Collect everything needed for a system.
+            Open an sftp session to system and collects the CSVs, generating a
+            pandas dataframe as outcome.
+            By default the connection is done via SSH tunnels.
         """
-         Connects to a remote system via SFTP and looks for the filespec_list
-        in the remote host. Also works locally.
-         Files that will be returned must match every item in filespec_list,
-        i.e. data*2015*csv would match data_2015.csv, 2015_data_full.csv but
-        not data_2016.csv.
-         When working with the local filesystem, filespec_list may contain
-        absolute paths.
-
-        Working with local filesystem if hostname is None
-
-        Returns:
-         - files: list of files matching the filespec_list in the remote
-           host or a string with wildmarks (*), i.e. data*2015*.csv
-
-        **kwargs (optional):
-        - sftp_session: already established sftp session
-        - files_folder: folder where files are located, either on sftp srv or
-                        local filesystem
-        - system: filter also on system name (case insensitive)
-        """
-        sftp_session = kwargs.get('sftp_session', None)
-        files_folder = kwargs.get('files_folder', '.')
-        system = kwargs.get('system', None)
-
-        if files_folder[-1] == os.sep:
-            files_folder = files_folder[:-1]  # remove trailing separator (/)
-
-        if filespec_list and not isinstance(filespec_list, list):
-            filespec_list = filespec_list.split('*')
-        # default if no filter given is just the extension of the files
-        spec_list = filespec_list[:] or ['.zip' if compressed else '.csv']
-        if system:  # filter on system ID too
-            spec_list.append(system)
-
-        if sftp_session:
-            self.logger.debug('Using established sftp session...')
-            filesource = sftp_session
-        else:
-            self.logger.debug('Using local filesystem to get the files')
-            filesource = os
-
-        # get file list by filtering with taglist (case insensitive)
         try:
-            with change_dir(directory=files_folder,
-                            module=filesource):
-                files = ['{}/{}'.format(filesource.getcwd(), f)
-                         for f in filesource.listdir('.')
-                         if all([val.upper() in f.upper()
-                                 for val in spec_list])]
-            if not files and not hostname:
-                files = filespec_list  # For absolute paths
-        except EnvironmentError:  # cannot do the chdir
-            self.logger.error('%s | Directory "%s" not found at destination',
-                              system,
-                              files_folder)
-            return
-        return files
+            self.logger.info('%s | Collecting statistics...', system)
+            if self.use_gateway and not self.check_if_tunnel_is_up(system):
+                self.logger.error('%s | System not reachable!', system)
+                raise SFTPSessionError
 
-    def load_zipfile(self, zip_file, sftp_session=None, system=None):
+            # Get an sftp session
+            sftp_session = self.get_sftp_session(system)
+            if not sftp_session:
+                raise SFTPSessionError('Cannot open an SFTP session to %s' %
+                                       system)
+            with sftp_session as session:  # open the session
+                # Get data from the remote system
+                result_data = self.get_system_data(session, system)
+                # Done gathering data, now get the logs
+                if self.nologs or result_data.empty \
+                   or not self.conf.has_option('MISC', 'remote_log_cmd'):
+                    result_logs = '{0} | Log collection omitted'.format(system)
+                    self.logger.info(result_logs)
+                else:
+                    result_logs = self.get_system_logs(
+                        sftp_session.ssh_transport,
+                        system,
+                        self.conf.get('MISC', 'remote_log_cmd')
+                    ) or '{} | Missing logs!'.format(system)
+        except (IOError, SFTPSessionError):
+            result_data = pd.DataFrame()
+            result_logs = 'Could not get information from this system'
+
+        self.logger.debug('%s | Consolidating results', system)
+        self.data = df_tools.consolidate_data(result_data,
+                                              dataframe=self.data,
+                                              system=system)
+        self.logs[system] = result_logs
+        self.results_queue.put(system)
+
+    def threaded_handler(self):
+        """ Initialize tunnels and collect data&logs, threaded mode """
+        with self:  # calls init_tunnels
+            for system in self.systems:
+                thread = threading.Thread(target=self.get_data_and_logs,
+                                          name=system,
+                                          args=(system, ))
+                thread.daemon = True
+                thread.start()
+            # wait for threads to end, first one to finish will leave
+            # the result in the queue
+            for system in self.systems:
+                self.logger.info('%s | Done collecting data!',
+                                 self.results_queue.get())
+
+    def serial_handler(self):
+        """ Serial (legacy) handler """
+        for system in self.systems:
+            self.logger.info('%s | Initializing tunnel', system)
+            try:
+                if self.use_gateway:
+                    self.init_tunnels(system=system)
+                self.get_data_and_logs(system=system)
+                self.stop_server()
+            except (sshtunnel.BaseSSHTunnelForwarderError,
+                    IOError,
+                    SFTPSessionError):
+                self.logger.warning('Continue to next system (if any)')
+                continue
+
+    def start(self):
+        """
+        Main method for the data collection
+        """
+        try:
+            if self.safe:
+                self.serial_handler()
+            else:
+                self.threaded_handler()
+        except (sshtunnel.BaseSSHTunnelForwarderError, AttributeError) as exc:
+            self.logger.error('Could not initialize the SSH tunnels, '
+                              'aborting (%s)', repr(exc))
+        except SSHException:
+            self.logger.error('Could not open remote connection')
+        except Exception as exc:
+            self.logger.exception(exc)
+
+    def to_pickle(self, name, compress=False):
+        """ Save collector object to [optionally] gzipped pickle """
+        buffer_object = StringIO()
+        col_copy = copy.copy(self)
+        # cannot pickle a Queue, logging, or sshtunnel objects
+        col_copy.results_queue = col_copy.logger = col_copy.server = None
+        pickle.dump(obj=col_copy,
+                    file=buffer_object,
+                    protocol=pickle.HIGHEST_PROTOCOL)
+        buffer_object.flush()
+        if name.endswith('.gz'):
+            compress = True
+            name = name.rsplit('.gz')[0]  # we append the .gz extension below
+
+        if compress:
+            output = gzip
+            name = "%s.gz" % name
+        else:
+            output = __builtin__
+
+        with output.open(name, 'wb') as pkl_out:
+            pkl_out.write(buffer_object.getvalue())
+        buffer_object.close()
+
+    def _load_zipfile(self, zip_file, sftp_session=None):
         """
          Inflate a zip file and call get_stats_from_host with the decompressed
         CSV files
@@ -556,175 +715,12 @@ class Collector(object):
 
         return _df
 
-    def get_stats_from_host(self,
-                            filespec_list=None,
-                            hostname=None,
-                            compressed=False,
-                            sftp_session=None,
-                            **kwargs):
-        """
-         Connects to a remote system via SFTP and reads the CSV files, which
-        might be compressed in ZIP files, then call the csv-pandas conversion
-        function.
-         Working with local filesystem if hostname is None
-         Returns: pandas dataframe
 
-        **kwargs (optional):
-        files_folder: folder where files are located, either on sftp server or
-                      local filesystem
-        """
-        _df = pd.DataFrame()
-        _dz = pd.DataFrame()
-
-        system = kwargs.get('system')
-        if hostname and not sftp_session:
-            self.logger.error('Cannot gather remote data without a session')
-            return _df
-        files = self.files_lookup(hostname=hostname,
-                                  filespec_list=filespec_list,
-                                  compressed=compressed,
-                                  sftp_session=sftp_session,
-                                  **kwargs)
-        if not files:
-            self.logger.debug('Nothing gathered from %s, no files were '
-                              'selected for pattern "%s"',
-                              hostname or 'local system',
-                              filespec_list)
-            return _df
-
-        if self.progress_bar.total:
-            self.progress_bar.total += len(files)
-        else:
-            self.progress_bar.total = len(files)
-
-        for a_file in files:
-            if compressed:
-                _dz = _dz.combine_first(
-                    self.load_zipfile(zip_file=a_file,
-                                      sftp_session=sftp_session)
-                )
-                if system:
-                    _df = df_tools.consolidate_data(_dz,
-                                                    dataframe=_df,
-                                                    system=system)
-                else:
-                    return _dz
-
-            else:
-                _df = _df.combine_first(
-                    df_tools.dataframize(data_file=a_file,
-                                         sftp_session=sftp_session,
-                                         logger=self.logger)
-                )
-        self.progress_bar.update()
-        return _df
-
-    def check_if_tunnel_is_up(self, system):
-        """
-        Return true if there's a tuple in self.server.tunnel_is_up such as:
-            {('0.0.0.0', port): True}
-        where port is the tunnel listen port for 'system'
-        """
-        port = self.server.tunnelports[system]
-        return any(port in address_tuple for address_tuple
-                   in self.server.tunnel_is_up.iterkeys()
-                   if self.server.tunnel_is_up[address_tuple])
-
-    def collect_system_data(self, system):
-        """
-        Collect everything for a given system
-        """
-        # Get data from the remote system
-        try:
-            self.logger.info('%s | Collecting statistics...', system)
-            if not self.check_if_tunnel_is_up(system):
-                self.logger.error('%s | System not reachable!', system)
-                raise IOError
-            (result_data, result_log) = self.get_data_and_logs(system)
-            # self.logger.debug('%s | Putting results in queue', system)
-        except (IOError, SFTPSessionError):
-            result_data = pd.DataFrame()
-            result_log = 'Could not get information from this system'
-        # self.results_queue.put((system, data, log))
-        self.logger.debug('%s | Consolidating results', system)
-        self.data = df_tools.consolidate_data(result_data,
-                                              dataframe=self.data,
-                                              system=system)
-        self.logs[system] = result_log
-        self.results_queue.put(system)
-
-    def main_threads(self):
-        """ Threaded method for main() """
-        with self:  # calls init_tunnels
-            for system in self.systems:
-                thread = threading.Thread(target=self.collect_system_data,
-                                          name=system,
-                                          args=(system, ))
-                thread.daemon = True
-                thread.start()
-            # wait for threads to end, first one to finish will leave
-            # the result in the queue
-            for system in self.systems:
-                self.logger.info('%s | Done collecting data!',
-                                 self.results_queue.get())
-
-    def main_no_threads(self):
-        """ Serial (legacy) method for main() """
-        for system in self.systems:
-            self.logger.info('%s | Initializing tunnel', system)
-            try:
-                if self.use_gateway:
-                    self.init_tunnels(system)
-                self.collect_system_data(system)
-                self.stop_server()
-            except (sshtunnel.BaseSSHTunnelForwarderError,
-                    IOError,
-                    SFTPSessionError):
-                self.logger.warning('Continue to next system (if any)')
-                continue
-
-    def start(self):
-        """
-        Main method for the data collection
-        """
-        try:
-            self.progress_bar.total = 0
-            if self.safe:
-                self.main_no_threads()
-            else:
-                self.main_threads()
-        except (sshtunnel.BaseSSHTunnelForwarderError, AttributeError) as exc:
-            self.logger.error('Could not initialize the SSH tunnels, '
-                              'aborting (%s)', repr(exc))
-        except SSHException:
-            self.logger.error('Could not open remote connection')
-        except Exception as exc:
-            self.logger.exception(exc)
-
-    def to_pickle(self, name, compress=False):
-        """ Save collector object to [optionally] gzipped pickle """
-        buffer_object = StringIO()
-        col_copy = copy.copy(self)
-        # cannot pickle a Queue, logging, progressbar or sshtunnel objects
-        col_copy.results_queue = col_copy.logger = None
-        col_copy.progress_bar = col_copy.server = None
-        pickle.dump(obj=col_copy,
-                    file=buffer_object,
-                    protocol=pickle.HIGHEST_PROTOCOL)
-        buffer_object.flush()
-        if name.endswith('.gz'):
-            compress = True
-            name = name.rsplit('.gz')[0]  # we append the .gz extension below
-
-        if compress:
-            output = gzip
-            name = "%s.gz" % name
-        else:
-            output = __builtin__
-
-        with output.open(name, 'wb') as pkl_out:
-            pkl_out.write(buffer_object.getvalue())
-        buffer_object.close()
+def load_zipfile(zipfile, system=None):
+    """ Convenience method for Collector._load_zipfile() """
+    col = Collector(alldays=True, nologs=True)
+    return col.get_stats_from_host(zipfile, hostname=system, compressed=True)
+    # return col._load_zipfile(zipfile)
 
 
 def read_pickle(name, compress=False, logger=None):

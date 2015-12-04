@@ -10,6 +10,7 @@ from os import path
 from ast import literal_eval
 
 import jinja2
+import tqdm
 from matplotlib import pyplot as plt
 
 from . import gen_plot
@@ -71,8 +72,12 @@ class Report(object):
             Returns: (graph_title, graph_encoded_in_b64)
         """
         try:
+            progressbar_prefix = 'Rendering report for {}'.format(self.system)
             with open(self.graphs_definition_file, 'r') as graphs_txt:
-                for line in graphs_txt:
+                for line in tqdm.tqdm(graphs_txt,
+                                      leave=True,
+                                      desc=progressbar_prefix,
+                                      unit='Graphs'):
                     line = line.strip()
 
                     if not len(line) or line[0] == '#':
