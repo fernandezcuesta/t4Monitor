@@ -1,7 +1,7 @@
 t4Monitor
 #########
 
-.. image:: https://travis-ci.org/fernandezcuesta/t4Monitor.svg?branch=master
+.. image:: https://travis-ci.org/fernandezcuesta/t4Monitor.svg?branch=develop
   :target: https://travis-ci.org/fernandezcuesta/t4Monitor
 .. image:: https://coveralls.io/repos/fernandezcuesta/t4Monitor/badge.svg?branch=develop&service=github
   :target: https://coveralls.io/github/fernandezcuesta/t4Monitor?branch=develop
