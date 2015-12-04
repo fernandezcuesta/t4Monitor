@@ -12,9 +12,10 @@ pip=6.1.1=py27_0
 pycrypto=2.6.1=py27_3
 pyparsing=2.0.3=py27_0
 pyqt=4.10.4=py27_1
-python=2.7.9=1
+python=2.7.10=1
 python-dateutil=2.4.2=py27_0
 pytz=2015.2=py27_0
 setuptools=15.2=py27_0
 sshtunnel=0.0.4.4=py27_0
 six=1.9.0=py27_0
+tqdm=3.1.4=py27_0
