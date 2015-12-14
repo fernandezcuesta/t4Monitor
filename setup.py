@@ -1,14 +1,21 @@
 #!/usr/bin/env python
-from setuptools import setup
-from setuptools.command.test import test as TestCommand
-from pip.req import parse_requirements
-from pip.download import PipSession
-
+import os
 import sys
+
+from pip.req import parse_requirements
+from setuptools import setup
+from pip.download import PipSession
+from setuptools.command.test import test as TestCommand
+
 import t4mon
 
-
 requires = [str(ir.req) for ir in parse_requirements('requirements.txt', session=PipSession)]
+
+if sys.platform.startswith('linux') or sys.platform == 'darwin':
+    requires.append('cairocffi')
+else:  # windows will use pycairo
+    requires.extend([dep for dep in os.listdir('windows_deps/')
+                     if os.path.splitext(dep)[-1] == '.whl'])
 
 entry_points = {
     'console_scripts': [

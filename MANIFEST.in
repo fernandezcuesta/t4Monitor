@@ -2,3 +2,4 @@ include t4mon/conf/*
 include *.md
 include requirements.txt
 include test/*
+include windows_deps/*
