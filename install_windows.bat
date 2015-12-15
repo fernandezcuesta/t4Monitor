@@ -1,0 +1,1 @@
+pip install --no-index --find-links=local/ -r requirements-windows.txt
