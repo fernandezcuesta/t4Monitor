@@ -9,7 +9,13 @@ from setuptools.command.test import test as TestCommand
 
 import t4mon
 
-requires = [str(ir.req) for ir in parse_requirements('requirements.txt', session=PipSession)]
+requires = [str(ir.req) for ir in parse_requirements('requirements-common.txt', session=PipSession)]
+
+if sys.platform.startswith('linux') or sys.platform == 'darwin':
+    requires.append('cairocffi')
+else:  # windows will use pycairo
+    requires.append('pycairo')
+
 
 entry_points = {
     'console_scripts': [
