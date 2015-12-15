@@ -1,2 +1,0 @@
--r requirements-common.txt
-pycairo  ; downloaded from http://www.lfd.uci.edu/~gohlke/pythonlibs/#pycairo
