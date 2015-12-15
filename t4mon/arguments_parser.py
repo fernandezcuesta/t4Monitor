@@ -15,9 +15,13 @@ __all__ = ('parse_arguments_local_csv',
            )
 
 
-DESCRIPTION = 'T4 collector and report generator script (run t4mon-config ' \
-              'to dump the configuration defaults or t4mon-local to create ' \
-              'reports from local data)'
+DESCRIPTION = """
+T4 collector and report generator script
+
+Additional tools:
+t4mon-config: dump the configuration defaults
+t4mon-local: create reports from local data (usually under store/ folder)
+t4mon-localcsv: create reports from local CSV (usually under store/ folder)"""
 
 
 def get_input(text):
