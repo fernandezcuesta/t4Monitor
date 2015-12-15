@@ -51,8 +51,11 @@ __all__ = ('add_methods_to_pandas_dataframe',
            'read_config')
 
 # CONSTANTS
-DEFAULT_SETTINGS_FILE = '{}/conf/settings.cfg'.\
-                        format(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_SETTINGS_FILE = os.path.join(os.getcwd(), 'settings_file')
+if not os.path.exists(DEFAULT_SETTINGS_FILE):
+    DEFAULT_SETTINGS_FILE = '{}/conf/settings.cfg'.format(
+        os.path.dirname(os.path.abspath(__file__))
+    )
 # Avoid using locale in Linux+Windows environments, keep these lowercase
 MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
           'jul', 'aug', 'sep', 'oct', 'nov', 'dec']

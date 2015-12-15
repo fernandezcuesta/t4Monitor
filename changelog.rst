@@ -1,3 +1,4 @@
+- [0.10.5] - Use logging level constants, load local 'settings.cfg' by default
 - [0.10.4] - Add progressbars and code refactor, fix tests
 - [0.10.3] - API fixes
 - [0.10.2] - Add load_zipfile to collector.py

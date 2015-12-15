@@ -17,12 +17,12 @@ class TestLogger(unittest.TestCase):
     def test_initlogger(self):
         """ Test function for init_logger """
         my_logger = logger.init_logger()
-        self.assertEqual(logging.getLevelName(my_logger.level), 'DEBUG')
+        self.assertEqual(my_logger.level, logging.DEBUG)
         self.assertEqual(my_logger.name, logger.__name__)
         # Even if the loglevel is set to a different value, the logger loglevel
         # stays in 'DEBUG'
-        my_logger = logger.init_logger(loglevel='INFO', name='testset')
-        self.assertEqual(logging.getLevelName(my_logger.level), 'DEBUG')
+        my_logger = logger.init_logger(loglevel=logging.INFO, name='testset')
+        self.assertEqual(my_logger.level, logging.DEBUG)
         self.assertEqual('testset', my_logger.name)
 
     def test_init_logger_has_two_handlers(self):
@@ -39,10 +39,9 @@ class TestLogger(unittest.TestCase):
         # Check that console handler's loglevel is the same as specified
         for _handler in my_logger.handlers:
             print("%s <> %s" % (logger.DEFAULT_LOGLEVEL,
-                                logging.getLevelName(_handler.level)))
+                                _handler.level))
             if isinstance(_handler, handlers.TimedRotatingFileHandler):
                 self.assertEqual(_handler.level, my_logger.level)
             else:
-                self.assertEqual(logging.getLevelName(_handler.level),
-                                 # 'ERROR')
+                self.assertEqual(_handler.level,
                                  logger.DEFAULT_LOGLEVEL)
