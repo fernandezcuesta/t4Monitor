@@ -1,8 +1,13 @@
+- Let `sshtunnel` (which will rely on `paramiko`) choose the tunnel ports
+instead of `collector` giving a random port, which **may be in use**.
+
 - <s>Test functions for all submodules</s>
 
-- Functional tests should use mocks
+- Functional tests should use mocks (rely on `sshtunnel`'s)
 
-- <s>Make reports from local stored data (PKL, CSV loses metadata)</s> Create ipynb for local data reporting
+- <s>Make reports from local stored data (PKL, CSV loses metadata)</s>
+
+- Create ipynb for local data reporting
 
 - <s>[SYSTEM] should not depend on T4-CSV header, system should be selected
 according to `container.data.system` instead of

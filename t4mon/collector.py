@@ -59,7 +59,6 @@ if not os.path.exists(DEFAULT_SETTINGS_FILE):
 # Avoid using locale in Linux+Windows environments, keep these lowercase
 MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
           'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
-LINE = 80 * '-'
 
 
 @contextmanager

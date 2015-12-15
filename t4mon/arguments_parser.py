@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, absolute_import
 
-import sys
 import argparse
+import logging
+import sys
 
 from . import collector
 from .logger import DEFAULT_LOGLEVEL
@@ -54,7 +55,7 @@ def create_parser(args=None):
                                      description=DESCRIPTION)
     parser.add_argument('--safe', action='store_true', dest='safe',
                         help='Serial mode running without threads, '
-                             'increasing execution time by 2x.')
+                             'increasing execution time by ~2x.')
     parser.add_argument(
         '--settings', dest='settings_file',
         default=collector.DEFAULT_SETTINGS_FILE,
@@ -67,7 +68,7 @@ def create_parser(args=None):
                                  'ERROR',
                                  'CRITICAL'],
                         help='Debug level (default: %s)' %
-                        DEFAULT_LOGLEVEL,
+                        logging.getLevelName(DEFAULT_LOGLEVEL),
                         nargs='?')
     return parser
 
