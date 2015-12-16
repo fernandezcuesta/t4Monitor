@@ -1,10 +1,10 @@
 t4Monitor
 #########
 
-.. image:: https://travis-ci.org/fernandezcuesta/t4Monitor.svg?branch=develop
+.. image:: https://travis-ci.org/fernandezcuesta/t4Monitor.svg?branch=master
   :target: https://travis-ci.org/fernandezcuesta/t4Monitor
-.. image:: https://coveralls.io/repos/fernandezcuesta/t4Monitor/badge.svg?branch=develop&service=github
-  :target: https://coveralls.io/github/fernandezcuesta/t4Monitor?branch=develop
+.. image:: https://coveralls.io/repos/fernandezcuesta/t4Monitor/badge.svg?branch=master&service=github
+  :target: https://coveralls.io/github/fernandezcuesta/t4Monitor?branch=master 
 
 - Download OpenVMS statistics (T4) over sftp through optional SSH tunnels over
   a single gateway.
