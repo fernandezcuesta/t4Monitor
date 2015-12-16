@@ -41,12 +41,17 @@ isort:skip_file
 
 from __future__ import print_function, absolute_import
 
+import os
 import sys
 
 import matplotlib  # isort:skip
 # Set matplotlib's backend before first import of pyplot or pylab,
 # Qt4 doesn't like threads
-matplotlib.use('Cairo')
+if os.name == 'posix':
+    matplotlib.use('Cairo')
+else:
+    matplotlib.use('TkAgg')
+    import FileDialog  # Required by matplotlib when using TkAgg backend
 
 from .collector import add_methods_to_pandas_dataframe, read_config
 from .gen_plot import plot_var
@@ -57,7 +62,7 @@ from .arguments_parser import (parse_arguments_local_csv,
                                parse_arguments_main)
 
 
-__version_info__ = (0, 10, 4)
+__version_info__ = (0, 11, 0)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
