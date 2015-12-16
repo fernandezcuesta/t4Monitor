@@ -52,9 +52,9 @@ from .collector import add_methods_to_pandas_dataframe, read_config
 from .gen_plot import plot_var
 
 from .orchestrator import Orchestrator
-from . arguments_parser import (parse_arguments_local_csv,
-                                parse_arguments_local_pkl,
-                                parse_arguments_main)
+from .arguments_parser import (parse_arguments_local_csv,
+                               parse_arguments_local_pkl,
+                               parse_arguments_main)
 
 
 __version_info__ = (0, 10, 4)
@@ -77,7 +77,7 @@ def main():  # pragma: no cover
     _orchestrator.start()
 
 
-def create_reports_from_local_pkl():  # pragma: no cover
+def create_reports_from_local_pkl(**arguments):  # pragma: no cover
     """ Create HTML reports from local stored PKL file """
     arguments = parse_arguments_local_pkl(sys.argv[1:])
     pkl_file = arguments.pop('pkl_file')
@@ -85,7 +85,7 @@ def create_reports_from_local_pkl():  # pragma: no cover
     _orchestrator.create_reports_from_local_pkl(pkl_file)
 
 
-def create_reports_from_local_csv():  # pragma: no cover
+def create_reports_from_local_csv(**arguments):  # pragma: no cover
     """ Create HTML reports from local stored CSV files """
     arguments = parse_arguments_local_csv(sys.argv[1:])
     csv_file = arguments.pop('csv_file')

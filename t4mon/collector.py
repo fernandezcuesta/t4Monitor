@@ -17,28 +17,28 @@
 """
 from __future__ import absolute_import
 
-import copy
 import os
+import copy
 import gzip
 import Queue
+import zipfile
 import datetime as dt
 import tempfile
 import threading
-import zipfile
 import __builtin__
 import ConfigParser
-from contextlib import contextmanager
-from cStringIO import StringIO
-from paramiko import SFTPClient
 from random import randint
+from cStringIO import StringIO
+from contextlib import contextmanager
 
+import tqdm
 import pandas as pd
 import sshtunnel
-import tqdm
-from paramiko import SSHException
+from paramiko import SFTPClient, SSHException
+
 from sshtunnels.sftpsession import SftpSession, SFTPSessionError
 
-from . import df_tools, calculations, gen_plot
+from . import df_tools, gen_plot, calculations
 from .logger import init_logger
 
 try:
@@ -51,7 +51,7 @@ __all__ = ('add_methods_to_pandas_dataframe',
            'read_config')
 
 # CONSTANTS
-DEFAULT_SETTINGS_FILE = os.path.join(os.getcwd(), 'settings_file')
+DEFAULT_SETTINGS_FILE = os.path.join(os.getcwd(), 'settings.cfg')
 if not os.path.exists(DEFAULT_SETTINGS_FILE):
     DEFAULT_SETTINGS_FILE = '{}/conf/settings.cfg'.format(
         os.path.dirname(os.path.abspath(__file__))
