@@ -57,12 +57,11 @@ from .collector import add_methods_to_pandas_dataframe, read_config
 from .gen_plot import plot_var
 
 from .orchestrator import Orchestrator
-from .arguments_parser import (parse_arguments_local_csv,
-                               parse_arguments_local_pkl,
+from .arguments_parser import (parse_arguments_local,
                                parse_arguments_main)
 
 
-__version_info__ = (0, 11, 0)
+__version_info__ = (0, 11, 1)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
@@ -70,7 +69,7 @@ __all__ = ('main',
            'dump_config')
 
 
-def dump_config(output=None):
+def dump_config(output=None, **kwargs):
     """ Dump current configuration to screen, useful for creating a new
     settings.cfg file """
     conf = read_config()
@@ -78,25 +77,28 @@ def dump_config(output=None):
 
 
 def main():  # pragma: no cover
-    _orchestrator = Orchestrator(**parse_arguments_main(sys.argv[1:]))
+    arguments = parse_arguments_main(sys.argv[1:])
+    if arguments.get('config', False):
+        dump_config(**arguments)
+        return
+    if arguments.get('local', False):
+        create_reports_from_local(sys.argv[1:],
+                                  prog='{} --local'.format(sys.argv[0]))
+        return
+    if arguments.get('localcsv', False):
+        create_reports_from_local(sys.argv[1:],
+                                  prog='{} --localcsv'.format(sys.argv[0]),
+                                  pkl=False)
+        return
+    _orchestrator = Orchestrator(**arguments)
     _orchestrator.start()
 
 
-def create_reports_from_local_pkl(**arguments):  # pragma: no cover
-    """ Create HTML reports from local stored PKL file """
-    arguments = parse_arguments_local_pkl(sys.argv[1:])
-    pkl_file = arguments.pop('pkl_file')
+def create_reports_from_local(arguments, prog=None, pkl=True):  # pragma: no cover
+    """ Create HTML reports from local stored data """
+    arguments = parse_arguments_local(sys.argv[1:], prog=prog, pkl=pkl)
     _orchestrator = Orchestrator(**arguments)
-    _orchestrator.create_reports_from_local_pkl(pkl_file)
-
-
-def create_reports_from_local_csv(**arguments):  # pragma: no cover
-    """ Create HTML reports from local stored CSV files """
-    arguments = parse_arguments_local_csv(sys.argv[1:])
-    csv_file = arguments.pop('csv_file')
-    _orchestrator = Orchestrator(**arguments)
-    _orchestrator.create_reports_from_local_csv(csv_file)
-
-
-if __name__ == "__main__":  # pragma: no cover
-    main()
+    if pkl:
+        _orchestrator.create_reports_from_local_pkl(arguments.pop('pkl_file'))
+    else:
+        _orchestrator.create_reports_from_local_csv(arguments.pop('csv_file'))

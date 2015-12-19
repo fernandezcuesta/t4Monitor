@@ -50,13 +50,14 @@ def check_for_sysargs(parser, args=None):
     return vars(parser.parse_args(args))
 
 
-def create_parser(args=None):
+def create_parser(args=None, prog=None):
     """
     Common parser parts for parse_arguments_local and parse_arguments_main
     """
     parser = argparse.ArgumentParser(formatter_class=argparse.
                                      RawTextHelpFormatter,
-                                     description=DESCRIPTION)
+                                     description=DESCRIPTION,
+									 prog=prog)
     parser.add_argument('--safe', action='store_true', dest='safe',
                         help='Serial mode running without threads, '
                              'increasing execution time by ~2x.')
@@ -77,25 +78,17 @@ def create_parser(args=None):
     return parser
 
 
-def parse_arguments_local_pkl(args=None):
+def parse_arguments_local(args=None, prog=None, pkl=True):
     """
-    Argument parser for create_reports_from_local_pkl
+    Argument parser for create_reports_from_local
     """
-    parser = create_parser()
-    parser.add_argument('pkl_file',
-                        type=str, metavar='input_pkl_file',
-                        help='Pickle (optionally gzipped) data file')
-    return check_for_sysargs(parser, args)
-
-
-def parse_arguments_local_csv(args=None):
-    """
-    Argument parser for create_reports_from_local_csv
-    """
-    parser = create_parser()
-    parser.add_argument('csv_file',
-                        type=str, metavar='input_csv_file',
-                        help='Plain CSV file')
+    parser = create_parser(prog=prog)
+    filetype = 'pkl' if pkl else 'csv'
+    parser.add_argument('{}_file'.format(filetype),
+                        type=str,
+						metavar='input_{}_file'.format(filetype), 
+                        help='Pickle (optionally gzipped) data file' if pkl
+                        else 'Plain CSV file')
     return check_for_sysargs(parser, args)
 
 

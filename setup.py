@@ -13,9 +13,6 @@ requires = [str(ir.req) for ir in parse_requirements('requirements-common.txt', 
 
 if sys.platform.startswith('linux') or sys.platform == 'darwin':
     requires.append('cairocffi')
-else:  # windows will use pycairo
-    requires.append('pycairo')
-
 
 entry_points = {
     'console_scripts': [

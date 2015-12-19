@@ -1,3 +1,0 @@
-## Build for windows
-
-    $ nuitka __init__.py --recurse-to=t4mon --recurse-to=sftpsession --recurse-to=sshtunnel --recurse-to=calculations
