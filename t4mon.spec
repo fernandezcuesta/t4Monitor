@@ -4,17 +4,16 @@ block_cipher = None
 
 
 a = Analysis(['t4mon.py'],
-             pathex=['C:\\Users\\fernandezjm\\t4m'],
+             pathex=['.'],
              binaries=None,
-             datas=[('t4mon\\conf', 't4mon\\conf')],
+             datas=[('t4mon/conf/', 't4mon/conf')],
              hiddenimports=[],
              hookspath=[],
              runtime_hooks=[],
              excludes=[],
              win_no_prefer_redirects=False,
              win_private_assemblies=False,
-             cipher=block_cipher,
-             strip_paths=2)
+             cipher=block_cipher)
 pyz = PYZ(a.pure, a.zipped_data,
              cipher=block_cipher)
 exe = EXE(pyz,
@@ -24,6 +23,7 @@ exe = EXE(pyz,
           debug=False,
           strip=False,
           upx=True,
+		  icon='local\\favicon.ico',
           console=True )
 coll = COLLECT(exe,
                a.binaries,

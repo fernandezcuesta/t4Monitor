@@ -19,9 +19,10 @@ DESCRIPTION = """
 T4 collector and report generator script
 
 Additional tools:
-t4mon-config: dump the configuration defaults
-t4mon-local: create reports from local data (usually under store/ folder)
-t4mon-localcsv: create reports from local CSV (usually under store/ folder)"""
+ --config: dump the configuration defaults
+ --local: create reports from local data (typically under 'store/' folder)
+ --localcsv: create reports from local CSV (typically under 'store/' folder)
+"""
 
 
 def get_input(text):
@@ -35,12 +36,12 @@ def check_for_sysargs(parser, args=None):
     """
     # Default for collector is 'settings.cfg' in /conf
     if not args:
-        parser.parse_args(args)
+        # parser.parse_args(args)
         parser.print_help()
         print('')
         while True:
             ans = get_input('No arguments were specified, continue with '
-                            'defaults (check with t4mon-config)? (y|[N]) ')
+                            'defaults (check running with --config)? (y|[N]) ')
             if ans in ('y', 'Y'):
                 print('Proceeding with default settings')
                 break
@@ -105,4 +106,10 @@ def parse_arguments_main(args=None):
                              'and stored locally')
     parser.add_argument('--nologs', action='store_true',
                         help='Skip log collection from remote hosts')
+    parser.add_argument('--config', action='store_true',
+                        help='Show current configuration')
+    parser.add_argument('--local', action='store_true',
+                        help='Render a report from local data')
+    parser.add_argument('--localcsv', action='store_true',
+                        help='Make a report from local CSV data')
     return check_for_sysargs(parser, args)

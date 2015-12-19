@@ -33,3 +33,4 @@ dist/
 .tox/
 *.ipynb*
 *.log*
+src/
