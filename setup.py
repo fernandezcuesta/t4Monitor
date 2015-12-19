@@ -16,10 +16,7 @@ if sys.platform.startswith('linux') or sys.platform == 'darwin':
 
 entry_points = {
     'console_scripts': [
-        't4monitor = t4mon:main',
-        't4mon-config = t4mon:dump_config',
-        't4mon-local = t4mon:create_reports_from_local_pkl',
-        't4mon-localcsv = t4mon:create_reports_from_local_csv',
+        't4monitor = t4mon:main'
     ]
 }
 
