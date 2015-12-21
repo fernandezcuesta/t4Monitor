@@ -9,8 +9,7 @@ import sys
 from . import collector
 from .logger import DEFAULT_LOGLEVEL
 
-__all__ = ('parse_arguments_local_csv',
-           'parse_arguments_local_pkl',
+__all__ = ('parse_arguments_local',
            'parse_arguments_main'
            )
 
@@ -58,7 +57,7 @@ def create_parser(args=None, prog=None):
     parser = argparse.ArgumentParser(formatter_class=argparse.
                                      RawTextHelpFormatter,
                                      description=DESCRIPTION,
-									 prog=prog)
+                                     prog=prog)
     parser.add_argument('--safe', action='store_true', dest='safe',
                         help='Serial mode running without threads, '
                              'increasing execution time by ~2x.')
@@ -87,7 +86,7 @@ def parse_arguments_local(args=None, prog=None, pkl=True):
     filetype = 'pkl' if pkl else 'csv'
     parser.add_argument('{}_file'.format(filetype),
                         type=str,
-						metavar='input_{}_file'.format(filetype), 
+                        metavar='input_{}_file'.format(filetype),
                         help='Pickle (optionally gzipped) data file' if pkl
                         else 'Plain CSV file')
     return check_for_sysargs(parser, args)

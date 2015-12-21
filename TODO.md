@@ -20,3 +20,5 @@ according to `container.data.system` instead of
 - CLI: move from argparse+tqdm to Click (argument parsing and progressbar)
 
 - python3 compatibility
+
+- move from setuptools to distutils
