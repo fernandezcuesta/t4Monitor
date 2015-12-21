@@ -5,10 +5,11 @@ from __future__ import print_function, absolute_import
 import os
 import logging
 import datetime as dt
-import threading
+# import threading
 
 from matplotlib import pylab as pylab  # isort:skip
 from matplotlib import pyplot as plt  # isort:skip
+from pathos.multiprocessing import ProcessingPool as Pool
 
 from . import collector  # isort:skip
 from .logger import DEFAULT_LOGLEVEL, init_logger  # isort:skip
@@ -184,14 +185,42 @@ class Orchestrator(object):
         with open(report_name, 'w') as output:
             output.writelines(gen_report(container=self,
                                          system=system))
-        self.reports_written.append(report_name)
+        return report_name
+
+    # def reports_generator(self):
+    #     """
+    #     Call jinja2 template, separately to safely store the logs
+    #     in case of error.
+    #     Doing this with threads throws many errors with Qt (when acting as
+    #     matplotlib backend out from main thread)
+    #     """
+    #     # Initialize default figure sizes and styling
+    #     pylab.rcParams['figure.figsize'] = 13, 10
+
+    #     plt.style.use('ggplot')
+
+    #     if self.safe:
+    #         for system in self.collector.systems:
+    #             self.create_report(system)
+    #     else:
+    #         threads = [
+    #             threading.Thread(target=self.create_report,
+    #                              kwargs={'system': system},
+    #                              name=system)
+    #             for system in self.collector.systems
+    #         ]
+    #         for thread_item in threads:
+    #             thread_item.daemon = True
+    #             thread_item.start()
+    #         for thread_item in threads:  # Assuming all take the same time
+    #             thread_item.join()
 
     def reports_generator(self):
         """
         Call jinja2 template, separately to safely store the logs
         in case of error.
-        Doing this with threads throws many errors with Qt (when acting as
-        matplotlib backend out from main thread)
+        Doing this with multiple processes to avoid problems with GC and
+        matplotlib backends under Windows environments.
         """
         # Initialize default figure sizes and styling
         pylab.rcParams['figure.figsize'] = 13, 10
@@ -200,19 +229,12 @@ class Orchestrator(object):
 
         if self.safe:
             for system in self.collector.systems:
-                self.create_report(system)
+                self.reports_written.append(self.create_report(system))
         else:
-            threads = [
-                threading.Thread(target=self.create_report,
-                                 kwargs={'system': system},
-                                 name=system)
-                for system in self.collector.systems
-            ]
-            for thread_item in threads:
-                thread_item.daemon = True
-                thread_item.start()
-            for thread_item in threads:  # Assuming all take the same time
-                thread_item.join()
+            pool = Pool(processes=len(self.collector.systems))
+            written = pool.map(self.create_report, self.collector.systems)
+            self.reports_written.extend(written)
+            # pool.close()
 
     def local_store(self, nologs=True):
         """

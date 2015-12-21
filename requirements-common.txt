@@ -4,3 +4,4 @@ pandas>=0.15.2
 paramiko>=1.15.2
 tqdm
 -e git+https://github.com/fernandezcuesta/sshtunnel.git#egg=sshtunnel-0.0.4.5
+-e git+https://github.com/uqfoundation/pathos.git#egg=pathos-devel

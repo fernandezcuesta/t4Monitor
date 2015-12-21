@@ -58,9 +58,9 @@ def create_parser(args=None, prog=None):
                                      RawTextHelpFormatter,
                                      description=DESCRIPTION,
                                      prog=prog)
-    parser.add_argument('--fast', action='store_false', dest='safe',
-                        help='Threading mode, decrease execution time by 1/2, '
-                             'but unstable under Windows environment')
+    parser.add_argument('--safe', action='store_true', dest='safe',
+                        help='Serial mode, increasing execution time by 2x, '
+                             'more stable under Windows environment')
     parser.add_argument(
         '--settings', dest='settings_file',
         default=collector.DEFAULT_SETTINGS_FILE,
