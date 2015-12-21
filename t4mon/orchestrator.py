@@ -13,7 +13,7 @@ from matplotlib import pyplot as plt  # isort:skip
 from . import collector  # isort:skip
 from .logger import DEFAULT_LOGLEVEL, init_logger  # isort:skip
 from .gen_report import gen_report  # isort:skip
-from .df_tools import reload_from_csv  # isort:skip
+from .df_tools import consolidate_data, reload_from_csv  # isort:skip
 
 
 __all__ = ('Orchestrator')
@@ -261,33 +261,39 @@ class Orchestrator(object):
 
         self.logger.info('Done!')
 
-    def create_reports_from_local(self, data_file, pkl=True):
+    def create_reports_from_local(self, data_file,
+                                  pkl=True,
+                                  plain=False,
+                                  system=None):
         """ Generate HTML files from data stored locally """
         # load the input file
         if not os.path.exists(data_file):
             self.logger.error('%s file %s cannot be found',
                               'PKL' if pkl else 'CSV',
-                              pkl_file)
+                              data_file)
             raise IOError
         if pkl:
             self.collector = collector.read_pickle(data_file,
                                                    logger=self.logger)
         else:  # CSV
+            if not system:
+                system = os.path.splitext(os.path.basename(data_file))[0]
             self.collector.data = reload_from_csv(data_file,
                                                   plain=plain)
+            self.collector.data = consolidate_data(self.collector.data,
+                                                   system=system)
             self.collector.systems = system if isinstance(system,
                                                           list) else [system]
-            if not self.collector.systems:
-                self.collector.systems = [os.path.splitext(csv_file)[0]]
-
         # Populate the log info with fake data
         for system in self.collector.systems:
+            # calling self.date_tag() before the threads, related to a bug with
+            # threading and datetime as explained in
+            # http://code-trick.com/python-bug-attribute-error-_strptime/
             self.collector.logs[system] = 'Log collection omitted for '\
                                           'locally generated reports at '\
-                                          '{}'.format(self.date_tag())
-        # calling self.date_tag() before the threads, related to a bug with
-        # threading and datetime as explained in
-        # http://code-trick.com/python-bug-attribute-error-_strptime/
+                                          '{} for {}'.format(self.date_tag(),
+                                                             system)
+            self.logger.info(self.collector.logs[system])
 
         # Create the reports
         self.reports_generator()

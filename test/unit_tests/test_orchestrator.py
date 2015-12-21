@@ -105,29 +105,31 @@ class TestOrchestrator(BaseTestClass):
         for report_file in _orchestrator.reports_written:
             self.assertTrue(os.path.exists(report_file))
 
-    def test_create_reports_from_local_pkl(self):
+    def test_create_reports_from_local(self):
         """
-        Test function for Orchestrator.create_reports_from_local_pkl()
+        Test function for Orchestrator.create_reports_from_local(pkl=True)
         """
         _orchestrator = self.orchestrator_test.clone()
-        _orchestrator.create_reports_from_local_pkl(TEST_PKL)
+        _orchestrator.create_reports_from_local(TEST_PKL)
         self.assertNotEqual(_orchestrator.reports_written, [])
         for report_file in _orchestrator.reports_written:
             self.assertTrue(os.path.exists(report_file))
         # Non existing file raises error
         with self.assertRaises(IOError):
-            _orchestrator.create_reports_from_local_pkl('WR0NG')
+            _orchestrator.create_reports_from_local('WR0NG')
 
     def test_create_reports_from_local_csv(self):
-        """ Test function for Orchestrator.create_reports_from_local_csv() """
+        """
+        Test function for Orchestrator.create_reports_from_local(pkl=False)
+        """
         _orchestrator = self.orchestrator_test.clone()
-        _orchestrator.create_reports_from_local_csv(TEST_CSV)
-        # self.assertNotEqual(_orchestrator.reports_written, [])
-        # for report_file in _orchestrator.reports_written:
-        #     self.assertTrue(os.path.exists(report_file))
-        # # Non existing file raises error
-        # with self.assertRaises(IOError):
-        #     _orchestrator.create_reports_from_local_pkl('WR0NG')
+        _orchestrator.create_reports_from_local(TEST_CSV, pkl=False)
+        self.assertNotEqual(_orchestrator.reports_written, [])
+        for report_file in _orchestrator.reports_written:
+            self.assertTrue(os.path.exists(report_file))
+        # Non existing file raises error
+        with self.assertRaises(IOError):
+            _orchestrator.create_reports_from_local('WR0NG', pkl=False)
 
     def test_local_store(self):
         """ Test that data can be stored locally in both PKL and CSV formats
