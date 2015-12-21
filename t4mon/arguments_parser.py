@@ -58,9 +58,9 @@ def create_parser(args=None, prog=None):
                                      RawTextHelpFormatter,
                                      description=DESCRIPTION,
                                      prog=prog)
-    parser.add_argument('--safe', action='store_true', dest='safe',
-                        help='Serial mode running without threads, '
-                             'increasing execution time by ~2x.')
+    parser.add_argument('--fast', action='store_false', dest='safe',
+                        help='Threading mode, decrease execution time by 1/2, '
+                             'but unstable under Windows environment')
     parser.add_argument(
         '--settings', dest='settings_file',
         default=collector.DEFAULT_SETTINGS_FILE,
@@ -111,6 +111,6 @@ def parse_arguments_main(args=None):
                         help='Render a report from local data')
     parser.add_argument('--localcsv', action='store_true',
                         help='Make a report from local CSV data')
-    parser.add_argument('dummy', type=str,
+    parser.add_argument('dummy', type=str, nargs='?',
                         help=argparse.SUPPRESS)
     return check_for_sysargs(parser, args)

@@ -513,9 +513,9 @@ class Collector(object):
         if not log_cmd:
             self.logger.error('No command was specified for log collection')
             return
-        self.logger.info('Getting log output from %s (%s), may take a while.',
-                         system,
-                         log_cmd)
+        self.logger.warning('Getting log output from %s (%s), may take a while',
+                            system,
+                            log_cmd)
         try:  # ignoring stdin and stderr
             (_, stdout, _) = ssh_session.\
                              exec_command(log_cmd)
