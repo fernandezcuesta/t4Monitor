@@ -1,3 +1,7 @@
+- Fix threading bug under windows with the plots
+
+- Move from threading to multiprocessing
+
 - Let `sshtunnel` (which will rely on `paramiko`) choose the tunnel ports
 instead of `collector` giving a random port, which **may be in use**.
 
