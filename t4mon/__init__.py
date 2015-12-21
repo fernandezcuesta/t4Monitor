@@ -77,28 +77,25 @@ def dump_config(output=None, **kwargs):
 
 
 def main():  # pragma: no cover
-    arguments = parse_arguments_main(sys.argv[1:])
+    sys_arguments = sys.argv[1:]
+    arguments = parse_arguments_main(sys_arguments)
     if arguments.get('config', False):
         dump_config(**arguments)
         return
-    if arguments.get('local', False):
-        create_reports_from_local(sys.argv[1:],
-                                  prog='{} --local'.format(sys.argv[0]))
-        return
-    if arguments.get('localcsv', False):
-        create_reports_from_local(sys.argv[1:],
-                                  prog='{} --localcsv'.format(sys.argv[0]),
-                                  pkl=False)
-        return
+    for par in ['local', 'localcsv']:
+        if arguments.get(par, False):
+            sys_arguments.remove('--{}'.format(par))
+            create_reports_from_local(sys_arguments,
+                                      prog='{} --{}'.format(sys_arguments, par))
+            return
     _orchestrator = Orchestrator(**arguments)
     _orchestrator.start()
 
 
 def create_reports_from_local(arguments, prog=None, pkl=True):  # pragma: no cover
     """ Create HTML reports from local stored data """
-    arguments = parse_arguments_local(sys.argv[1:], prog=prog, pkl=pkl)
+    arguments = parse_arguments_local(arguments, prog=prog, pkl=pkl)
     _orchestrator = Orchestrator(**arguments)
-    if pkl:
-        _orchestrator.create_reports_from_local_pkl(arguments.pop('pkl_file'))
-    else:
-        _orchestrator.create_reports_from_local_csv(arguments.pop('csv_file'))
+    argument_file_name = '{}_file'.format('pkl' if pkl else 'csv')
+    _orchestrator.create_reports_from_local(arguments.pop(argument_file_name),
+                                            pkl)

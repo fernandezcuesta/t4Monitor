@@ -261,41 +261,34 @@ class Orchestrator(object):
 
         self.logger.info('Done!')
 
-    def create_reports_from_local_pkl(self, pkl_file):
-        """ Generate HTML files from data stored locally in pickle format """
+    def create_reports_from_local(self, data_file, pkl=True):
+        """ Generate HTML files from data stored locally """
         # load the input file
-        if not os.path.exists(pkl_file):
-            self.logger.error('PKL file %s cannot be found', pkl_file)
+        if not os.path.exists(data_file):
+            self.logger.error('%s file %s cannot be found',
+                              'PKL' if pkl else 'CSV',
+                              pkl_file)
             raise IOError
-        self.collector = collector.read_pickle(pkl_file, logger=self.logger)
+        if pkl:
+            self.collector = collector.read_pickle(data_file,
+                                                   logger=self.logger)
+        else:  # CSV
+            self.collector.data = reload_from_csv(data_file,
+                                                  plain=plain)
+            self.collector.systems = system if isinstance(system,
+                                                          list) else [system]
+            if not self.collector.systems:
+                self.collector.systems = [os.path.splitext(csv_file)[0]]
 
         # Populate the log info with fake data
         for system in self.collector.systems:
             self.collector.logs[system] = 'Log collection omitted for '\
-                                          'locally generated reports'
-        # Create the reports
-        self.reports_generator()
-        self.logger.info('Done!')
+                                          'locally generated reports at '\
+                                          '{}'.format(self.date_tag())
+        # calling self.date_tag() before the threads, related to a bug with
+        # threading and datetime as explained in
+        # http://code-trick.com/python-bug-attribute-error-_strptime/
 
-    def create_reports_from_local_csv(self,
-                                      csv_file,
-                                      plain=False,
-                                      system=None):
-        """ Generate HTML files from a local (plain/T4) CSV file """
-        # parse the CSV into a (modified) pandas Dataframe
-        if not os.path.exists(csv_file):
-            self.logger.error('CSV file %s cannot be found', csv_file)
-            raise IOError
-        self.collector.data = reload_from_csv(csv_file,
-                                              plain=plain)
-        self.collector.systems = system if isinstance(system,
-                                                      list) else [system]
-        if not self.collector.systems:
-            self.collector.systems = [os.path.splitext(csv_file)[0]]
-        # Populate the log info with fake data
-        for system in self.collector.systems:
-            self.collector.logs[system] = 'Log collection omitted for '\
-                                          'locally generated reports'
         # Create the reports
         self.reports_generator()
         self.logger.info('Done!')

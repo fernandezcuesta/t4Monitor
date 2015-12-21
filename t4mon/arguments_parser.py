@@ -111,4 +111,6 @@ def parse_arguments_main(args=None):
                         help='Render a report from local data')
     parser.add_argument('--localcsv', action='store_true',
                         help='Make a report from local CSV data')
+    parser.add_argument('dummy', type=str,
+                        help=argparse.SUPPRESS)
     return check_for_sysargs(parser, args)
