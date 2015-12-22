@@ -1,15 +1,20 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-from __future__ import print_function, absolute_import
+from __future__ import absolute_import, print_function
 
-import os
-import logging
 import datetime as dt
+import logging
+import os
+
+import copy_reg
+import pandas as pd
+import types
+from multiprocessing import Pool
+
 # import threading
 
 from matplotlib import pylab as pylab  # isort:skip
 from matplotlib import pyplot as plt  # isort:skip
-from pathos.multiprocessing import ProcessingPool as Pool
 
 from . import collector  # isort:skip
 from .logger import DEFAULT_LOGLEVEL, init_logger  # isort:skip
@@ -19,6 +24,23 @@ from .df_tools import consolidate_data, reload_from_csv  # isort:skip
 
 __all__ = ('Orchestrator')
 
+def _pickle_method(method):
+    func_name = method.im_func.__name__
+    obj = method.im_self
+    cls = method.im_class
+    return _unpickle_method, (func_name, obj, cls)
+
+def _unpickle_method(func_name, obj, cls):
+    for cls in cls.mro():
+        try:
+            func = cls.__dict__[func_name]
+        except KeyError:
+            pass
+        else:
+            break
+    return func.__get__(obj, cls)
+
+copy_reg.pickle(types.MethodType, _pickle_method, _unpickle_method)
 
 class Orchestrator(object):
 
@@ -41,26 +63,27 @@ class Orchestrator(object):
         self.calculations_file = ''
         self.date_time = dt.date.strftime(dt.datetime.today(),
                                           "%d/%m/%Y %H:%M:%S")
+        self.date_tag = self.date_tag()
         self.graphs = {}  # will be filled by calls from within jinja for loop
         self.graphs_definition_file = ''
         self.html_template = ''
-        self.logger = logger or init_logger(loglevel)
+        self.loglevel = loglevel
+        self.logger = logger or init_logger(self.loglevel)
         self.noreports = noreports
         self.reports_written = []
         self.reports_folder = './reports'
         self.settings_file = settings_file or collector.DEFAULT_SETTINGS_FILE
         self.store_folder = './store'
         self.safe = safe
-        self.collector = collector.Collector(
-            logger=self.logger,
-            settings_file=self.settings_file,
-            safe=self.safe,
-            **kwargs
-        )
+        self.kwargs = kwargs
+        self._index = 0
+        self.data = pd.DataFrame()
+        self.logs = {}
+        self.systems = []
         self.check_files()
 
     def __str__(self):
-        return ('Container created on {0} with loglevel {1}\n'
+        return ('Orchestrator object created on {0} with loglevel {1}\n'
                 'graphs_definition_file: {2}\n'
                 'html_template: {3}\n'
                 'reports folder: {4}\n'
@@ -75,11 +98,21 @@ class Orchestrator(object):
                     self.html_template,
                     self.reports_folder,
                     self.store_folder,
-                    self.collector.data.shape,
+                    self.data.shape,
                     self.settings_file,
                     self.calculations_file,
                     'safe' if self.safe else 'fast'
                 ))
+
+    def __iter__(self):
+        return self
+
+    def next(self): # Python 3: def __next__(self)
+        if self._index >= len(self.systems):
+            raise StopIteration
+        else:
+            self._index += 1
+            return self
 
     def get_absolute_path(self, filename=''):
         """
@@ -120,8 +153,8 @@ class Orchestrator(object):
         - calculations file (settings/MISC/calculations_file)
         - Jinja template (settings/MISC/html_template)
         - graphs definition file (settings/MISC/graphs_definition_file)
-        - reports output folder (container.reports_folder)
-        - CSV and DAT store folder (container.store_folder)
+        - reports output folder (self.reports_folder)
+        - CSV and DAT store folder (self.store_folder)
 
         Returns: Boolean (whether or not everything is in place)
         """
@@ -172,16 +205,17 @@ class Orchestrator(object):
         return dt.date.strftime(current_date,
                                 "%Y%m%d_%H%M")
 
-    def create_report(self, system=None):
+    def create_report(self, system=None, logger=None):
         """ Method for creating a single report for a particular system """
+        logger = logger or init_logger(self.loglevel)
         if not system:
             raise AttributeError('Need a value for system!')
         report_name = '{0}/Report_{1}_{2}.html'.format(self.reports_folder,
-                                                       self.date_tag(),
+                                                       self.date_tag,
                                                        system)
-        self.logger.debug('%s | Generating HTML report (%s)',
-                          system,
-                          report_name)
+        logger.debug('%s | Generating HTML report (%s)',
+                      system,
+                      report_name)
         with open(report_name, 'w') as output:
             output.writelines(gen_report(container=self,
                                          system=system))
@@ -228,52 +262,67 @@ class Orchestrator(object):
         plt.style.use('ggplot')
 
         if self.safe:
-            for system in self.collector.systems:
+            for system in self.systems:
                 self.reports_written.append(self.create_report(system))
         else:
-            pool = Pool(processes=len(self.collector.systems))
-            written = pool.map(self.create_report, self.collector.systems)
+            # make the collector pickable
+            _logger = self.logger
+            self.logger = None
+            pool = Pool(processes=len(self.systems))
+            written = pool.map(create_simple_report, self)
             self.reports_written.extend(written)
-            # pool.close()
+            pool.close()
+            self.logger = _logger
+            self.logger.critical(written)
 
-    def local_store(self, nologs=True):
+    def local_store(self, collector):
         """
         Makes a local copy of the current data in CSV and gzipped pickle
         """
         self.logger.info('Making a local copy of data in store folder: ')
-        datetag = self.date_tag()
-        destfile = '{0}/data_{1}.pkl'.format(self.store_folder, datetag)
-        self.collector.to_pickle(destfile,
-                                 compress=True)
+        destfile = '{0}/data_{1}.pkl'.format(self.store_folder, self.date_tag)
+        collector.to_pickle(destfile,
+                            compress=True)
         self.logger.info('  -->  %s.gz', destfile)
-        destfile = '{0}/data_{1}.csv'.format(self.store_folder, datetag)
-        self.collector.data.to_csv(destfile)
+        destfile = '{0}/data_{1}.csv'.format(self.store_folder, self.date_tag)
+        collector.data.to_csv(destfile)
         self.logger.info('  -->  %s', destfile)
 
         # Write logs
-        if not nologs:
-            for system in self.collector.systems:
-                if system not in self.collector.logs:
+        if not collector.nologs:
+            for system in collector.systems:
+                if system not in collector.logs:
                     self.logger.warning('No log info found for %s', system)
                     continue
                 with open('{0}/logs_{1}_{2}.txt'.format(self.store_folder,
                                                         system,
-                                                        datetag),
+                                                        self.date_tag),
                           'w') as logtxt:
-                    logtxt.writelines(self.collector.logs[system])
+                    logtxt.writelines(self.logs[system])
 
     def start(self):  # pragma: no cover
         """ Main method, gets data and logs, store and render the HTML output
         """
 
         # Open the connection and gather all data and logs
-        self.collector.start()
-        if self.collector.data.empty:
+        collector = collector.Collector(
+            logger=self.logger,
+            settings_file=self.settings_file,
+            safe=self.safe,
+            **self.kwargs
+        )
+
+        collector.start()
+        self.data = collector.data
+        self.logs = collector.logs
+        self.systems = collector.systems
+        
+        if self.data.empty:
             self.logger.critical('Could not retrieve data!!! Aborting.')
             return
 
         # Store the data locally
-        self.local_store(self.collector.nologs)
+        self.local_store(collector)
 
         # Generate reports
         if self.noreports:
@@ -295,47 +344,63 @@ class Orchestrator(object):
                               data_file)
             raise IOError
         if pkl:
-            self.collector = collector.read_pickle(data_file,
-                                                   logger=self.logger)
+            collector = collector.read_pickle(data_file,
+                                              logger=self.logger)
         else:  # CSV
             if not system:
                 system = os.path.splitext(os.path.basename(data_file))[0]
-            self.collector.data = reload_from_csv(data_file,
-                                                  plain=plain)
-            self.collector.data = consolidate_data(self.collector.data,
-                                                   system=system)
-            self.collector.systems = system if isinstance(system,
-                                                          list) else [system]
+            self.data = reload_from_csv(data_file,
+                                        plain=plain)
+            self.data = consolidate_data(self.data,
+                                         system=system)
+            self.systems = system if isinstance(system, list) else [system]
         # Populate the log info with fake data
-        for system in self.collector.systems:
-            # calling self.date_tag() before the threads, related to a bug with
-            # threading and datetime as explained in
-            # http://code-trick.com/python-bug-attribute-error-_strptime/
-            self.collector.logs[system] = 'Log collection omitted for '\
-                                          'locally generated reports at '\
-                                          '{} for {}'.format(self.date_tag(),
-                                                             system)
-            self.logger.info(self.collector.logs[system])
+        for system in self.systems:
+            self.logs[system] = 'Log collection omitted for '\
+                                'locally generated reports at '\
+                                '{} for {}'.format(self.date_tag, system)
+            self.logger.info(self.logs[system])
 
         # Create the reports
         self.reports_generator()
         self.logger.info('Done!')
 
-    def set_threaded_mode(self, safe=False):
-        """ Change both orchestrator and collector mode (serial/threaded) """
-        self.safe = self.collector.safe = safe
-        self.logger.debug('Changed to %s mode',
-                          'safe' if safe else 'fast')
+    ### API CHANGE ON 0.12 MAKES THIS OBSOLETE
+    # def set_threaded_mode(self, safe=False):
+        # """ Change both orchestrator and collector mode (serial/threaded) """
+        # self.safe = self.collector.safe = safe
+        # self.logger.debug('Changed to %s mode',
+                          # 'safe' if safe else 'fast')
 
-    def set_settings_file(self, settings_file=None):
-        """ Change the settings file both for orchestrator and collector """
-        self.settings_file = settings_file or collector.DEFAULT_SETTINGS_FILE
-        self.collector.settings_file = self.settings_file
-        self.collector.conf = collector.read_config(self.settings_file)
+    # def set_settings_file(self, settings_file=None):
+        # """ Change the settings file both for orchestrator and collector """
+        # self.settings_file = settings_file or collector.DEFAULT_SETTINGS_FILE
+        # self.collector.settings_file = self.settings_file
+        # self.collector.conf = collector.read_config(self.settings_file)
 
-    def set_logger_level(self, loglevel=None):
-        """ Change the loglevel for orchestrator and collector objects """
-        if not loglevel:
-            loglevel = DEFAULT_LOGLEVEL
-        self.logger.setLevel(loglevel)
-        self.collector.logger.setLevel(loglevel)
+    # def set_logger_level(self, loglevel=None):
+        # """ Change the loglevel for orchestrator and collector objects """
+        # if not loglevel:
+            # loglevel = DEFAULT_LOGLEVEL
+        # self.logger.setLevel(loglevel)
+        # self.collector.logger.setLevel(loglevel)
+
+
+def create_simple_report(self, logger=None):
+    """ Method for creating a single report for a particular system """
+    logger = logger or init_logger(self.loglevel)
+    logger.critical(self._index)
+    system = self.systems[self._index]
+    if not system:
+        raise AttributeError('Need a value for system!')
+    report_name = '{0}/Report_{1}_{2}.html'.format(self.reports_folder,
+                                                   self.date_tag,
+                                                   system)
+    logger.debug('%s | Generating HTML report (%s)',
+                 system,
+                 report_name)
+    with open(report_name, 'w') as output:
+        output.writelines(gen_report(container=self,
+                                     system=system,
+                                     logger=logger))
+    return report_name

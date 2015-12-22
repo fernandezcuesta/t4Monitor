@@ -14,11 +14,11 @@ import tqdm
 from matplotlib import pyplot as plt
 
 from . import gen_plot
-
+from . import logger
 
 class Report(object):
 
-    def __init__(self, container, system):
+    def __init__(self, container, system, logger=None):
         self.system = system
         self.year = datetime.date.today().year
         # Transparently pass all container items
@@ -27,6 +27,12 @@ class Report(object):
         # Make data and logs directly visible
         self.data = container.collector.data
         self.logs = container.collector.logs
+        if 'loglevel' not in self.__dict__:
+            loglevel = logger.DEFAULT_LOGLEVEL
+        if logger:
+            self.logger = logger
+        if 'logger' not in self.__dict__ or not self.logger:
+            self.logger = logger.init_logger(self.loglevel)
 
     def render(self):
         """
