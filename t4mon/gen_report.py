@@ -14,7 +14,7 @@ import tqdm
 from matplotlib import pyplot as plt
 
 from . import gen_plot
-from . import logger
+from .logger import init_logger
 
 class Report(object):
 
@@ -24,15 +24,12 @@ class Report(object):
         # Transparently pass all container items
         for item in container.__dict__:
             self.__setattr__(item, container.__getattribute__(item))
-        # Make data and logs directly visible
-        self.data = container.collector.data
-        self.logs = container.collector.logs
         if 'loglevel' not in self.__dict__:
-            loglevel = logger.DEFAULT_LOGLEVEL
+            self.loglevel = logger.DEFAULT_LOGLEVEL
         if logger:
             self.logger = logger
         if 'logger' not in self.__dict__ or not self.logger:
-            self.logger = logger.init_logger(self.loglevel)
+            self.logger = init_logger(self.loglevel)
 
     def render(self):
         """

@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 
 from t4mon import df_tools, gen_plot
 
-from .base import LOGGER, TEST_CSV, TEST_DATAFRAME, BaseTestClass
+from .base import LOGGER, TEST_DATAFRAME, BaseTestClass
 
 
 class TestGenPlot(BaseTestClass):

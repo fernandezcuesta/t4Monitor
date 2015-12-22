@@ -24,11 +24,13 @@ from .df_tools import consolidate_data, reload_from_csv  # isort:skip
 
 __all__ = ('Orchestrator')
 
+
 def _pickle_method(method):
     func_name = method.im_func.__name__
     obj = method.im_self
     cls = method.im_class
     return _unpickle_method, (func_name, obj, cls)
+
 
 def _unpickle_method(func_name, obj, cls):
     for cls in cls.mro():
@@ -41,6 +43,7 @@ def _unpickle_method(func_name, obj, cls):
     return func.__get__(obj, cls)
 
 copy_reg.pickle(types.MethodType, _pickle_method, _unpickle_method)
+
 
 class Orchestrator(object):
 
@@ -79,7 +82,9 @@ class Orchestrator(object):
         self._index = 0
         self.data = pd.DataFrame()
         self.logs = {}
-        self.systems = []
+        self.systems = [item for item in
+                        collector.read_config(self.settings_file).sections()
+                        if item not in ['GATEWAY', 'MISC']]
         self.check_files()
 
     def __str__(self):
@@ -107,7 +112,7 @@ class Orchestrator(object):
     def __iter__(self):
         return self
 
-    def next(self): # Python 3: def __next__(self)
+    def next(self):  # Python 3: def __next__(self)
         if self._index >= len(self.systems):
             raise StopIteration
         else:
@@ -145,9 +150,31 @@ class Orchestrator(object):
                     self.get_absolute_path(conf.get('MISC', option))
                 )
 
+    def check_folders(self):
+        """
+        Runtime method checking if all destination folders are in place:
+
+        - reports output folder (self.reports_folder)
+        - CSV and DAT store folder (self.store_folder)
+        """
+        # Create store folder if needed
+        try:
+            self.logger.debug('Using store folder: %s', self.store_folder)
+            os.makedirs(self.store_folder)
+        except OSError:
+            self.logger.debug('Store folder already exists: %s',
+                              os.path.abspath(self.store_folder))
+        # Create reports folder if needed
+        try:
+            self.logger.debug('Using reports folder: %s', self.reports_folder)
+            os.makedirs(self.reports_folder)
+        except OSError:
+            self.logger.debug('Reports folder already exists: %s',
+                              os.path.abspath(self.reports_folder))
+
     def check_files(self):
         """
-        Runtime test that checks if all required files exist and are readable:
+        Runtime method checking if all required files exist and are readable:
 
         - settings file
         - calculations file (settings/MISC/calculations_file)
@@ -169,20 +196,8 @@ class Orchestrator(object):
             self.logger.exception(_exc)
             raise collector.ConfigReadError
 
-        # Create store folder if needed
-        try:
-            self.logger.debug('Using store folder: %s', self.store_folder)
-            os.makedirs(self.store_folder)
-        except OSError:
-            self.logger.debug('Store folder already exists: %s',
-                              os.path.abspath(self.store_folder))
-        # Create reports folder if needed
-        try:
-            self.logger.debug('Using reports folder: %s', self.reports_folder)
-            os.makedirs(self.reports_folder)
-        except OSError:
-            self.logger.debug('Reports folder already exists: %s',
-                              os.path.abspath(self.reports_folder))
+        # Check that destination folders are in place
+        self.check_folders()
 
         for option in ['graphs_definition_file',
                        'html_template',
@@ -207,15 +222,15 @@ class Orchestrator(object):
 
     def create_report(self, system=None, logger=None):
         """ Method for creating a single report for a particular system """
-        logger = logger or init_logger(self.loglevel)
         if not system:
             raise AttributeError('Need a value for system!')
+        logger = logger or init_logger(self.loglevel)
         report_name = '{0}/Report_{1}_{2}.html'.format(self.reports_folder,
                                                        self.date_tag,
                                                        system)
         logger.debug('%s | Generating HTML report (%s)',
-                      system,
-                      report_name)
+                     system,
+                     report_name)
         with open(report_name, 'w') as output:
             output.writelines(gen_report(container=self,
                                          system=system))
@@ -269,7 +284,7 @@ class Orchestrator(object):
             _logger = self.logger
             self.logger = None
             pool = Pool(processes=len(self.systems))
-            written = pool.map(create_simple_report, self)
+            written = pool.map(self.create_report, self.systems)
             self.reports_written.extend(written)
             pool.close()
             self.logger = _logger
@@ -305,18 +320,18 @@ class Orchestrator(object):
         """
 
         # Open the connection and gather all data and logs
-        collector = collector.Collector(
+        _collector = collector.Collector(
             logger=self.logger,
             settings_file=self.settings_file,
             safe=self.safe,
             **self.kwargs
         )
 
-        collector.start()
-        self.data = collector.data
-        self.logs = collector.logs
-        self.systems = collector.systems
-        
+        _collector.start()
+        self.data = _collector.data
+        self.logs = _collector.logs
+        self.systems = _collector.systems
+
         if self.data.empty:
             self.logger.critical('Could not retrieve data!!! Aborting.')
             return
@@ -344,8 +359,11 @@ class Orchestrator(object):
                               data_file)
             raise IOError
         if pkl:
-            collector = collector.read_pickle(data_file,
-                                              logger=self.logger)
+            _collector = collector.read_pickle(data_file,
+                                               logger=self.logger)
+            self.data = _collector.data
+            self.logs = _collector.logs
+            self.systems = _collector.systems
         else:  # CSV
             if not system:
                 system = os.path.splitext(os.path.basename(data_file))[0]
@@ -365,7 +383,7 @@ class Orchestrator(object):
         self.reports_generator()
         self.logger.info('Done!')
 
-    ### API CHANGE ON 0.12 MAKES THIS OBSOLETE
+    # API CHANGE ON 0.12 MAKES THIS OBSOLETE
     # def set_threaded_mode(self, safe=False):
         # """ Change both orchestrator and collector mode (serial/threaded) """
         # self.safe = self.collector.safe = safe

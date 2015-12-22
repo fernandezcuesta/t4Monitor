@@ -49,6 +49,11 @@ TEST_PKL = 'test/test_data.pkl.gz'
 TEST_ZIPFILE = 'test/test_t4.zip'
 
 
+def random_tag(n=5):
+    """ Return a n-digit string for random file naming """
+    return ''.join(str(l) for l in np.random.randint(1, 10, n))
+
+
 class OrchestratorSandbox(Orchestrator):
 
     def clone(self):
@@ -61,23 +66,26 @@ class OrchestratorSandbox(Orchestrator):
         my_clone = OrchestratorSandbox(logger=self.logger,
                                        settings_file=self.settings_file)
         my_clone.calculations_file = self.calculations_file
-        my_clone.collector = self.collector.clone()
+        # my_clone.collector = self.collector.clone()
+        my_clone.data = self.data.copy()  # TODO: Is a copy really needed?
         my_clone.date_time = self.date_time
         my_clone.graphs_definition_file = self.graphs_definition_file
         my_clone.html_template = self.html_template
+        my_clone.logs = self.logs.copy()
         my_clone.reports_written = []  # empty the written reports list
-        my_clone.reports_folder = self.reports_folder
-        my_clone.store_folder = self.store_folder
+        my_clone.reports_folder = self.reports_folder + random_tag()
+        my_clone.store_folder = self.store_folder + random_tag()
         my_clone.safe = self.safe
+        my_clone.systems = self.systems[:]
+        my_clone.folders = self.folders
+        my_clone.folders.append(my_clone.reports_folder)
+        my_clone.folders.append(my_clone.store_folder)
+        my_clone.check_folders()  # force creation of destination folders
 
         return my_clone
 
     def __init__(self, *args, **kwargs):
         super(OrchestratorSandbox, self).__init__(*args, **kwargs)
-        self.collector = CollectorSandbox(logger=self.logger,
-                                          settings_file=self.settings_file,
-                                          nologs=True,
-                                          alldays=True)
 
 
 class CollectorSandbox(Collector):
@@ -116,12 +124,15 @@ class BaseTestClass(unittest.TestCase):
 
         cls.orchestrator_test = OrchestratorSandbox(logger=LOGGER,
                                                     settings_file=TEST_CONFIG)
-        cls.orchestrator_test.collector = cls.collector_test
+        cls.orchestrator_test.logs = cls.collector_test.logs
+        cls.orchestrator_test.folders = [cls.orchestrator_test.reports_folder]
+        cls.orchestrator_test.folders.append(
+            cls.orchestrator_test.store_folder
+        )
 
     @classmethod
     def tearDownClass(cls):
-        for folder in [cls.orchestrator_test.reports_folder,
-                       cls.orchestrator_test.store_folder]:
+        for folder in cls.orchestrator_test.folders:
             if path.isdir(folder):
                 try:
                     shutil.rmtree(folder)

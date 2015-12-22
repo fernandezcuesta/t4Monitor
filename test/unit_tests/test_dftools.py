@@ -67,7 +67,7 @@ class TestAuxiliaryFunctions(unittest.TestCase):
         rnd_row = a[:1]
         a = df2.columns.values
         rnd_col = a[:3]
-        df2.update(df2[rnd_col].ix[rnd_row] * 50.0)
+        df2.update(df2[rnd_col].ix[rnd_row] * 99.0)
         df2 = df_tools.remove_outliers(df2, n_std=2)
         assert_frame_equal(df1.drop(rnd_row, axis=0), df2)
 

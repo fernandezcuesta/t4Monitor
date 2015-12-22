@@ -27,7 +27,7 @@ class TestGenReport(BaseTestClass):
         """ Test function for gen_report """
         my_container = self.orchestrator_test.clone()
         # fill it with some data
-        my_container.collector.data = self.test_data
+        my_container.data = self.test_data
         system = self.test_data.index.levels[1].unique()[0].upper()
 
         html_rendered = gen_report(my_container, system)
@@ -55,14 +55,14 @@ class TestGenReport(BaseTestClass):
 
         # Same when no data in the container or when no system was specified
         my_container.html_template = TEST_HTMLTEMPLATE
-        my_container.collector.data = pd.DataFrame()
+        my_container.data = pd.DataFrame()
         self.assertEqual(gen_report(my_container, system), '')
         self.assertEqual(gen_report(my_container, ''), '')
 
     def test_getgraphs(self):
         """ Test function for get_graphs """
         my_container = self.orchestrator_test.clone()
-        my_container.collector.data = self.test_data
+        my_container.data = self.test_data
         system = self.test_data.index.levels[1].unique()[0].upper()
 
         _report = Report(my_container, system)
