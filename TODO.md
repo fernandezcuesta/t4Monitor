@@ -1,6 +1,6 @@
-- Fix threading bug under windows with the plots
+- <s>Fix threading bug under windows with the plots</s>
 
-- Move from threading to multiprocessing
+- Move from threading to multiprocessing **[Done for report renderer]**
 
 - Let `sshtunnel` (which will rely on `paramiko`) choose the tunnel ports
 instead of `collector` giving a random port, which **may be in use**.
@@ -26,3 +26,5 @@ according to `container.data.system` instead of
 - python3 compatibility
 
 - move from setuptools to distutils
+
+- minimize .EXE size for windows builds (*hint: matplotlib*)
