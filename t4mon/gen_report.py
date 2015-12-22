@@ -7,7 +7,7 @@ from __future__ import absolute_import
 
 import datetime
 from os import path
-from ast import literal_eval
+# from ast import literal_eval  # TODO: is literal_eval working in Linux?
 
 import jinja2
 import tqdm
@@ -96,7 +96,7 @@ class Report(object):
                                         '"%s"...', line[1:20])
                     continue
                 try:
-                    optional_kwargs = literal_eval("dict(%s)" % info[2]) \
+                    optional_kwargs = eval("dict(%s)" % info[2]) \
                                       if len(info) == 3 else {'ylim': 0.0}
                 except ValueError:
                     optional_kwargs = {'ylim': 0.0}

@@ -1,5 +1,7 @@
 - <s>Fix threading bug under windows with the plots</s>
 
+- BUG: Plot options are ignored
+
 - Move from threading to multiprocessing **[Done for report renderer]**
 
 - Let `sshtunnel` (which will rely on `paramiko`) choose the tunnel ports
