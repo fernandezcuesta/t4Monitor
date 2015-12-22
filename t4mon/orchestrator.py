@@ -271,11 +271,6 @@ class Orchestrator(object):
         Doing this with multiple processes to avoid problems with GC and
         matplotlib backends under Windows environments.
         """
-        # Initialize default figure sizes and styling
-        pylab.rcParams['figure.figsize'] = 13, 10
-
-        plt.style.use('ggplot')
-
         if self.safe:
             for system in self.systems:
                 self.reports_written.append(self.create_report(system))
@@ -288,25 +283,23 @@ class Orchestrator(object):
             self.reports_written.extend(written)
             pool.close()
             self.logger = _logger
-            self.logger.critical(written)
 
-    def local_store(self, collector):
+    def local_store(self, col):
         """
         Makes a local copy of the current data in CSV and gzipped pickle
         """
         self.logger.info('Making a local copy of data in store folder: ')
         destfile = '{0}/data_{1}.pkl'.format(self.store_folder, self.date_tag)
-        collector.to_pickle(destfile,
-                            compress=True)
+        col.to_pickle(destfile, compress=True)
         self.logger.info('  -->  %s.gz', destfile)
         destfile = '{0}/data_{1}.csv'.format(self.store_folder, self.date_tag)
-        collector.data.to_csv(destfile)
+        col.data.to_csv(destfile)
         self.logger.info('  -->  %s', destfile)
 
         # Write logs
-        if not collector.nologs:
-            for system in collector.systems:
-                if system not in collector.logs:
+        if not col.nologs:
+            for system in col.systems:
+                if system not in col.logs:
                     self.logger.warning('No log info found for %s', system)
                     continue
                 with open('{0}/logs_{1}_{2}.txt'.format(self.store_folder,
@@ -337,7 +330,7 @@ class Orchestrator(object):
             return
 
         # Store the data locally
-        self.local_store(collector)
+        self.local_store(_collector)
 
         # Generate reports
         if self.noreports:

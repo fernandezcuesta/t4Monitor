@@ -16,7 +16,7 @@ from matplotlib import pylab, pyplot as plt
 from . import df_tools
 from .logger import init_logger
 
-DFLT_COLORMAP = 'Reds'  # default matplotlib colormap if nothing specified
+DFLT_COLORMAP = 'cool'  # default matplotlib colormap if nothing specified
 
 
 def update_colors(ax, cmap=None):
@@ -43,6 +43,10 @@ def plot_var(dataframe, *var_names, **optional):
                column name must contain both 'str1' and 'str2'.
     """
     logger = optional.pop('logger', '') or init_logger()
+    # Initialize default figure sizes and styling
+    pylab.rcParams['figure.figsize'] = 13, 10
+    plt.style.use('ggplot')
+
     try:
         system_filter = optional.pop('system', '')
         if dataframe.empty:

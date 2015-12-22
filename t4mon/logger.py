@@ -8,7 +8,7 @@ Created on Mon May 24 19:12:58 2015
 import logging
 from logging import handlers
 
-DEFAULT_LOGLEVEL = logging.ERROR  # Only for console output
+DEFAULT_LOGLEVEL = logging.WARNING  # Only for console output
 
 
 def init_logger(loglevel=None, name=__name__):

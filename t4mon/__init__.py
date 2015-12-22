@@ -47,11 +47,11 @@ import sys
 import matplotlib  # isort:skip
 # Set matplotlib's backend before first import of pyplot or pylab,
 # Qt4 doesn't like threads
-if os.name == 'posix':
-    matplotlib.use('Cairo')
-else:
-    matplotlib.use('TkAgg')
-    import FileDialog  # Required by matplotlib when using TkAgg backend
+# if os.name == 'posix':
+    # matplotlib.use('Cairo')
+# else:
+    # matplotlib.use('TkAgg')
+    # import FileDialog  # Required by matplotlib when using TkAgg backend
 
 from .collector import add_methods_to_pandas_dataframe, read_config
 from .gen_plot import plot_var
