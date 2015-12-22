@@ -338,7 +338,7 @@ class Orchestrator(object):
         else:
             self.reports_generator()
 
-        self.logger.info('Done!')
+        self.logger.warning('Done!')
 
     def create_reports_from_local(self, data_file,
                                   pkl=True,
