@@ -107,46 +107,35 @@ class Orchestrator(object):
                                    os.sep if relpath != os.sep else '',
                                    filename)
 
-    def get_external_files_from_config(self):
-        """
-        Read the settings file and check if external config files (i.e.
-        calculations_file, html_template) are defined and add them to the
-        Orchestrator object as attributes
-        """
-        conf = collector.read_config(self.settings_file)
-        self.logger.debug('Using settings file: %s', self.settings_file)
-        for option in ['calculations_file',
-                       'html_template',
-                       'graphs_definition_file',
-                       'reports_folder',
-                       'store_folder']:
-            if conf.has_option('MISC', option):
-                self.__setattr__(
-                    option,
-                    self.get_absolute_path(conf.get('MISC', option))
-                )
-
-    def check_external_files_from_config(self):
+    def check_external_files_from_config(self, add_external_to_object=True):
         """
         Read the settings file and check if external config files (i.e.
         calculations_file, html_template) are defined and exist in the
-        filesystem
+        filesystem.
+        Optionally add all the external files to the Orchestrator object.
         """
         conf = collector.read_config(self.settings_file)
         self.logger.debug('Using settings file: %s', self.settings_file)
-        for option in ['calculations_file',
-                       'html_template',
-                       'graphs_definition_file',
-                       'reports_folder',
-                       'store_folder']:
-            value = self.get_absolute_path(conf.get('MISC', option))
-            if option in self.__dict__:  # update valid values
-                self.__setattr__(option, value)
-            elif not os.path.isfile(value):
-                self.logger.critical('%s NOT found: %s',
-                                     option,
-                                     value)
-                raise collector.ConfigReadError
+        for external_file in ['calculations_file',
+                              'html_template',
+                              'graphs_definition_file']:
+
+            # Check if all external files are properly configured
+            if conf.has_option('MISC', external_file):
+                value = self.get_absolute_path(conf.get('MISC', external_file))
+            else:
+                _msg = 'Entry for {} not found in MISC section (file: {})'\
+                    .format(external_file, self.settings_file)
+                raise collector.ConfigReadError(_msg)
+
+            # Check if external files do exist
+            if not os.path.isfile(value):
+                _msg = '{} NOT found: {}'.format(external_file, value)
+                raise collector.ConfigReadError(_msg)
+
+            # Update Orchestrator object
+            if add_external_to_object:
+                self.__setattr__(external_file, value)
 
     def check_folders(self):
         """
@@ -302,10 +291,12 @@ class Orchestrator(object):
 
         self.logger.warning('Done!')
 
-    def create_reports_from_local(self, data_file,
+    def create_reports_from_local(self,
+                                  data_file,
                                   pkl=True,
                                   plain=False,
-                                  system=None):
+                                  system=None,
+                                  **kwargs):
         """
         Generate HTML files from data stored locally
         """
@@ -320,7 +311,10 @@ class Orchestrator(object):
                                                logger=self.logger)
             self.data = _collector.data
             self.logs = _collector.logs
-            self.systems = _collector.systems
+            if system:
+                self.systems = system if isinstance(system, list) else [system]
+            else:
+                self.systems = _collector.systems
         else:  # CSV
             if not system:
                 system = os.path.splitext(os.path.basename(data_file))[0]

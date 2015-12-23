@@ -125,6 +125,7 @@ class Report(object):
                               self.system,
                               self.html_template,
                               repr(msg))
+        # Return an empty string in case of error
         return ''
 
     def render_graphs(self):

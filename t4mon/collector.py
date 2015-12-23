@@ -803,7 +803,7 @@ def read_pickle(name, compress=False, logger=None):
     return collector
 
 
-def read_config(settings_file=None):
+def read_config(settings_file=None, **kwargs):
     """
     Return ConfigParser object from configuration file
     """

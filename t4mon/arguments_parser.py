@@ -64,7 +64,7 @@ def create_parser(args=None, prog=None):
     parser.add_argument(
         '--settings', dest='settings_file',
         default=collector.DEFAULT_SETTINGS_FILE,
-        help='Settings file (check defaults with t4mon-config)'
+        help='Settings file (check defaults with --config)'
         )
     parser.add_argument('--loglevel', default=DEFAULT_LOGLEVEL,
                         choices=['DEBUG',
@@ -89,6 +89,10 @@ def parse_arguments_local(args=None, prog=None, pkl=True):
                         metavar='input_{}_file'.format(filetype),
                         help='Pickle (optionally gzipped) data file' if pkl
                         else 'Plain CSV file')
+    parser.add_argument('--system',
+                        type=str,
+                        help='System for which generate the report. '
+                             'Defaults to all')
     return check_for_sysargs(parser, args)
 
 
@@ -111,6 +115,8 @@ def parse_arguments_main(args=None):
                         help='Render a report from local data')
     parser.add_argument('--localcsv', action='store_true',
                         help='Make a report from local CSV data')
+    # Additional arguments passed to other parsers (--local)
     parser.add_argument('dummy', type=str, nargs='?',
                         help=argparse.SUPPRESS)
+    parser.add_argument('--system', type=str, help=argparse.SUPPRESS)
     return check_for_sysargs(parser, args)

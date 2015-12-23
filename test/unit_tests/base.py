@@ -98,7 +98,7 @@ class OrchestratorSandbox(Orchestrator):
     def __init__(self, *args, **kwargs):
         super(OrchestratorSandbox, self).__init__(*args, **kwargs)
         # Get external files from configuration
-        self.get_external_files_from_config()
+        self.check_external_files_from_config()
 
         # Override destination folders to be inside tempdir
         conf = read_config(self.settings_file)
@@ -111,6 +111,7 @@ class OrchestratorSandbox(Orchestrator):
                                        value))
 
         self.check_folders()  # create the new temporary folders
+
 
 class CollectorSandbox(Collector):
 

@@ -78,7 +78,7 @@ def dump_config(output=None, **kwargs):
     Dump current configuration to screen, useful for creating a new
     settings.cfg file
     """
-    conf = read_config()
+    conf = read_config(**kwargs)
     conf.write(output or sys.stdout)
 
 
@@ -112,4 +112,5 @@ def create_reports_from_local(arguments,
     _orchestrator = Orchestrator(**arguments)
     argument_file_name = '{}_file'.format('pkl' if pkl else 'csv')
     _orchestrator.create_reports_from_local(arguments.pop(argument_file_name),
-                                            pkl)
+                                            pkl=pkl,
+                                            **arguments)

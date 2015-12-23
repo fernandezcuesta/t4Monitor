@@ -51,6 +51,14 @@ class TestAuxiliaryFunctions(unittest.TestCase):
             arguments_parser.parse_arguments_main([])
 
     @patch('t4mon.arguments_parser.get_input')
+    def test_wrong_answer_when_no_arguments_entered(self, mock):
+        """ Test nothing's broken when answer is not ['Y', 'y', 'N', 'n']
+        """
+        with self.assertRaises(SystemExit):
+            mock.side_effect = ['k', 'l', 'yeah', 'N']
+            arguments_parser.parse_arguments_main([])
+
+    @patch('t4mon.arguments_parser.get_input')
     def test_insufficient_arguments_raise_error(self, mock):
         """
         Test that a sys.exit is raised if no CSV or PKL input files
@@ -58,12 +66,4 @@ class TestAuxiliaryFunctions(unittest.TestCase):
         """
         with self.assertRaises(SystemExit):
             mock.side_effect = ['k', 'l', 'yeah', 'Y']  # go on with defaults
-            arguments_parser.parse_arguments_local([])
-
-    @patch('t4mon.arguments_parser.get_input')
-    def test_wrong_answer_when_no_arguments_entered(self, mock):
-        """ Test nothing's broken when answer is not ['Y', 'y', 'N', 'n']
-        """
-        with self.assertRaises(SystemExit):
-            mock.side_effect = ['k', 'l', 'yeah', 'N']
             arguments_parser.parse_arguments_local([])
