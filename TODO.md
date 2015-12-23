@@ -28,3 +28,5 @@ according to `container.data.system` instead of
 - move from setuptools to distutils
 
 - minimize .EXE size for windows builds (*hint: matplotlib*)
+
+- Fix help displayed when running a secondary mode, i.e. --local --help
