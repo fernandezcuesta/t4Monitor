@@ -1,3 +1,6 @@
+- [0.12.1] - Report generation with multiprocessing
+- [0.12.0] - New wincompile branch, sort issues with Windows environment
+- [0.11.0] - Develop branch merge into stable
 - [0.10.5] - Use logging level constants, load local 'settings.cfg' by default
 - [0.10.4] - Add progressbars and code refactor, fix tests
 - [0.10.3] - API fixes

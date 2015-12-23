@@ -37,7 +37,7 @@ class TestOrchestrator(b.TestWithTempConfig):
                                          alldays=True,
                                          safe=True)
             orch.start()
-        for system in orch.collector.systems:
+        for system in orch.systems:
             if system:
                 self.assertIn(
                     '{0}/Report_{1}_{2}.html'.format(orch.reports_folder,

@@ -32,18 +32,24 @@ __all__ = ('select_var',  't4csv_to_plain', 'plain_to_t4csv',
 
 class ToDfError(Exception):
 
-    """Exception raised while converting a CSV into a pandas dataframe"""
+    """
+    Exception raised while converting a CSV into a pandas dataframe
+    """
     pass
 
 
 class ExtractCSVException(Exception):
 
-    """Exception raised while extracting a CSV file"""
+    """
+    Exception raised while extracting a CSV file
+    """
     pass
 
 
 def remove_duplicate_columns(dataframe):
-    """ Remove columns with duplicate names from a dataframe """
+    """
+    Remove columns with duplicate names from a dataframe
+    """
     columns = list(dataframe.columns)
     field_names = list(OrderedDict.fromkeys((f for f in columns)))
     unique_columns = [columns.index(field_names[k])
@@ -53,7 +59,7 @@ def remove_duplicate_columns(dataframe):
 
 def consolidate_data(partial_dataframe, dataframe=None, system=None):
     """
-    Consolidates partial_dataframe which corresponds to `system` with
+    Consolidate partial_dataframe which corresponds to `system` with
     dataframe if provided, else pd.DataFrame()
     """
     if not isinstance(partial_dataframe, pd.DataFrame):
@@ -86,9 +92,8 @@ def get_matching_columns(dataframe, var_names):
     Filter column names that match first item in var_names, which can have
     wildcards ('*'), like 'str1*str2'; in that case the column name must
     contain both 'str1' and 'str2'.
-
-    TODO: str1*str2 actually means str1*str2* now. It shouldn't.
     """
+    # TODO: str1*str2 actually means str1*str2* now. It shouldn't.
     if dataframe.empty:
         return []
     else:
@@ -100,7 +105,7 @@ def get_matching_columns(dataframe, var_names):
 
 def find_in_iterable_case_insensitive(iterable, name):
     """
-    From an iterable, return the value that matches `name`, case insensitive
+    Return the value that matches `name`, case insensitive from an iterable
     """
     iterable = list(OrderedDict.fromkeys([k for k in iterable]))
     iterupper = [k.upper() for k in iterable]
@@ -114,7 +119,7 @@ def find_in_iterable_case_insensitive(iterable, name):
 
 def select_var(dataframe, *var_names, **optional):
     """
-    Returns selected variables that match columns from the dataframe.
+    Return selected variables that match columns from the dataframe.
 
     var_names: Filter column names that match any var_names; each individual
                var_item in var_names (1st one only if not filtering on system)
@@ -172,9 +177,10 @@ def select_var(dataframe, *var_names, **optional):
 
 
 def extract_t4csv(file_descriptor):
-    """ Reads Format1/Format2 T4-CSV and returns:
-         * field_names: List of strings (column names)
-         * data_lines: List of strings (each one representing a sample)
+    """
+    Read Format1/Format2 T4-CSV and return:
+        - field_names: List of strings (column names)
+        - data_lines: List of strings (each one representing a sample)
     """
     try:
         data_lines = [li.rstrip()
@@ -203,7 +209,9 @@ def extract_t4csv(file_descriptor):
 
 
 def t4csv_to_plain(t4_csv, output):
-    """ Convert a T4-compliant CSV file into plain (excel dialect) CSV file """
+    """
+    Convert a T4-compliant CSV file into plain (excel dialect) CSV file
+    """
     data = reload_from_csv(t4_csv, plain=False)
     data.to_csv(output,
                 date_format=T4_DATE_FORMAT)
@@ -212,7 +220,7 @@ def t4csv_to_plain(t4_csv, output):
 def dataframe_to_t4csv(dataframe, output, t4format=2):
     """
     Save dataframe to Format1/2 T4-compliant CSV files, one per system
-    Returns: dict with the matching {system: filename}
+    Return: dict with the matching {system: filename}
     """
     output_names = {}
     for system in dataframe.index.levels[1]:
@@ -239,7 +247,7 @@ def dataframe_to_t4csv(dataframe, output, t4format=2):
 
 def add_secondary_index(dataframe, system):
     """
-    From a dataframe with a DateTimeIndex index, get a 2-indices dataframe
+    Get a 2-indices dataframe from a dataframe with a DateTimeIndex index
     with (dataframe.DateTimeIndex, system) as the new index
     """
     # Add a secondary index based in the value of `system` in order to avoid
@@ -256,7 +264,9 @@ def add_secondary_index(dataframe, system):
 
 
 def plain_to_t4csv(plain_csv, output, t4format=2, system=None):
-    """ Convert plain CSV into T4-compliant Format1/2 CSV file """
+    """
+    Convert plain CSV into T4-compliant Format1/2 CSV file
+    """
     data = reload_from_csv(plain_csv, plain=True)
     if not system:  # if no system, just set the file name as system
         system = os.path.splitext(os.path.basename(plain_csv))[0]
@@ -267,7 +277,9 @@ def plain_to_t4csv(plain_csv, output, t4format=2, system=None):
 
 
 def _to_t4csv(file_object, output, t4format=2, system_id=None):
-    """ Save file_object contents to Format1/2 T4-compliant CSV file"""
+    """
+    Save file_object contents to Format1/2 T4-compliant CSV file
+    """
     if t4format not in [1, 2]:
         raise AttributeError('Bad T4-CSV format {} (must be either 1 '
                              'or 2)'.format(t4format))
@@ -287,11 +299,12 @@ def _to_t4csv(file_object, output, t4format=2, system_id=None):
 
 def to_dataframe(field_names, data):
     """
-     Loads CSV data into a pandas DataFrame
-     Return an empty DataFrame if fields and data aren't correct,
+    Load CSV data into a pandas DataFrame
+    Return an empty DataFrame if fields and data aren't correct,
     otherwhise it will interpret it with NaN values.
-     Column named DATETIME_TAG (i.e. 'Sample Time') is used as index
-     It is common in T4 files to have several columns with a sample time, most
+
+    Column named DATETIME_TAG (i.e. 'Sample Time') is used as index
+    It is common in T4 files to have several columns with a sample time, most
     probably due to an horizontal merge of different CSVs. In those cases the
     first column having 'Sample Time' on its name will be used.
     """

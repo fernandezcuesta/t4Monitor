@@ -5,6 +5,7 @@
 """
 
 import shutil
+import tempfile
 import unittest
 from os import path
 
@@ -13,9 +14,10 @@ import pandas as pd
 
 from t4mon import logger
 from t4mon.collector import (
+    add_methods_to_pandas_dataframe,
     Collector,
-    read_pickle,
-    add_methods_to_pandas_dataframe
+    read_config,
+    read_pickle
 )
 from t4mon.orchestrator import Orchestrator
 
@@ -53,6 +55,18 @@ def random_tag(n=5):
     """ Return a n-digit string for random file naming """
     return ''.join(str(l) for l in np.random.randint(1, 10, n))
 
+def delete_temporary_folder(folder, logger=None):
+    """
+    Delete a temporary folder in the local filesystem
+    """
+    if path.isdir(folder):
+        try:
+            shutil.rmtree(folder)
+            if logger:
+                logger.debug('Temporary folder deleted: %s', folder)
+        except OSError:
+            pass  # was already deleted or no permissions
+
 
 class OrchestratorSandbox(Orchestrator):
 
@@ -65,12 +79,9 @@ class OrchestratorSandbox(Orchestrator):
         """
         my_clone = OrchestratorSandbox(logger=self.logger,
                                        settings_file=self.settings_file)
-        my_clone.calculations_file = self.calculations_file
         # my_clone.collector = self.collector.clone()
         my_clone.data = self.data.copy()  # TODO: Is a copy really needed?
         my_clone.date_time = self.date_time
-        my_clone.graphs_definition_file = self.graphs_definition_file
-        my_clone.html_template = self.html_template
         my_clone.logs = self.logs.copy()
         my_clone.reports_written = []  # empty the written reports list
         my_clone.reports_folder = self.reports_folder + random_tag()
@@ -86,7 +97,20 @@ class OrchestratorSandbox(Orchestrator):
 
     def __init__(self, *args, **kwargs):
         super(OrchestratorSandbox, self).__init__(*args, **kwargs)
+        # Get external files from configuration
+        self.get_external_files_from_config()
 
+        # Override destination folders to be inside tempdir
+        conf = read_config(self.settings_file)
+        for folder in ['reports_folder', 'store_folder']:
+            # first of all delete the original folders created during __init__
+            delete_temporary_folder(self.__getattribute__(folder))
+            value = conf.get('MISC', folder)
+            self.__setattr__(folder,
+                             path.join(tempfile.gettempdir(),
+                                       value))
+
+        self.check_folders()  # create the new temporary folders
 
 class CollectorSandbox(Collector):
 
@@ -133,12 +157,4 @@ class BaseTestClass(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         for folder in cls.orchestrator_test.folders:
-            if path.isdir(folder):
-                try:
-                    shutil.rmtree(folder)
-                    cls.orchestrator_test.logger.debug(
-                        'Temporary folder deleted: %s',
-                        folder
-                    )
-                except OSError:
-                    pass  # was already deleted or no permissions
+            delete_temporary_folder(folder)

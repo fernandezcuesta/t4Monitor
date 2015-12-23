@@ -42,6 +42,7 @@ class TestWithSsh(BaseTestClass):
     def setUp(self):  # make a clone for every new test
         # Specify where the test files are
         self.sandbox = self.orchestrator_test.clone()
+        self.sandbox.collector = self.collector_test
         self.sandbox.collector.conf.set('DEFAULT', 'folder', MY_DIR)
 
 

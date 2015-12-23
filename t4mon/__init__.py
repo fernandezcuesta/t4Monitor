@@ -47,21 +47,25 @@ import sys
 import matplotlib  # isort:skip
 # Set matplotlib's backend before first import of pyplot or pylab,
 # Qt4 doesn't like threads
+# TODO: unify matplotlib backends
 if os.name == 'posix':
     matplotlib.use('Cairo')
 else:
     matplotlib.use('TkAgg')
     import FileDialog  # Required by matplotlib when using TkAgg backend
 
-from .collector import add_methods_to_pandas_dataframe, read_config
+from .collector import (add_methods_to_pandas_dataframe,
+                        read_config,
+                        read_pickle)
 from .gen_plot import plot_var
+from .logger import init_logger
 
 from .orchestrator import Orchestrator
 from .arguments_parser import (parse_arguments_local,
                                parse_arguments_main)
 
 
-__version_info__ = (0, 12, 0)
+__version_info__ = (0, 12, 1)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
@@ -70,13 +74,18 @@ __all__ = ('main',
 
 
 def dump_config(output=None, **kwargs):
-    """ Dump current configuration to screen, useful for creating a new
-    settings.cfg file """
+    """
+    Dump current configuration to screen, useful for creating a new
+    settings.cfg file
+    """
     conf = read_config()
     conf.write(output or sys.stdout)
 
 
 def main():  # pragma: no cover
+    """
+    Check input arguments and pass it to Orchestrator
+    """
     sys_arguments = sys.argv[1:]
     arguments = parse_arguments_main(sys_arguments)
     if arguments.get('config', False):
@@ -86,14 +95,19 @@ def main():  # pragma: no cover
         if arguments.get(par, False):
             sys_arguments.remove('--{}'.format(par))
             create_reports_from_local(sys_arguments,
-                                      prog='{} --{}'.format(sys_arguments, par))
+                                      prog='{} --{}'.format(sys_arguments,
+                                                            par))
             return
     _orchestrator = Orchestrator(**arguments)
     _orchestrator.start()
 
 
-def create_reports_from_local(arguments, prog=None, pkl=True):  # pragma: no cover
-    """ Create HTML reports from local stored data """
+def create_reports_from_local(arguments,
+                              prog=None,
+                              pkl=True):  # pragma: no cover
+    """
+    Create HTML reports from locally stored data
+    """
     arguments = parse_arguments_local(arguments, prog=prog, pkl=pkl)
     _orchestrator = Orchestrator(**arguments)
     argument_file_name = '{}_file'.format('pkl' if pkl else 'csv')

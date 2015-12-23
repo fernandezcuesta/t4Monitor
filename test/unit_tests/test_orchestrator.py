@@ -35,7 +35,6 @@ class TestOrchestrator(BaseTestClass):
 
     def test_orchestrator(self):
         """ Check that Orchestrator has the correct fields by default """
-        self.assertDictEqual(self.orchestrator_test.graphs, {})
         self.assertDictEqual(self.orchestrator_test.logs,
                              {'my_sys': 'These are my dummy log results'}
                              )
@@ -137,9 +136,9 @@ class TestOrchestrator(BaseTestClass):
         _orchestrator = self.orchestrator_test.clone()
         _collector = self.collector_test.clone()
         _collector.data = self.test_data
-        _orchestrator.local_store(collector=_collector)
+        _orchestrator.local_store(_collector)
         for extension in ['pkl.gz', 'csv']:
             filename = '{0}/data_{1}.{2}'.format(_orchestrator.store_folder,
-                                                 _orchestrator.date_tag,
+                                                 _orchestrator.date_tag(),
                                                  extension)
             self.assertTrue(os.path.exists(filename))

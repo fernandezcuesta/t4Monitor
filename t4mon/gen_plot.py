@@ -20,6 +20,9 @@ DFLT_COLORMAP = 'cool'  # default matplotlib colormap if nothing specified
 
 
 def update_colors(ax, cmap=None):
+    """
+    Update colormap for a plot given its axis
+    """
     if not cmap:
         cmap = DFLT_COLORMAP
     cm = pylab.get_cmap(cmap)
@@ -31,7 +34,7 @@ def update_colors(ax, cmap=None):
 
 def plot_var(dataframe, *var_names, **optional):
     """
-    Plots the specified variable names from the dataframe overlaying
+    Plot the specified variable names from the dataframe overlaying
     all plots for each variable and silently skipping unexisting variables.
 
     - Optionally selects which system to filter on (i.e. system='localhost')
@@ -43,6 +46,7 @@ def plot_var(dataframe, *var_names, **optional):
                column name must contain both 'str1' and 'str2'.
     """
     logger = optional.pop('logger', '') or init_logger()
+
     # Initialize default figure sizes and styling
     pylab.rcParams['figure.figsize'] = 13, 10
     plt.style.use('ggplot')
@@ -95,28 +99,34 @@ def plot_var(dataframe, *var_names, **optional):
                              label='%s %s' % (item, key))
                 plt.xlim(my_ts[0], my_ts[-1])  # adjust horizontal axis
             update_colors(plotaxis, cmap)
-        # Style the resulting plot
+
+        # Style the resulting plot axis and legend
         plotaxis.xaxis.set_major_formatter(md.DateFormatter('%d/%m/%y\n%H:%M'))
         plotaxis.legend(loc='best')
         return plotaxis
+
     except TypeError:
         logger.error('%s%s not drawn%s',
                      '{} | '.format(system_filter) if system_filter else '',
                      var_names,
                      ' for this system' if system_filter else '')
+
     except Exception as exc:
         item, item, exc_tb = sys.exc_info()
         logger.error('Exception at plot_var (line %s): %s',
                      exc_tb.tb_lineno,
                      repr(exc))
+
+    # Return an empty figure if an exception was raised
     item = plt.figure()
     return item.gca()
 
 
 def to_base64(dataframe_plot):
     """
-    Converts a plot into base64-encoded graph
+    Convert a plot into base64-encoded PNG graph
     """
+    # TODO: allow other formats (i.e. JPEG), tightly depends on the backend
     try:
         if not dataframe_plot.has_data():
             raise AttributeError

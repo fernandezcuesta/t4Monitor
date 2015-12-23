@@ -48,6 +48,8 @@ except ImportError:
 
 __all__ = ('add_methods_to_pandas_dataframe',
            'Collector',
+           'load_zipfile',
+           'read_pickle',
            'read_config')
 
 # CONSTANTS
@@ -65,7 +67,9 @@ MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
 
 @contextmanager
 def change_dir(directory, module):
-    """ Context manager for restoring the current working directory """
+    """
+    Context manager for restoring the current working directory
+    """
     module = module or os
     current_dir = module.getcwd()
     module.chdir(directory)
@@ -75,7 +79,9 @@ def change_dir(directory, module):
 
 class ConfigReadError(Exception):
 
-    """Exception subclass raised while reading configuration file"""
+    """
+    Exception subclass (dummy) raised while reading configuration file
+    """
     pass
 
 
@@ -102,7 +108,7 @@ class Collector(object):
         - safe: serial mode, slower. All operations are executed system by
                 system
 
-    Class __init__ arguments:
+    Class arguments:
         - alldays
           Type: boolean
           Default: False
@@ -134,12 +140,53 @@ class Collector(object):
 
       Class objects:
 
-          - All class __init__ arguments as defined above
+          - All class arguments as defined above
+
+          - conf
+              Type: ConfigParser.SafeConfigParser
+              Default: SafeConfigParser object as obtained from sample
+                       configuration file
+              Description: Object containing the settings as read from
+                           settings_file (passed as argument)
+
+          - data
+              Type: pandas.DataFrame
+              Default: pandas.DataFrame()
+              Description: Multiple index dataframe containing the data
+                           collected for all the systems. The indices are:
+                           - Datetime: sample timestamp
+                           - System: system ID for the current sample
+
           - logs
               Type: dict
+              Default: {}
+              Description: Output from running remotely the command specified
+                           in the configuration file (MISC/remote_log_cmd)
+
           - results_queue
+              Type: Queue.Queue()
+              Default: empty Queue object
+              Description: Queue containing the system IDs which data
+                           collection is ready
+
           - server
+              Type: SSHTunnel.SSHTunnelForwarder
+              Default: None
+              Description: Object representing the tunnel server
+
           - systems
+              Type: list
+              Default: []
+              Description: List containing the system IDs as configured in the
+                           settings file sections
+
+          - use_gateway:
+              Type: boolean
+              Default: True
+              Description: Whether or not the remote systems are behind an SSH
+                           proxy. It defines if the connectivity is done via
+                           tunnels or directly.
+
       Usage:
 
           with Collector(**options) as col:
@@ -150,7 +197,6 @@ class Collector(object):
        or
 
            col = Collector(**options)
-           col.init_tunnels()
            ...
                operations
            ...
@@ -168,8 +214,8 @@ class Collector(object):
                  **kwargs):
 
         self.alldays = alldays
-        self.data = pd.DataFrame()
         self.conf = read_config(settings_file)
+        self.data = pd.DataFrame()
         self.logger = logger or init_logger()
         self.logs = {}
         self.nologs = nologs
@@ -210,21 +256,27 @@ class Collector(object):
                 )
 
     def dump_config(self):
-        """ Returns a string with the configuration file contents """
+        """
+        Return a string with the configuration file contents
+        """
         config = StringIO()
         self.conf.write(config)
         config.seek(0)
         return config.read()
 
     def plot(self, *args, **kwargs):  # pragma: no cover
-        """ Convenience method for calling gen_plot.plot_var """
+        """
+        Convenience method for calling gen_plot.plot_var
+        """
         return gen_plot.plot_var(self.data,
                                  *args,
                                  logger=self.logger,
                                  **kwargs)
 
     def select(self, *args, **kwargs):  # pragma: no cover
-        """ Convenience method for calling df_tools.select_var """
+        """
+        Convenience method for calling df_tools.select_var
+        """
         return df_tools.select_var(self.data,
                                    *args,
                                    logger=self.logger,
@@ -232,7 +284,7 @@ class Collector(object):
 
     def init_tunnels(self, system=None):
         """
-        Description:
+        Initialize SSH tunnels using sshtunnel and paramiko libraries
         Arguments:
             - system
                 Type: string
@@ -240,11 +292,10 @@ class Collector(object):
                 Description: system to initialize the tunnels. If nothing given
                              it initializes tunnels for all systems in
                              self.systems
-        Returns:
-            SSHTunnelForwarder instance (non-started)
+        Return:
+            SSHTunnelForwarder instance (non-started) with all tunnels already
+            established
 
-            Calls sshtunnel and returns a ssh server with all tunnels
-            established SSHTunnelForwarder instance is returned non-started
         """
         self.logger.info('Initializing tunnels')
         if not self.conf:
@@ -262,7 +313,6 @@ class Collector(object):
             lbal.append(('', self.conf.getint(_sys, 'tunnel_port') or
                          randint(61001, 65535)))  # if local port is 0, random
             tunnelports[_sys] = lbal[-1][-1]
-            # self.conf.set(_sys, 'tunnel_port', str(tunnelports[_sys]))
         try:
             # Assert local tunnel ports are different
             assert len(tunnelports) == len(set(tunnelports.values()))
@@ -341,8 +391,10 @@ class Collector(object):
                    if self.server.tunnel_is_up[address_tuple])
 
     def get_sftp_session(self, system):
-        """ Open an sftp session to system
-            By default the connection is done via SSH tunnels.
+        """
+        Open an sftp session to system
+        By default the connection is done via SSH tunnels (controlled by
+        self.use_gateway).
         """
         if system not in self.conf.sections():
             self.logger.error('%s | System not found in configuration',
@@ -388,17 +440,17 @@ class Collector(object):
                      compressed=False,
                      **kwargs):
         """
-         Connects to a remote system via SFTP and looks for the filespec_list
+        Connect to a remote system via SFTP and looks for the filespec_list
         in the remote host. Also works locally.
-         Files that will be returned must match every item in filespec_list,
+        Files that will be returned must match every item in filespec_list,
         i.e. data*2015*csv would match data_2015.csv, 2015_data_full.csv but
         not data_2016.csv.
-         When working with the local filesystem, filespec_list may contain
+        When working with the local filesystem, filespec_list may contain
         absolute paths.
 
         Working with local filesystem if not a valid sftp_session is passed
 
-        Returns:
+        Return:
          - files: list of files matching the filespec_list in the remote
            host or a string with wildmarks (*), i.e. data*2015*.csv
 
@@ -449,11 +501,12 @@ class Collector(object):
                             sftp_session=None,
                             **kwargs):
         """
-         Connects to a remote system via SFTP and reads the CSV files, which
+        Connect to a remote system via SFTP and reads the CSV files, which
         might be compressed in ZIP files, then call the csv-pandas conversion
         function.
-         Working with local filesystem if hostname is None
-         Returns: pandas dataframe
+        Working with local filesystem if hostname is None
+
+        Return: pandas dataframe
 
         **kwargs (optional):
         files_folder: folder where files are located, either on sftp server or
@@ -462,9 +515,6 @@ class Collector(object):
         _df = pd.DataFrame()
         _dz = pd.DataFrame()
 
-        # if hostname and not sftp_session:
-        #     self.logger.error('Cannot gather remote data without a session')
-        #     return _df
         files = self.files_lookup(hostname=hostname,
                                   filespec_list=filespec_list,
                                   compressed=compressed,
@@ -507,16 +557,18 @@ class Collector(object):
         return _df
 
     def get_system_logs(self, ssh_session, system, log_cmd=None):
-        """ Get log info from the remote system, assumes an already established
-            ssh tunnel.
+        """
+        Get log info from the remote system, assumes an already established
+        ssh tunnel.
         """
         if not log_cmd:
             self.logger.error('No command was specified for log collection')
             return
-        self.logger.warning('Getting log output from %s (%s), may take a while',
+        self.logger.warning('Getting log output from %s (Remote command: %s), '
+                            'may take a while...',
                             system,
                             log_cmd)
-        try:  # ignoring stdin and stderr
+        try:  # ignoring stdin and stderr for OpenVMS SSH2
             (_, stdout, _) = ssh_session.\
                              exec_command(log_cmd)
             return stdout.readlines()
@@ -568,11 +620,13 @@ class Collector(object):
         return data
 
     def get_data_and_logs(self, system):
-        """ Collect everything needed for a system.
-            Open an sftp session to system and collects the CSVs, generating a
-            pandas dataframe as outcome.
-            By default the connection is done via SSH tunnels.
         """
+        Collect everything needed for a system.
+        Open an sftp session to system and collects the CSVs, generating a
+        pandas dataframe as outcome.
+        By default the connection is done via SSH tunnels.
+        """
+        # TODO: allow parallel (data | log) collection
         try:
             self.logger.info('%s | Collecting statistics...', system)
             if self.use_gateway and not self.check_if_tunnel_is_up(system):
@@ -610,7 +664,9 @@ class Collector(object):
         self.results_queue.put(system)
 
     def threaded_handler(self):
-        """ Initialize tunnels and collect data&logs, threaded mode """
+        """
+        Initialize tunnels and collect data&logs, threaded mode
+        """
         with self:  # calls init_tunnels
             for system in self.systems:
                 thread = threading.Thread(target=self.get_data_and_logs,
@@ -625,7 +681,9 @@ class Collector(object):
                                  self.results_queue.get())
 
     def serial_handler(self):
-        """ Serial (legacy) handler """
+        """
+        Get data&logs. Serial (legacy) handler, working inside a for loop
+        """
         for system in self.systems:
             self.logger.info('%s | Initializing tunnel', system)
             try:
@@ -657,7 +715,9 @@ class Collector(object):
             self.logger.exception(exc)
 
     def to_pickle(self, name, compress=False):
-        """ Save collector object to [optionally] gzipped pickle """
+        """
+        Save collector object to [optionally] gzipped pickle
+        """
         buffer_object = StringIO()
         col_copy = copy.copy(self)
         # cannot pickle a Queue, logging, or sshtunnel objects
@@ -668,7 +728,7 @@ class Collector(object):
         buffer_object.flush()
         if name.endswith('.gz'):
             compress = True
-            name = name.rsplit('.gz')[0]  # we append the .gz extension below
+            name = name.rsplit('.gz')[0]  # will append the .gz extension below
 
         if compress:
             output = gzip
@@ -682,7 +742,7 @@ class Collector(object):
 
     def _load_zipfile(self, zip_file, sftp_session=None):
         """
-         Inflate a zip file and call get_stats_from_host with the decompressed
+        Inflate a zip file and call get_stats_from_host with the decompressed
         CSV files
         """
         temp_dir = tempfile.gettempdir()
@@ -699,7 +759,7 @@ class Collector(object):
         decompressed_files = []
         try:
             with zipfile.ZipFile(c, 'r') as zip_data:
-                # extract all to /tmp
+                # extract all to a temporary folder
                 zip_data.extractall(temp_dir)
                 # Recursive call to get_stats_from_host using localfs
                 decompressed_files = [os.path.join(temp_dir,
@@ -721,14 +781,17 @@ class Collector(object):
 
 
 def load_zipfile(zipfile, system=None):
-    """ Convenience method for Collector._load_zipfile() """
+    """
+    Convenience method for Collector._load_zipfile()
+    """
     col = Collector(alldays=True, nologs=True)
     return col.get_stats_from_host(zipfile, hostname=system, compressed=True)
-    # return col._load_zipfile(zipfile)
 
 
 def read_pickle(name, compress=False, logger=None):
-    """ Properly restore dataframe plus its metadata from pickle store """
+    """
+    Restore dataframe plus its metadata from (optionally deflated) pickle store
+    """
     if compress or name.endswith('.gz'):
         mode = gzip
     else:
@@ -741,7 +804,9 @@ def read_pickle(name, compress=False, logger=None):
 
 
 def read_config(settings_file=None):
-    """ Return ConfigParser object from configuration file """
+    """
+    Return ConfigParser object from configuration file
+    """
     config = ConfigParser.SafeConfigParser()
     try:
         settings_file = settings_file or DEFAULT_SETTINGS_FILE
@@ -756,7 +821,9 @@ def read_config(settings_file=None):
 
 
 def add_methods_to_pandas_dataframe(logger=None):
-    """ Add custom methods to pandas.DataFrame """
+    """
+    Add custom methods to pandas.DataFrame
+    """
     pd.DataFrame.oper = calculations.oper
     pd.DataFrame.oper_wrapper = calculations.oper_wrapper
     pd.DataFrame.recursive_lis = calculations.recursive_lis

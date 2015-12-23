@@ -1,18 +1,29 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-Make the calculations on pd.DataFrame columns as defined in calc_file
+Make simple arithmetical calculations on pandas DataFrame columns.
+Configuration: calc_file
+
+calc_file format:
+
+# This is just a comment ##########################
+# Inline comments may start either with # or ;
+C = (A + B) / B  ; A and B are valid columns
+D = (C + 100.0) / (A + C)  # lines are prcessed in order
+
 """
 from __future__ import absolute_import
 
 import re
 import sys
 
-TTAG = '__calculations_tmp'
+TTAG = '__calculations_tmp'  # temporal column names tag
 
 
 def oper(self, oper1, funct, oper2):
-    """ Returns funct(oper1, oper2) """
+    """
+    Returns funct(oper1, oper2)
+    """
     try:
         if funct is '+':
             return oper1 + oper2
@@ -114,7 +125,9 @@ def recursive_lis(self, sign_pattern, parn_pattern, res, c_list):
 
 
 def clean_calcs(self, calc_file):
-    """ Delete columns added by apply_lis """
+    """
+    Delete columns added by apply_lis
+    """
     try:
         self.logger.info('Dataframe shape before cleanup: %s', self.shape)
         with open(calc_file, 'r') as calcfile:
@@ -135,23 +148,44 @@ def clean_calcs(self, calc_file):
         self.logger.error("Could not process calculation file: %s", calc_file)
 
 
+def clean_comments(line, pattern=None):
+    """
+    Clean commented lines or inline comments from a valid line
+    Arguments:
+    - line: string to be cleaned
+    - pattern [optional]: regex compiled pattern, faster if an already compiled
+                          pattern is sent
+    Returns: string
+    """
+    if not pattern:
+        pattern = re.compile(r'^([^#]*)[#;](.*)$')
+    _match = re.match(pattern, line)
+    if _match:
+        return _match.group(1).strip()
+    else:
+        return line.strip()
+
+
 def apply_calcs(self, calc_file, system=None):
     """
     Read calculations file, make the calculations and get rid of temporary data
     """
     try:
-        # Define regex patterns for functions and parenthesis lookup
-        sign_pattern = re.compile(r'([+\-*/])')  # functions
-        parn_pattern = re.compile(r'.*\(+([\w .+\-*/]+)\)+.*')  # parenthesis
+        # Define regex patterns
+        arithmetic_pattern = re.compile(r'([+\-*/])')  # allowed functions
+        parenthesis_pattern = re.compile(r'.*\(+([\w .+\-*/]+)\)+.*')
+        comments_pattern = re.compile(r'^([^#]*)[#;](.*)$')
         with open(calc_file, 'r') as calcfile:
             for line in calcfile:
-                if line[0] not in ';#!/%[ ' and len(line) > 3:
-                    self.logger.debug('%sProcessing: %s',
-                                      '%s | ' % system if system else '',
-                                      line.strip())
-                    self.recursive_lis(sign_pattern,
-                                       parn_pattern,
-                                       *line.strip().split('='))
+                line = clean_comments(line, comments_pattern)
+                if not line:
+                    continue
+                self.logger.debug('%sProcessing: %s',
+                                  '%s | ' % system if system else '',
+                                  line)
+                self.recursive_lis(arithmetic_pattern,
+                                   parenthesis_pattern,
+                                   *line.split('='))
         # Delete temporary columns (starting with TTAG)
         for colname in self.columns[[TTAG in col for col in self]]:
             del self[colname]

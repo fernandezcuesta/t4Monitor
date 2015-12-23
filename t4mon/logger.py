@@ -12,8 +12,10 @@ DEFAULT_LOGLEVEL = logging.WARNING  # Only for console output
 
 
 def init_logger(loglevel=None, name=__name__):
-    """ Initialize logger, sets the appropriate level and attaches a console
-        handler.
+    """
+    Initialize logger, sets the appropriate level and attaches:
+     - File handler: always in DEBUG mode
+     - Console handler: level configured as per loglevel
     """
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
@@ -38,7 +40,9 @@ def init_logger(loglevel=None, name=__name__):
 
 
 def _add_handler(logger, handler=None, loglevel=None):
-    """ Add a handler to an existing logging.Logger object """
+    """
+    Add a handler to an existing logging.Logger object
+    """
     handler.setLevel(loglevel or DEFAULT_LOGLEVEL)
     if handler.level == logging.DEBUG:
         _fmt = '%(asctime)s| %(levelname)-4.3s|%(threadName)10.9s/' \

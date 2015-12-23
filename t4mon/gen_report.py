@@ -5,7 +5,7 @@ Report generator module based on Jinja2
 """
 from __future__ import absolute_import
 
-import datetime
+import datetime as dt
 from os import path
 # from ast import literal_eval  # TODO: is literal_eval working in Linux?
 
@@ -16,11 +16,68 @@ from matplotlib import pyplot as plt
 from . import gen_plot
 from .logger import init_logger
 
+
 class Report(object):
+    """
+    Generate an HTML report based from self.data, drawing all the items in
+    self.graphs_definition_file.
+
+    Class arguments:
+    - container
+        Type: t4mon.Orchestrator
+        Description: Object containing the following mandatory fields:
+                     + data:
+                         pandas DataFrame
+                         MultiIndex dataframe that will be used as data source
+                     + graphs_definition_file: (*see format below)
+                         string
+                         path of the file where graphs to be drawn are defined
+                     + html_template
+                         string
+                         path of the template passed to Jinja2
+                     + logs
+                         dict
+                         log output (value) corresponding for each system (key)
+                     + date_time
+                         string
+                         collection timestamp in the format '%d/%m/%Y %H:%M:%S'
+    - system:
+        Type: string
+        Description: Identifier of the system for which the report will be
+                     generated. It must be a valid identifier present in
+                     container.data, more specifically matching one of
+                     container.data.index.levels[-1]
+
+    - logger [optional]
+        Type: logging.Logger
+        Default: None
+        Description: logging object optionally passed from the container
+
+
+
+    Graphs definition file format
+    -----------------------------
+        ######################################################################
+        #                                                                    #
+        # Syntax (all lines starting with hash will be treated as comments): #
+        # var_names;title;plot_options                                       #
+        #                                                                    #
+        # Where:                                                             #
+        # var_names:   list of partial variable names (* wildcard allowed)   #
+        #              separated with commas                                 #
+        # title:       string containing graph's title                       #
+        # plot_option: [optional] comma-separated options passed             #
+        #              transparently to matplotlib                           #
+        ######################################################################
+
+        # This is just a comment. No inline comments allowed.
+        message_buffered;Test 1
+        successful_FDA;Test 2 (percentage);ylim=(0.0,100.0),linewidth=2
+
+    """
 
     def __init__(self, container, system, logger=None):
         self.system = system
-        self.year = datetime.date.today().year
         # Transparently pass all container items
         for item in container.__dict__:
             self.__setattr__(item, container.__getattribute__(item))
@@ -30,6 +87,9 @@ class Report(object):
             self.logger = logger
         if 'logger' not in self.__dict__ or not self.logger:
             self.logger = init_logger(self.loglevel)
+        current_date = dt.datetime.strptime(self.date_time,
+                                            "%d/%m/%Y %H:%M:%S")
+        self.year = current_date.year
 
     def render(self):
         """
@@ -68,11 +128,9 @@ class Report(object):
         return ''
 
     def render_graphs(self):
-        """ Produces b64 encoded graphs for the selected system.
-            data (pandas.DataFrame) is used implicitly while evaluating the
-            command (_cmd) received from draw_command()
-
-            Returns: (graph_title, graph_encoded_in_b64)
+        """
+        Produce b64 encoded graphs for the selected system.
+        Return: (graph_title, graph_encoded_in_b64)
         """
         try:
             progressbar_prefix = 'Rendering report for {}'.format(self.system)
@@ -128,5 +186,8 @@ class Report(object):
 
 
 def gen_report(container, system):
+    """
+    Convenience function for calling Report.render() method
+    """
     _report = Report(container, system)
     return _report.render()
