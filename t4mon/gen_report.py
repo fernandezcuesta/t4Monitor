@@ -18,6 +18,7 @@ from .logger import init_logger
 
 
 class Report(object):
+
     """
     Generate an HTML report based from self.data, drawing all the items in
     self.graphs_definition_file.
@@ -110,7 +111,7 @@ class Report(object):
             j2_tpl.globals['render_graphs'] = self.render_graphs
             self.logger.info('%s | Generating graphics and rendering report '
                              '(may take a while)', self.system)
-            return j2_tpl.render(data=self)
+            return j2_tpl.generate(data=self)
         except AssertionError:
             self.logger.error(
                 '%s',
@@ -125,8 +126,8 @@ class Report(object):
                               self.system,
                               self.html_template,
                               repr(msg))
-        # Return an empty string in case of error
-        return ''
+        # Stop the generator in case of exception
+        raise StopIteration
 
     def render_graphs(self):
         """
