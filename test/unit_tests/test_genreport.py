@@ -30,7 +30,8 @@ class TestGenReport(BaseTestClass):
         my_container.data = self.test_data
         system = self.test_data.index.levels[1].unique()[0].upper()
 
-        html_rendered = gen_report(my_container, system)
+        html_rendered = ''.join((chunk for chunk in gen_report(my_container,
+                                                               system)))
         self.assertIn('<title>Monitoring of {} at {}</title>'.format(
                           system,
                           my_container.date_time),
@@ -49,15 +50,18 @@ class TestGenReport(BaseTestClass):
             self.assertIn('<pre><gtitle>{}</gtitle></pre>'.format(title),
                           html_rendered)
 
-        # Test with a non existing template file, should return ''
-        my_container.html_template = 'this_file_does_not_exist'
-        self.assertEqual(gen_report(my_container, system), '')
+        # Test with a non existing template file, should yield nothing
+        with self.assertRaises(StopIteration):
+            my_container.html_template = 'this_file_does_not_exist'
+            gen_report(my_container, system)
 
         # Same when no data in the container or when no system was specified
-        my_container.html_template = TEST_HTMLTEMPLATE
-        my_container.data = pd.DataFrame()
-        self.assertEqual(gen_report(my_container, system), '')
-        self.assertEqual(gen_report(my_container, ''), '')
+        with self.assertRaises(StopIteration):
+            my_container.html_template = TEST_HTMLTEMPLATE
+            my_container.data = pd.DataFrame()
+            gen_report(my_container, system)
+        with self.assertRaises(StopIteration):
+            gen_report(my_container, '')
 
     def test_getgraphs(self):
         """ Test function for get_graphs """

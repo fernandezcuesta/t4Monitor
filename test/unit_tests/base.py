@@ -55,6 +55,7 @@ def random_tag(n=5):
     """ Return a n-digit string for random file naming """
     return ''.join(str(l) for l in np.random.randint(1, 10, n))
 
+
 def delete_temporary_folder(folder, logger=None):
     """
     Delete a temporary folder in the local filesystem

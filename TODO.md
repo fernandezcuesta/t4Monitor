@@ -2,8 +2,8 @@
 
 - Move from threading to multiprocessing **[Done for report renderer]**
 
-- Let `sshtunnel` (which will rely on `paramiko`) choose the tunnel ports
-instead of `collector` giving a random port, which **may be in use**.
+- <s>Let `sshtunnel` (which will rely on `paramiko`) choose the tunnel ports
+instead of `collector` giving a random port, which **may be in use**.</s>
 
 - <s>Test functions for all submodules</s>
 

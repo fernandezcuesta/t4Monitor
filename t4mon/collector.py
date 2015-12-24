@@ -306,13 +306,12 @@ class Collector(object):
         rbal = []
         lbal = []
         tunnelports = {}
+        systems = [system] if system else self.systems
 
-        for _sys in [system] if system else self.systems:
+        for _sys in systems:
             rbal.append((self.conf.get(_sys, 'ip_or_hostname'),
                          self.conf.getint(_sys, 'ssh_port')))
-            lbal.append(('', self.conf.getint(_sys, 'tunnel_port') or
-                         randint(61001, 65535)))  # if local port is 0, random
-            tunnelports[_sys] = lbal[-1][-1]
+            lbal.append(('', self.conf.getint(_sys, 'tunnel_port')))
         try:
             # Assert local tunnel ports are different
             assert len(tunnelports) == len(set(tunnelports.values()))
@@ -333,11 +332,13 @@ class Collector(object):
                 logger=self.logger,
                 ssh_private_key=pkey
             )
+            self.start_server()
             # Add the system<>port bindings to the return object
-            self.server.tunnelports = tunnelports
+            self.server.tunnelports = dict(zip(systems,
+                                               self.server.local_bind_ports))
             self.logger.debug('Registered tunnels: %s',
                               self.server.tunnelports)
-            self.start_server()
+
         except AssertionError:
             self.logger.error('Local tunnel ports MUST be different: %s',
                               tunnelports)

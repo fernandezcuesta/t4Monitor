@@ -1,3 +1,4 @@
+- [0.12.3] - Ensure random tunnel ports are not in use
 - [0.12.2] - Reports written to disk incrementally
 - [0.12.1] - Report generation with multiprocessing
 - [0.12.0] - New wincompile branch, sort issues with Windows environment
