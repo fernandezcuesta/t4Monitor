@@ -15,7 +15,7 @@ instead of `collector` giving a random port, which **may be in use**.
 
 - <s>[SYSTEM] should not depend on T4-CSV header, system should be selected
 according to `container.data.system` instead of
-`[x for x in conf.sections() if x not in ['GATEWAY', 'MISC']` in `html.py`.<s>
+`[x for x in conf.sections() if x not in ['GATEWAY', 'MISC']` in `html.py`.</s>
 
 - <s>Complete refactor of __init__</s>
 
@@ -29,4 +29,4 @@ according to `container.data.system` instead of
 
 - minimize .EXE size for windows builds (*hint: matplotlib*)
 
-- Fix help displayed when running a secondary mode, i.e. --local --help
+- <s>Fix help displayed when running a secondary mode, i.e. --local --help</s>

@@ -61,11 +61,12 @@ from .gen_plot import plot_var
 from .logger import init_logger
 
 from .orchestrator import Orchestrator
-from .arguments_parser import (parse_arguments_local,
+from .arguments_parser import (parse_arguments_cli,
+                               parse_arguments_local,
                                parse_arguments_main)
 
 
-__version_info__ = (0, 12, 1)
+__version_info__ = (0, 12, 2)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
@@ -87,7 +88,7 @@ def main():  # pragma: no cover
     Check input arguments and pass it to Orchestrator
     """
     sys_arguments = sys.argv[1:]
-    arguments = parse_arguments_main(sys_arguments)
+    arguments = parse_arguments_cli(sys_arguments)
     if arguments.get('config', False):
         dump_config(**arguments)
         return
@@ -95,9 +96,10 @@ def main():  # pragma: no cover
         if arguments.get(par, False):
             sys_arguments.remove('--{}'.format(par))
             create_reports_from_local(sys_arguments,
-                                      prog='{} --{}'.format(sys_arguments,
-                                                            par))
+                                      prog='{} --{}'.format(sys.argv[0], par),
+                                      pkl=par is 'local')
             return
+    arguments = parse_arguments_main(sys_arguments)
     _orchestrator = Orchestrator(**arguments)
     _orchestrator.start()
 

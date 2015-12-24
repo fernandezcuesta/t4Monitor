@@ -9,13 +9,14 @@ import sys
 from . import collector
 from .logger import DEFAULT_LOGLEVEL
 
-__all__ = ('parse_arguments_local',
+__all__ = ('parse_arugments_cli',
+           'parse_arguments_local',
            'parse_arguments_main'
            )
 
+TITLE = 'T4 collector and report generator script'
 
 DESCRIPTION = """
-T4 collector and report generator script
 
 Additional tools:
  --config: dump the configuration defaults
@@ -56,7 +57,8 @@ def create_parser(args=None, prog=None):
     """
     parser = argparse.ArgumentParser(formatter_class=argparse.
                                      RawTextHelpFormatter,
-                                     description=DESCRIPTION,
+                                     description=TITLE,
+                                     add_help=False,
                                      prog=prog)
     parser.add_argument('--safe', action='store_true', dest='safe',
                         help='Serial mode, increasing execution time by 2x, '
@@ -78,11 +80,36 @@ def create_parser(args=None, prog=None):
     return parser
 
 
+def parse_arguments_cli(args=None):
+    """
+    Parse arguments directly passed from CLI
+    """
+    parser = create_parser()
+    parser.add_argument('--config', action='store_true',
+                        help='Show current configuration')
+    parser.add_argument('--local', action='store_true',
+                        help='Render a report from local data')
+    parser.add_argument('--localcsv', action='store_true',
+                        help='Make a report from local CSV data')
+    # Additional arguments passed to other parsers, ignored on this parser
+    parser.add_argument('dummy', type=str, nargs='?',
+                        help=argparse.SUPPRESS)
+    parser.add_argument('--system', help=argparse.SUPPRESS)
+    for null_argument in ['help', 'all', 'noreports', 'nologs']:
+        parser.add_argument('--{}'.format(null_argument),
+                            action='store_true',
+                            help=argparse.SUPPRESS)
+    return check_for_sysargs(parser, args)
+
+
 def parse_arguments_local(args=None, prog=None, pkl=True):
     """
     Argument parser for create_reports_from_local
     """
     parser = create_parser(prog=prog)
+    parser.add_argument("-h", "--help",
+                        action="help",
+                        help="show this help message and exit")
     filetype = 'pkl' if pkl else 'csv'
     parser.add_argument('{}_file'.format(filetype),
                         type=str,
@@ -101,6 +128,10 @@ def parse_arguments_main(args=None):
     Argument parser for main method
     """
     parser = create_parser()
+    parser.description += DESCRIPTION
+    parser.add_argument("-h", "--help",
+                        action="help",
+                        help="show this help message and exit")
     parser.add_argument('--all', action='store_true', dest='alldays',
                         help='Collect all data available on remote hosts'
                              'not just for today')
@@ -109,14 +140,4 @@ def parse_arguments_main(args=None):
                              'and stored locally')
     parser.add_argument('--nologs', action='store_true',
                         help='Skip log collection from remote hosts')
-    parser.add_argument('--config', action='store_true',
-                        help='Show current configuration')
-    parser.add_argument('--local', action='store_true',
-                        help='Render a report from local data')
-    parser.add_argument('--localcsv', action='store_true',
-                        help='Make a report from local CSV data')
-    # Additional arguments passed to other parsers (--local)
-    parser.add_argument('dummy', type=str, nargs='?',
-                        help=argparse.SUPPRESS)
-    parser.add_argument('--system', type=str, help=argparse.SUPPRESS)
     return check_for_sysargs(parser, args)
