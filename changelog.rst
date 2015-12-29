@@ -1,3 +1,4 @@
+- [0.12.4] - Add get_single_day_data, refactor
 - [0.12.3] - Ensure random tunnel ports are not in use
 - [0.12.2] - Reports written to disk incrementally
 - [0.12.1] - Report generation with multiprocessing
