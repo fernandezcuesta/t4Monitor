@@ -77,6 +77,13 @@ def change_dir(directory, module):
     module.chdir(current_dir)
 
 
+def get_today():
+    """Return today's date in '%d%b%Y' format, locale independent"""
+    return '%02i%s%i' % (dt.date.today().day,
+                         MONTHS[dt.date.today().month-1],
+                         dt.date.today().year)
+
+
 class ConfigReadError(Exception):
 
     """
@@ -397,7 +404,9 @@ class Collector(object):
         """
         Open an sftp session to system
         By default the connection is done via SSH tunnels (controlled by
-        self.use_gateway).
+        self.use_gateway)
+
+        Return an SFTPClient object
         """
         if system not in self.conf.sections():
             self.logger.error('%s | System not found in configuration',
@@ -585,20 +594,39 @@ class Collector(object):
                               system, repr(_exc))
             return None
 
-    def get_system_data(self, session, system):
+    def get_single_day_data(self, session, given_date=None):
+        """
+        Given a single date, collect all systems data for such date
+        """
+        if not given_date:
+            given_date = get_today()
+        self.run_systemwide(self.get_system_data,
+                            session,
+                            day=given_date)
+
+    def get_system_data(self, session, system, day=None):
         """
         Create pandas DF from current session CSV files downloaded via SFTP
+
+        Arguments:
+        - session
+          Type: SftpClient session (already initialized)
+          Description: sftp session agains the remote system
+
+        - system
+          Type: str
+          Description: remote system hostname, as present in settings file
+
+        - day
+          Type: string
+          Default: datetime.date.today() in the format '%d%b%Y'
+          Description: String identifying for which day the data will be
+                       collected
         """
         data = pd.DataFrame()
-
         destdir = self.conf.get(system, 'folder') or '.'
-
-        if self.alldays:
-            tag_list = ['.csv']
-        else:
-            tag_list = ['.csv', '%02i%s%i' % (dt.date.today().day,
-                                              MONTHS[dt.date.today().month-1],
-                                              dt.date.today().year)]
+        # Filter only on '.csv' extension if alldays
+        tag_list = ['.csv'] + ([] if self.alldays else [day or get_today()])
         try:  # if present, also filter on cluster id
             tag_list.append(self.conf.get(system, 'cluster_id').lower())
         except Exception:
@@ -671,22 +699,31 @@ class Collector(object):
         self.logs[system] = result_logs
         self.results_queue.put(system)
 
+    def run_systemwide(self, target, *args):
+        """
+        Run a target function systemwide and wait until all of them are
+        finished.
+        The target function is supposed to leave the value for 'system' in
+        self.results_queue.
+        """
+        for system in self.systems:
+            thread = threading.Thread(target=target,
+                                      name=system,
+                                      args=tuple(list(args) + [system]))
+            thread.daemon = True
+            thread.start()
+        # wait for threads to end, first one to finish will leave
+        # the result in the queue
+        for system in self.systems:
+            self.logger.info('%s | Done collecting data!',
+                             self.results_queue.get())
+
     def threaded_handler(self):
         """
         Initialize tunnels and collect data&logs, threaded mode
         """
         with self:  # calls init_tunnels
-            for system in self.systems:
-                thread = threading.Thread(target=self.get_data_and_logs,
-                                          name=system,
-                                          args=(system, ))
-                thread.daemon = True
-                thread.start()
-            # wait for threads to end, first one to finish will leave
-            # the result in the queue
-            for system in self.systems:
-                self.logger.info('%s | Done collecting data!',
-                                 self.results_queue.get())
+            self.run_systemwide(self.get_data_and_logs)
 
     def serial_handler(self):
         """
