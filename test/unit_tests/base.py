@@ -79,7 +79,10 @@ class OrchestratorSandbox(Orchestrator):
             This method is ONLY used in test functions.
         """
         my_clone = OrchestratorSandbox(logger=self.logger,
-                                       settings_file=self.settings_file)
+                                       noreports=self.noreports,
+                                       safe=self.safe,
+                                       settings_file=self.settings_file,
+                                       **self.kwargs.copy())
         # my_clone.collector = self.collector.clone()
         my_clone.data = self.data.copy()  # TODO: Is a copy really needed?
         my_clone.date_time = self.date_time
@@ -87,8 +90,9 @@ class OrchestratorSandbox(Orchestrator):
         my_clone.reports_written = []  # empty the written reports list
         my_clone.reports_folder = self.reports_folder + random_tag()
         my_clone.store_folder = self.store_folder + random_tag()
-        my_clone.safe = self.safe
         my_clone.systems = self.systems[:]
+        # store all the folders being created in a list, so we can delete them
+        # all during teardown
         my_clone.folders = self.folders
         my_clone.folders.append(my_clone.reports_folder)
         my_clone.folders.append(my_clone.store_folder)
@@ -100,6 +104,7 @@ class OrchestratorSandbox(Orchestrator):
         super(OrchestratorSandbox, self).__init__(*args, **kwargs)
         # Get external files from configuration
         self.check_external_files_from_config()
+        self.folders = []
 
         # Override destination folders to be inside tempdir
         conf = read_config(self.settings_file)
@@ -110,8 +115,7 @@ class OrchestratorSandbox(Orchestrator):
             self.__setattr__(folder,
                              path.join(tempfile.gettempdir(),
                                        value))
-
-        self.check_folders()  # create the new temporary folders
+            self.folders.append(self.__getattribute__(folder))
 
 
 class CollectorSandbox(Collector):
@@ -147,14 +151,10 @@ class BaseTestClass(unittest.TestCase):
                                               alldays=True)
         cls.collector_test.logs['my_sys'] = 'These are my dummy log results'
         cls.collector_test.conf.set('DEFAULT', 'folder', MY_DIR)
-
         cls.orchestrator_test = OrchestratorSandbox(logger=LOGGER,
-                                                    settings_file=TEST_CONFIG)
+                                                    settings_file=TEST_CONFIG,
+                                                    alldays=True)
         cls.orchestrator_test.logs = cls.collector_test.logs
-        cls.orchestrator_test.folders = [cls.orchestrator_test.reports_folder]
-        cls.orchestrator_test.folders.append(
-            cls.orchestrator_test.store_folder
-        )
 
     @classmethod
     def tearDownClass(cls):

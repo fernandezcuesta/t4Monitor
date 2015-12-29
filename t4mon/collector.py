@@ -27,7 +27,7 @@ import tempfile
 import threading
 import __builtin__
 import ConfigParser
-from random import randint
+
 from cStringIO import StringIO
 from contextlib import contextmanager
 
@@ -473,11 +473,16 @@ class Collector(object):
 
         if sftp_session:
             self.logger.debug('Using established sftp session...')
+            self.logger.debug("Looking for remote files (%s) at '%s'",
+                              spec_list,
+                              files_folder)
             filesource = sftp_session
         else:
             self.logger.debug('Using local filesystem to get the files')
+            self.logger.debug("Looking for local files (%s) at '%s'",
+                              spec_list,
+                              os.path.abspath(files_folder))
             filesource = os
-
         # get file list by filtering with taglist (case insensitive)
         try:
             with change_dir(directory=files_folder,

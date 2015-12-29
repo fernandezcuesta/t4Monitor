@@ -9,6 +9,7 @@ import os
 import copy_reg
 import pandas as pd
 import types
+from functools import wraps
 from multiprocessing import Pool
 
 from . import collector  # isort:skip
@@ -77,7 +78,6 @@ class Orchestrator(object):
         self.systems = [item for item in
                         collector.read_config(self.settings_file).sections()
                         if item not in ['GATEWAY', 'MISC']]
-        self.check_files()
 
     def __str__(self):
         return ('Orchestrator object created on {} with loglevel {}\n'
@@ -185,6 +185,14 @@ class Orchestrator(object):
         # Check that destination folders are in place
         self.check_folders()
 
+    def _check_files(func):
+        """ Decorator wrapper for check_files """
+        @wraps(func)
+        def wrapped(self, *args, **kwargs):
+            self.check_files()
+            return func(self, *args, **kwargs)
+        return wrapped
+
     def date_tag(self):
         """
         Convert self.date_time to the filesystem friendly format '%Y%m%d_%H%M'
@@ -259,6 +267,7 @@ class Orchestrator(object):
                           'w') as logtxt:
                     logtxt.writelines(self.logs[system])
 
+    @_check_files
     def start(self):  # pragma: no cover
         """
         Main method, get data and logs, store and render the HTML output
@@ -291,6 +300,7 @@ class Orchestrator(object):
 
         self.logger.warning('Done!')
 
+    @_check_files
     def create_reports_from_local(self,
                                   data_file,
                                   pkl=True,

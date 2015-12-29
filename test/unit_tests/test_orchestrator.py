@@ -76,11 +76,11 @@ class TestOrchestrator(BaseTestClass):
             _orchestrator.settings_file = 'test/unexisting.file'
             _orchestrator.check_files()
 
-    def test_orchestrator_raises_exception_if_bad_settings(self):
+    def test_check_files_raises_exception_if_bad_settings(self):
         """ Check that if the setting file contains a link to a
         non existing file, init will raise an exception """
         with self.assertRaises(collector.ConfigReadError):
-            Orchestrator(settings_file=BAD_CONFIG)
+            Orchestrator(settings_file=BAD_CONFIG).check_files()
 
     def test_reports_generator(self):
         """ Test function for Orchestrator.reports_generator() """

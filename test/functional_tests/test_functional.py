@@ -6,11 +6,10 @@
 
 from __future__ import print_function, absolute_import
 
-import tempfile
 from os import sep
 
 import pandas as pd
-
+import tempfile
 from t4mon import collector
 from sshtunnel import BaseSSHTunnelForwarderError
 from sshtunnels.sftpsession import SftpSession
@@ -29,13 +28,12 @@ class TestOrchestrator(b.TestWithTempConfig):
         # Orchestrator needs a file with the settings, and the files linked in
         # that settings file may be relative to the settings file location, so
         # work in a temporary directory
+        orch = self.sandbox
+        orch.safe = True
         with tempfile.NamedTemporaryFile() as temp_config:
-            self.sandbox.collector.conf.write(temp_config)
+            orch.conf.write(temp_config)
             temp_config.seek(0)
-            orch = b.OrchestratorSandbox(logger=b.LOGGER,
-                                         settings_file=temp_config.name,
-                                         alldays=True,
-                                         safe=True)
+            orch.settings_file = temp_config.name
             orch.start()
         for system in orch.systems:
             if system:

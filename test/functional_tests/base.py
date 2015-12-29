@@ -9,6 +9,7 @@ import shutil
 import socket
 import tempfile
 import unittest
+
 from os import path, remove
 
 import paramiko
@@ -44,6 +45,7 @@ class TestWithSsh(BaseTestClass):
         self.sandbox = self.orchestrator_test.clone()
         self.sandbox.collector = self.collector_test
         self.sandbox.collector.conf.set('DEFAULT', 'folder', MY_DIR)
+        self.sandbox.__setattr__('conf', self.sandbox.collector.conf)
 
 
 class TestWithTempConfig(TestWithSsh):
@@ -58,20 +60,17 @@ class TestWithTempConfig(TestWithSsh):
                                           cls.temporary_dir)
 
         # Copy all required files to the temporary directory
-        calcs_file = cls.orchestrator_test.get_absolute_path(
-            cls.conf.get('MISC', 'calculations_file'))
-        shutil.copy(calcs_file,
-                    cls.temporary_dir)
-
-        html_template = cls.orchestrator_test.get_absolute_path(
-            cls.conf.get('MISC', 'html_template'))
-        shutil.copy(html_template,
-                    cls.temporary_dir)
-
-        graphs_file = cls.orchestrator_test.get_absolute_path(
-            cls.conf.get('MISC', 'graphs_definition_file'))
-        shutil.copy(graphs_file,
-                    cls.temporary_dir)
+        for misc_item in ['calculations_file',
+                          'html_template',
+                          'graphs_definition_file']:
+            _file = cls.orchestrator_test.get_absolute_path(
+                cls.conf.get('MISC', misc_item)
+            )
+            cls.orchestrator_test.logger.debug('Copying %s to %s',
+                                               _file,
+                                               cls.temporary_dir)
+            shutil.copy(_file,
+                        cls.temporary_dir)
 
     @classmethod
     def tearDownClass(cls):
@@ -83,4 +82,9 @@ class TestWithTempConfig(TestWithSsh):
             ext_file_path = path.join(cls.temporary_dir,
                                       cls.conf.get('MISC', ext_file))
             if path.isfile(ext_file_path):
+                cls.orchestrator_test.logger.debug('Deleting %s',
+                                                   ext_file_path)
                 remove(ext_file_path)
+
+    def setUp(self):
+        super(TestWithTempConfig, self).setUp()
