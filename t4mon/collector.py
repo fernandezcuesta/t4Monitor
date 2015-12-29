@@ -332,6 +332,7 @@ class Collector(object):
                 logger=self.logger,
                 ssh_private_key=pkey
             )
+            self.server.check_local_side_of_tunnels()
             self.start_server()
             # Add the system<>port bindings to the return object
             self.server.tunnelports = dict(zip(systems,

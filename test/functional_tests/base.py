@@ -54,7 +54,7 @@ class TestWithTempConfig(TestWithSsh):
     @classmethod
     def setUpClass(cls):
         super(TestWithTempConfig, cls).setUpClass()
-        cls.conf = read_config(settings_file=TEST_CONFIG)
+        cls.conf = read_config(settings_file=TEST_CONFIG)  # TODO: remove this?
         cls.temporary_dir = tempfile.gettempdir()
         cls.orchestrator_test.logger.info('Using temporary dir: %s',
                                           cls.temporary_dir)
