@@ -330,7 +330,8 @@ class Collector(object):
                 local_bind_addresses=lbal,
                 threaded=True,
                 logger=self.logger,
-                ssh_private_key=pkey
+                ssh_private_key=pkey,
+                set_keepalive=15
             )
             self.server.check_local_side_of_tunnels()
             self.start_server()

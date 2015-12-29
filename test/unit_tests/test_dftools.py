@@ -10,6 +10,7 @@ import unittest
 
 import numpy as np
 import pandas as pd
+import pytest
 from pandas.util.testing import assert_frame_equal
 
 from t4mon import df_tools, collector
@@ -57,6 +58,7 @@ class TestAuxiliaryFunctions(unittest.TestCase):
             with open(TEST_PLAINCSV, 'r') as this:
                 self.assertTrue(this.read(), that.read())
 
+    @pytest.mark.xfail(reason='Statistically possible to fail, random numbers')
     def test_remove_outliers(self):
         """ Test removing outliers from a dataframe """
         df1 = pd.DataFrame(np.random.randn(8, 4), columns=['A', 'B', 'C', 'D'])
