@@ -77,11 +77,16 @@ def change_dir(directory, module):
     module.chdir(current_dir)
 
 
-def get_today():
-    """Return today's date in '%d%b%Y' format, locale independent"""
-    return '%02i%s%i' % (dt.date.today().day,
-                         MONTHS[dt.date.today().month-1],
-                         dt.date.today().year)
+def get_datetag(date=None):
+    """
+    Return date in '%d%b%Y' format, locale independent
+    If no date is specified, current date is returned
+    """
+    if not date:
+        date = dt.date.today()
+    return '%02i%s%i' % (date.day,
+                         MONTHS[date.month-1],
+                         date.year)
 
 
 class ConfigReadError(Exception):
@@ -164,6 +169,15 @@ class Collector(object):
                            - Datetime: sample timestamp
                            - System: system ID for the current sample
 
+          - filecache
+              Type: dict
+              Default: {}
+              Description: (key, value) dictionary containting for each
+                           remote folder for a system (key=(system, folder)),
+                           the list of files (value) in the remote system
+                           (or localfs if working locally) cached to avoid
+                           doing sucessive file lookups (slow when number of
+                           files is high)
           - logs
               Type: dict
               Default: {}
@@ -223,6 +237,7 @@ class Collector(object):
         self.alldays = alldays
         self.conf = read_config(settings_file)
         self.data = pd.DataFrame()
+        self.filecache = {}
         self.logger = logger or init_logger()
         self.logs = {}
         self.nologs = nologs
@@ -498,8 +513,13 @@ class Collector(object):
         try:
             with change_dir(directory=files_folder,
                             module=filesource):
+                key = (hostname or 'localfs', files_folder)
+                if key not in self.filecache:  # fill the cache
+                    self.filecache[key] = filesource.listdir('.')
+                else:
+                    self.logger.debug('Using cached file list for %s', key)
                 files = ['{}/{}'.format(filesource.getcwd(), f)
-                         for f in filesource.listdir('.')
+                         for f in self.filecache[key]
                          if all([v.upper() in f.upper() for v in spec_list])
                          ]
             if not files and not sftp_session:
@@ -546,7 +566,7 @@ class Collector(object):
 
         progressbar_prefix = 'Loading {}files{}'.format(
                                   'compressed ' if compressed else '',
-                                  ' for %s' % hostname if hostname else ''
+                                  ' from %s' % hostname if hostname else ''
                               )
         for a_file in tqdm.tqdm(files,
                                 leave=True,
@@ -594,15 +614,35 @@ class Collector(object):
                               system, repr(_exc))
             return None
 
-    def get_single_day_data(self, session, given_date=None):
+    def get_single_day_data(self, given_date=None):
         """
         Given a single date, collect all systems data for such date
+
+        Arguments:
+
+        - given_date
+            Type: datetime
+            Default: today's datetime
+            Description: define for which day the data will be collected from
+                         the remote systems
         """
-        if not given_date:
-            given_date = get_today()
-        self.run_systemwide(self.get_system_data,
-                            session,
-                            day=given_date)
+
+        def _single_day_and_system_data(system, given_date=None):
+            given_date = get_datetag(given_date)
+            self.logger.info('Collecting data for system: %s; day: %s',
+                             system,
+                             given_date)
+            with self.get_sftp_session(system) as session:
+                result_data = self.get_system_data(session,
+                                                   system,
+                                                   given_date)
+                self.data = df_tools.consolidate_data(result_data,
+                                                      dataframe=self.data,
+                                                      system=system)
+                self.results_queue.put(system)  # flag this system as done
+        with self:  # open tunnels
+            self.run_systemwide(_single_day_and_system_data,
+                                given_date)
 
     def get_system_data(self, session, system, day=None):
         """
@@ -625,8 +665,11 @@ class Collector(object):
         """
         data = pd.DataFrame()
         destdir = self.conf.get(system, 'folder') or '.'
+
         # Filter only on '.csv' extension if alldays
-        tag_list = ['.csv'] + ([] if self.alldays else [day or get_today()])
+        tag_list = ['.csv'] + ([] if self.alldays and not day
+                               else [day or get_datetag()])
+
         try:  # if present, also filter on cluster id
             tag_list.append(self.conf.get(system, 'cluster_id').lower())
         except Exception:
@@ -637,9 +680,7 @@ class Collector(object):
                                         sftp_session=session,
                                         files_folder=destdir)
         if data.empty:
-            self.logger.warning('%s | Data size obtained is 0 Bytes, skipping '
-                                'log collection.', system)
-
+            self.logger.warning('%s | No data was obtained!', system)
         else:
             self.logger.info('%s | Dataframe shape obtained: %s. '
                              'Now applying calculations...',
@@ -709,7 +750,7 @@ class Collector(object):
         for system in self.systems:
             thread = threading.Thread(target=target,
                                       name=system,
-                                      args=tuple(list(args) + [system]))
+                                      args=tuple([system] + list(args)))
             thread.daemon = True
             thread.start()
         # wait for threads to end, first one to finish will leave

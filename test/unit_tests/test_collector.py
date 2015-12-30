@@ -6,6 +6,7 @@
 from __future__ import print_function, absolute_import
 
 import Queue
+import datetime as dt
 import logging
 import tempfile
 import ConfigParser
@@ -23,7 +24,6 @@ from .base import (
     TEST_ZIPFILE,
     BaseTestClass
 )
-
 
 class TestCollector(BaseTestClass):
 
@@ -78,6 +78,8 @@ class TestCollector(BaseTestClass):
                               pd.DataFrame)
         self.assertDictEqual(my_collector.logs,
                              {})
+        self.assertDictEqual(my_collector.filecache,
+                             {})
 
         # Test also CollectorSandbox class methods
         coll_clone = self.collector_test.clone()
@@ -97,6 +99,8 @@ class TestCollector(BaseTestClass):
                          coll_clone.conf)
         self.assertEqual(self.collector_test.safe,
                          coll_clone.safe)
+        self.assertDictEqual(self.collector_test.filecache,
+                             coll_clone.filecache)
 
         self.assertIn('Settings file: {}'.format(
                       self.collector_test.settings_file
@@ -133,3 +137,13 @@ class TestCollector(BaseTestClass):
         # Bad zipfile should return an empty dataframe
         _df = collector.load_zipfile(TEST_PKL)
         self.assertTrue(_df.empty)
+
+    def test_get_datetag(self):
+        """ Test function for get_datetag """
+        today = dt.datetime.today()
+        other = dt.datetime.strptime('01/01/12', '%d/%m/%y')
+        # Running without arguments should return current date
+        self.assertEqual(collector.get_datetag(),
+                         collector.get_datetag(today))
+        self.assertEqual(collector.get_datetag(other),
+                         '01jan2012')

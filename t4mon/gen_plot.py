@@ -18,6 +18,10 @@ from .logger import init_logger
 
 DFLT_COLORMAP = 'cool'  # default matplotlib colormap if nothing specified
 
+# Initialize default figure sizes and styling
+pylab.rcParams['figure.figsize'] = 13, 10
+plt.style.use('ggplot')
+
 
 def update_colors(ax, cmap=None):
     """
@@ -47,15 +51,9 @@ def plot_var(dataframe, *var_names, **optional):
     """
     logger = optional.pop('logger', '') or init_logger()
 
-    # Initialize default figure sizes and styling
-    pylab.rcParams['figure.figsize'] = 13, 10
-    plt.style.use('ggplot')
-
     try:
         system_filter = optional.pop('system', '')
-        if dataframe.empty:
-            raise TypeError
-
+        assert not dataframe.empty
         # If we filter by system: only first column in var_names will be
         # selected, dataframe.plot() function will be used.
         if system_filter:
@@ -66,76 +64,92 @@ def plot_var(dataframe, *var_names, **optional):
             if sel.empty:
                 raise TypeError
             # Remove outliers (>3 std away from mean)
-            sel = df_tools.remove_outliers(sel.dropna())
-            # Linear interpolation for missing values
+            sel = df_tools.remove_outliers(sel.dropna(), n_std=3)
             plotaxis = sel.plot(**optional)
-
-        # Otherwise, var_names columns are selected for system in the dataframe
-        # and matplotlib.pyplot's plot function is used once for each column.
+            update_colors(plotaxis, optional.get('cmap', DFLT_COLORMAP))
         else:
-            plotaxis = optional.pop('ax', None)
-            if not plotaxis:
-                plotaxis = plt.figure().gca()
-            optional['title'] = optional.pop('title', '')
-            cmap = optional.pop('cmap', DFLT_COLORMAP)
-            for key in optional:
-                getattr(plt, key)(optional[key])
-            systems = dataframe.index.get_level_values('system').unique()
-            for key in systems:
-                sel = df_tools.select_var(dataframe,
-                                          *var_names,
-                                          system=key,
-                                          logger=logger)
-                if sel.empty:
-                    # other systems may have this column with some data
-                    continue
-                my_ts = [ts.to_julian_date() - 1721424.5
-                         for ts in sel.index]
-                for item in sel.columns:
-                    logger.debug('Drawing item: %s (%s)' % (item, key))
-                    # convert timestamp to number, Matplotlib requires a float
-                    # format which is days since epoch
-                    plt.plot(my_ts, sel[item].interpolate(),
-                             label='%s %s' % (item, key))
-                plt.xlim(my_ts[0], my_ts[-1])  # adjust horizontal axis
-            update_colors(plotaxis, cmap)
+            plotaxis = plot_var_by_system(dataframe, *var_names, **optional)
 
         # Style the resulting plot axis and legend
         plotaxis.xaxis.set_major_formatter(md.DateFormatter('%d/%m/%y\n%H:%M'))
         plotaxis.legend(loc='best')
         return plotaxis
-
-    except TypeError:
+    except (TypeError, AssertionError):
         logger.error('%s%s not drawn%s',
                      '{} | '.format(system_filter) if system_filter else '',
                      var_names,
                      ' for this system' if system_filter else '')
-
     except Exception as exc:
         item, item, exc_tb = sys.exc_info()
         logger.error('Exception at plot_var (line %s): %s',
                      exc_tb.tb_lineno,
                      repr(exc))
-
     # Return an empty figure if an exception was raised
     item = plt.figure()
     return item.gca()
 
 
-def to_base64(dataframe_plot):
+def plot_var_by_system(dataframe, *var_names, **optional):
+    """
+    Replace pandas DataFrame.plot() to allow plotting different systems in the
+    same axis
+    var_names columns are selected for system in the dataframe
+    and matplotlib.pyplot's plot function is used once for each column.
+    """
+    logger = optional.pop('logger', '') or init_logger()
+    plotaxis = optional.pop('ax', None) or plt.figure().gca()
+    cmap = optional.pop('cmap', DFLT_COLORMAP)
+    systems = dataframe.index.get_level_values('system').unique()
+    for system in systems:
+        sel = df_tools.select_var(dataframe,
+                                  *var_names,
+                                  system=system,
+                                  logger=logger)
+        if sel.empty:  # other systems may have this column with some data
+            continue
+        # Remove outliers (>3 std away from mean)
+        sel = df_tools.remove_outliers(sel.dropna(), n_std=3)
+        for item in sel.columns:
+            logger.debug('Drawing item: %s (%s)' % (item, system))
+            plotaxis = sel[item].plot(label='%s %s' % (item, system),
+                                      **optional)
+    update_colors(plotaxis, cmap)
+    return plotaxis
+
+
+def to_base64(dataframe_plot, img_fmt=None):
     """
     Convert a plot into base64-encoded PNG graph
+
+    Arguments:
+
+    - dataframe_plot
+        Type: AxesSubplot
+        Description: figure obtained from drawing a dataframe object
+
+    - img_fmt
+        Type: str
+        Default: 'png'
+        Description: format of the resulting image. This format is tightly
+                     coupled to the backend used by matplotlib.
     """
-    # TODO: allow other formats (i.e. JPEG), tightly depends on the backend
-    try:
-        if not dataframe_plot.has_data():
-            raise AttributeError
-        fbuffer = StringIO()
-        fig = dataframe_plot.get_figure()
-        fig.savefig(fbuffer, format='png', bbox_inches='tight')
-        encoded_plot = 'data:image/png;base64,%s' %\
-                       fbuffer.getvalue().encode("base64")
-        fbuffer.close()
-        return encoded_plot
-    except AttributeError:
+    if not img_fmt:
+        img_fmt = 'png'
+
+    try:  # check there's data and the backend supports the output format
+        assert (dataframe_plot.has_data() and img_fmt in
+                dataframe_plot.get_figure().canvas.get_supported_filetypes())
+    except AssertionError:
         return ''
+
+    fbuffer = StringIO()
+    fig = dataframe_plot.get_figure()
+    fig.savefig(fbuffer,
+                format=img_fmt,
+                bbox_inches='tight')
+    encoded_plot = 'data:image/{};base64,{}'.format(
+                       img_fmt,
+                       fbuffer.getvalue().encode("base64")
+                   )
+    fbuffer.close()
+    return encoded_plot

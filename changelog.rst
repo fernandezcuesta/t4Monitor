@@ -1,3 +1,4 @@
+- [0.12.5] - Remote file list cache, add (test_)get_datetag, gen_plot refactor
 - [0.12.4] - Add get_single_day_data, refactor
 - [0.12.3] - Ensure random tunnel ports are not in use
 - [0.12.2] - Reports written to disk incrementally
