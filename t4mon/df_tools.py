@@ -26,7 +26,7 @@ END_HEADER_TAG = "$$$ END COLUMN HEADERS $$$"  # End of Format-2 header
 DATETIME_TAG = 'Sample Time'  # Column containing sample datetime
 T4_DATE_FORMAT = '%Y-%b-%d %H:%M:%S.00'  # Format for date column
 
-__all__ = ('select_var',  't4csv_to_plain', 'plain_to_t4csv',
+__all__ = ('select',  't4csv_to_plain', 'plain_to_t4csv',
            'to_dataframe', 'dataframize')
 
 
@@ -64,7 +64,8 @@ def consolidate_data(partial_dataframe, dataframe=None, system=None):
     """
     if not isinstance(partial_dataframe, pd.DataFrame):
         raise ToDfError('Cannot consolidate with a non-dataframe object')
-    if not isinstance(system, str) or not system:
+    if not (isinstance(system, str) or
+            isinstance(system, unicode)) or not system:
         raise ToDfError('Need a system to consolidate the dataframe')
     if dataframe is None:
         dataframe = pd.DataFrame()
@@ -87,7 +88,7 @@ def reload_from_csv(csv_filename, plain=False):
     return data
 
 
-def get_matching_columns(dataframe, var_names):
+def get_matching_columns(dataframe, *var_names, **kwargs):
     """
     Filter column names that match first item in var_names, which can have
     wildcards ('*'), like 'str1*str2'; in that case the column name must
@@ -96,11 +97,15 @@ def get_matching_columns(dataframe, var_names):
     # TODO: str1*str2 actually means str1*str2* now. It shouldn't.
     if dataframe.empty:
         return []
-    else:
-        return [col for col in dataframe.columns
-                for var_item in var_names
-                if all([k in col.upper() for k in
-                        var_item.upper().strip().split('*')])]
+    excluded = kwargs.get('excluded', None)
+    if not excluded:
+        excluded = []
+    if not isinstance(excluded, list):
+        excluded = [excluded]
+    return [col for col in dataframe.columns for var_item in var_names
+            if all([k in col.upper() for k in
+                    var_item.upper().strip().split('*')]) and
+            not any(e in col for e in excluded)]
 
 
 def find_in_iterable_case_insensitive(iterable, name):
@@ -117,7 +122,7 @@ def find_in_iterable_case_insensitive(iterable, name):
     return match
 
 
-def select_var(dataframe, *var_names, **optional):
+def select(dataframe, *var_names, **optional):
     """
     Return selected variables that match columns from the dataframe.
 
@@ -130,6 +135,7 @@ def select_var(dataframe, *var_names, **optional):
               - logger (logging.Logger instance)
     """
     logger = optional.pop('logger', '') or init_logger()
+    excluded = optional.pop('excluded', None)
     (ix_level, filter_by) = optional.popitem() if optional else (None,
                                                                  None)
     ix_levels = [level.upper() for level in dataframe.index.names if level]
@@ -173,7 +179,9 @@ def select_var(dataframe, *var_names, **optional):
                        ' for level {}={}'.format(ix_level, filter_by)
                        if filter_by else '')
         return _df
-    return _df[get_matching_columns(_df, var_names)]
+    return _df[get_matching_columns(_df,
+                                    *var_names,
+                                    excluded=excluded)]
 
 
 def extract_t4csv(file_descriptor):

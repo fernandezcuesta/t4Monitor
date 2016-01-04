@@ -297,12 +297,12 @@ class Collector(object):
 
     def select(self, *args, **kwargs):  # pragma: no cover
         """
-        Convenience method for calling df_tools.select_var
+        Convenience method for calling df_tools.select
         """
-        return df_tools.select_var(self.data,
-                                   *args,
-                                   logger=self.logger,
-                                   **kwargs)
+        return df_tools.select(self.data,
+                               *args,
+                               logger=self.logger,
+                               **kwargs)
 
     def init_tunnels(self, system=None):
         """

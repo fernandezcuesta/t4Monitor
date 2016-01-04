@@ -95,47 +95,47 @@ class TestDFTools(BaseTestClass):
         self.assertIn('[DISK_BCK0]%Used', fields)
         self.assertIn('Counter01_message_External_Failure', fields)
 
-    def test_select_var(self):
-        """ Test function for select_var """
+    def test_select(self):
+        """ Test function for select """
 
         # Extract non existing -> empty
-        self.assertTrue(df_tools.select_var(self.test_data,
+        self.assertTrue(df_tools.select(self.test_data,
                                             'NONEXISTING_COLUMN',
                                             logger=LOGGER).empty)
         # Extract none -> original
-        assert_frame_equal(self.test_data, df_tools.select_var(self.test_data,
+        assert_frame_equal(self.test_data, df_tools.select(self.test_data,
                                                                '',
                                                                logger=LOGGER))
         # Extract none, filtering by a non-existing system
-        assert_frame_equal(pd.DataFrame(), df_tools.select_var(self.test_data,
+        assert_frame_equal(pd.DataFrame(), df_tools.select(self.test_data,
                                                                system='BAD_ID',
                                                                logger=LOGGER))
         # Extract filtering by an existing system (only one in this case)
-        self.assertTupleEqual(df_tools.select_var(self.test_data,
+        self.assertTupleEqual(df_tools.select(self.test_data,
                                                   system='SYSTEM_1',
                                                   logger=LOGGER).shape,
                               TEST_PKL_SHAPE)  # calcs applied, 930->944
         # Extract an empty DF should return empty DF
-        assert_frame_equal(pd.DataFrame(), df_tools.select_var(pd.DataFrame(),
+        assert_frame_equal(pd.DataFrame(), df_tools.select(pd.DataFrame(),
                                                                logger=LOGGER))
         # Specific for test data
-        self.assertEqual(df_tools.select_var(self.test_data,
+        self.assertEqual(df_tools.select(self.test_data,
                                              'Above_Peek',
                                              logger=LOGGER).shape[1],
                          12)
 
-        self.assertEqual(df_tools.select_var(self.test_data,
+        self.assertEqual(df_tools.select(self.test_data,
                                              'Counter0',
                                              logger=LOGGER).shape[1],
                          382)
         # Bad additional filter returns empty dataframe
-        assert_frame_equal(df_tools.select_var(self.test_data,
+        assert_frame_equal(df_tools.select(self.test_data,
                                                'Above_Peek',
                                                position='UP',  # wrong filter
                                                logger=LOGGER),
                            pd.DataFrame())
         # When a wrong variable is selected, it is ignored
-        self.assertEqual(df_tools.select_var(self.test_data,
+        self.assertEqual(df_tools.select(self.test_data,
                                              'I_do_not_exist',
                                              'Above_Peek',
                                              logger=LOGGER).shape[1],

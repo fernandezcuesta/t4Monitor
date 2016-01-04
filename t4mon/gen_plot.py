@@ -57,7 +57,7 @@ def plot_var(dataframe, *var_names, **optional):
         # If we filter by system: only first column in var_names will be
         # selected, dataframe.plot() function will be used.
         if system_filter:
-            sel = df_tools.select_var(dataframe,
+            sel = df_tools.select(dataframe,
                                       *var_names,
                                       system=system_filter,
                                       logger=logger)
@@ -101,7 +101,7 @@ def plot_var_by_system(dataframe, *var_names, **optional):
     cmap = optional.pop('cmap', DFLT_COLORMAP)
     systems = dataframe.index.get_level_values('system').unique()
     for system in systems:
-        sel = df_tools.select_var(dataframe,
+        sel = df_tools.select(dataframe,
                                   *var_names,
                                   system=system,
                                   logger=logger)

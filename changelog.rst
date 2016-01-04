@@ -1,3 +1,4 @@
+- [0.12.6] - Rename select_var to select, add exclusion list to get_matching_columns
 - [0.12.5] - Remote file list cache, add (test_)get_datetag, gen_plot refactor
 - [0.12.4] - Add get_single_day_data, refactor
 - [0.12.3] - Ensure random tunnel ports are not in use
