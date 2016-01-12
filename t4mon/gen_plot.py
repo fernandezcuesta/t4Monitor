@@ -58,9 +58,9 @@ def plot_var(dataframe, *var_names, **optional):
         # selected, dataframe.plot() function will be used.
         if system_filter:
             sel = df_tools.select(dataframe,
-                                      *var_names,
-                                      system=system_filter,
-                                      logger=logger)
+                                  *var_names,
+                                  system=system_filter,
+                                  logger=logger)
             if sel.empty:
                 raise TypeError
             # Remove outliers (>3 std away from mean)
@@ -102,9 +102,9 @@ def plot_var_by_system(dataframe, *var_names, **optional):
     systems = dataframe.index.get_level_values('system').unique()
     for system in systems:
         sel = df_tools.select(dataframe,
-                                  *var_names,
-                                  system=system,
-                                  logger=logger)
+                              *var_names,
+                              system=system,
+                              logger=logger)
         if sel.empty:  # other systems may have this column with some data
             continue
         # Remove outliers (>3 std away from mean)

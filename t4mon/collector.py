@@ -640,6 +640,7 @@ class Collector(object):
                                                       dataframe=self.data,
                                                       system=system)
                 self.results_queue.put(system)  # flag this system as done
+
         with self:  # open tunnels
             self.run_systemwide(_single_day_and_system_data,
                                 given_date)

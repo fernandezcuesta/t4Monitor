@@ -100,45 +100,45 @@ class TestDFTools(BaseTestClass):
 
         # Extract non existing -> empty
         self.assertTrue(df_tools.select(self.test_data,
-                                            'NONEXISTING_COLUMN',
-                                            logger=LOGGER).empty)
+                                        'NONEXISTING_COLUMN',
+                                        logger=LOGGER).empty)
         # Extract none -> original
         assert_frame_equal(self.test_data, df_tools.select(self.test_data,
-                                                               '',
-                                                               logger=LOGGER))
+                                                           '',
+                                                           logger=LOGGER))
         # Extract none, filtering by a non-existing system
         assert_frame_equal(pd.DataFrame(), df_tools.select(self.test_data,
-                                                               system='BAD_ID',
-                                                               logger=LOGGER))
+                                                           system='BAD_ID',
+                                                           logger=LOGGER))
         # Extract filtering by an existing system (only one in this case)
         self.assertTupleEqual(df_tools.select(self.test_data,
-                                                  system='SYSTEM_1',
-                                                  logger=LOGGER).shape,
+                                              system='SYSTEM_1',
+                                              logger=LOGGER).shape,
                               TEST_PKL_SHAPE)  # calcs applied, 930->944
         # Extract an empty DF should return empty DF
         assert_frame_equal(pd.DataFrame(), df_tools.select(pd.DataFrame(),
-                                                               logger=LOGGER))
+                                                           logger=LOGGER))
         # Specific for test data
         self.assertEqual(df_tools.select(self.test_data,
-                                             'Above_Peek',
-                                             logger=LOGGER).shape[1],
+                                         'Above_Peek',
+                                         logger=LOGGER).shape[1],
                          12)
 
         self.assertEqual(df_tools.select(self.test_data,
-                                             'Counter0',
-                                             logger=LOGGER).shape[1],
+                                         'Counter0',
+                                         logger=LOGGER).shape[1],
                          382)
         # Bad additional filter returns empty dataframe
         assert_frame_equal(df_tools.select(self.test_data,
-                                               'Above_Peek',
-                                               position='UP',  # wrong filter
-                                               logger=LOGGER),
+                                           'Above_Peek',
+                                           position='UP',  # wrong filter
+                                           logger=LOGGER),
                            pd.DataFrame())
         # When a wrong variable is selected, it is ignored
         self.assertEqual(df_tools.select(self.test_data,
-                                             'I_do_not_exist',
-                                             'Above_Peek',
-                                             logger=LOGGER).shape[1],
+                                         'I_do_not_exist',
+                                         'Above_Peek',
+                                         logger=LOGGER).shape[1],
                          12)
 
     def test_todataframe(self):
@@ -236,8 +236,20 @@ class TestDFTools(BaseTestClass):
     def test_remove_duplicate_columns(self):
         """ Test removing duplicate columns from a dataframe """
         df1 = pd.DataFrame(np.random.randint(0, 10, (5, 5)),
-                           columns=['A', 'B', 'C', 'B', 'E'])
+                           columns=list('ABCBE'))
         df2 = df_tools.remove_duplicate_columns(df1)
         self.assertTupleEqual(df2.shape, (5, 4))
         # When no duplicates should not alter the dataframe
         assert_frame_equal(df2, df_tools.remove_duplicate_columns(df2))
+
+    def test_get_matching_columns(self):
+        """
+        Test getting a list of columns based on regex and exclusion lists
+        """
+        df1 = pd.DataFrame(np.random.randint(0, 10, (2, 9)),
+                           columns=['one', 'two', 'one two', 'four',
+                                    'five', 'six', 'one six', 'eight',
+                                    'four five'])
+        self.assertEqual(['one', 'one two'],
+                         df_tools.get_matching_columns(df1, 'one',
+                                                       excluded='six'))

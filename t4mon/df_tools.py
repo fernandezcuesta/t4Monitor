@@ -8,6 +8,7 @@ from __future__ import absolute_import
 
 import __builtin__
 import os.path
+import re
 from cStringIO import StringIO
 from itertools import takewhile
 from collections import OrderedDict
@@ -93,8 +94,9 @@ def get_matching_columns(dataframe, *var_names, **kwargs):
     Filter column names that match first item in var_names, which can have
     wildcards ('*'), like 'str1*str2'; in that case the column name must
     contain both 'str1' and 'str2'.
+    An optional exclusion list may be specified with keyword argument
+    excluded, i.e. excluded='excluded' or excluded=['exclude this', 'this too']
     """
-    # TODO: str1*str2 actually means str1*str2* now. It shouldn't.
     if dataframe.empty:
         return []
     excluded = kwargs.get('excluded', None)
@@ -102,10 +104,17 @@ def get_matching_columns(dataframe, *var_names, **kwargs):
         excluded = []
     if not isinstance(excluded, list):
         excluded = [excluded]
-    return [col for col in dataframe.columns for var_item in var_names
-            if all([k in col.upper() for k in
-                    var_item.upper().strip().split('*')]) and
-            not any(e in col for e in excluded)]
+    regex = re.compile('^.*({}).*$'.format('|'.join(var_names)),
+                       re.IGNORECASE)
+    return [match.group(0) for column in dataframe.columns
+            for match in [re.search(regex, column)]
+            if match and not any(exclusion.upper() in column.upper()
+                                 for exclusion in excluded)
+            ]
+    # return [col for col in dataframe.columns for var_item in var_names
+    #         if all([k in col.upper() for k in
+    #                 var_item.upper().strip().split('*')]) and
+    #         not any(e in col for e in excluded)]
 
 
 def find_in_iterable_case_insensitive(iterable, name):

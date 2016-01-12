@@ -17,6 +17,8 @@ from __future__ import absolute_import
 import re
 import sys
 
+from numbers import Number
+
 TTAG = '__calculations_tmp'  # temporal column names tag
 
 
@@ -26,13 +28,21 @@ def oper(self, oper1, funct, oper2):
     """
     try:
         if funct is '+':
-            return oper1 + oper2
+            if isinstance(oper1, Number) or isinstance(oper2, Number):
+                return oper1 + oper2
+            return oper1.add(oper2)
         elif funct is '-':
-            return oper1 - oper2
+            if isinstance(oper1, Number) or isinstance(oper2, Number):
+                return oper1 - oper2
+            return oper1.sub(oper2)
         elif funct is '/':
-            return oper1 / oper2
-        else:
+            if isinstance(oper1, Number) or isinstance(oper2, Number):
+                return oper1 / oper2
+            return oper1.div(oper2)
+        if isinstance(oper1, Number) or isinstance(oper2, Number):
             return oper1 * oper2
+        else:
+            return oper1.mul(oper2)
     except (TypeError, ValueError):
         self.logger.warning("Might be an error in the equation, returning NaN")
         return float('NaN')
