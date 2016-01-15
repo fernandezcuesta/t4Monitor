@@ -94,7 +94,7 @@ class Report(object):
 
     def render(self):
         """
-        Create the jinja2 environment.
+        Create the Jinja2 environment.
         Notice the use of trim_blocks, which greatly helps control whitespace.
         """
         try:
@@ -102,36 +102,32 @@ class Report(object):
             assert self.system  # Check a system was specified
             env_dir = path.dirname(path.abspath(self.html_template))
             j2_env = jinja2.Environment(
-                     loader=jinja2.FileSystemLoader(env_dir),
-                     trim_blocks=True
-                     )
-            j2_tpl = j2_env.get_template(
-                     path.basename(self.html_template)
-                     )
+                loader=jinja2.FileSystemLoader(env_dir),
+                trim_blocks=True
+            )
+            j2_tpl = j2_env.get_template(path.basename(self.html_template))
             j2_tpl.globals['render_graphs'] = self.render_graphs
-            self.logger.info('%s | Generating graphics and rendering report '
-                             '(may take a while)', self.system)
+            self.logger.info('{0} | Generating graphics and rendering report '
+                             '(may take a while)'.format(self.system))
             return j2_tpl.generate(data=self)
         except AssertionError:
-            self.logger.error(
-                '%s',
-                '{} | No data, no report'.format(self.system)
-                if self.system else 'Not a valid system, report skipped'
-            )
+            self.logger.error('{0} | No data, no report'.format(self.system)
+                              if self.system
+                              else 'Not a valid system, report skipped')
         except IOError:
-            self.logger.error('Template file (%s) not found.',
-                              self.html_template)
+            self.logger.error('Template file ({0}) not found.'
+                              .format(self.html_template))
         except jinja2.TemplateError as msg:
-            self.logger.error('%s | Error in html template (%s): %s',
-                              self.system,
-                              self.html_template,
-                              repr(msg))
+            self.logger.error('{0} | Error in html template ({1}): {2}'
+                              .format(self.system,
+                                      self.html_template,
+                                      repr(msg)))
         # Stop the generator in case of exception
         raise StopIteration
 
     def render_graphs(self):
         """
-        Produce b64 encoded graphs for the selected system.
+        Produce base64 encoded graphs for the selected system.
         Return: (graph_title, graph_encoded_in_b64)
         """
         try:
@@ -153,17 +149,17 @@ class Report(object):
                 # info[2] contains the plot options
                 if len(info) == 1:
                     self.logger.warning('Bad format in current line: '
-                                        '"%s"...', line[1:20])
+                                        '"{0}"...'.format(line[1:20]))
                     continue
                 try:
-                    optional_kwargs = eval("dict(%s)" % info[2]) \
-                                      if len(info) == 3 else {'ylim': 0.0}
+                    optional_kwargs = eval(
+                        "dict({0})".format(info[2])
+                    ) if len(info) == 3 else {'ylim': 0.0}
                 except ValueError:
                     optional_kwargs = {'ylim': 0.0}
 
-                self.logger.debug('%s |  Plotting %s',
-                                  self.system,
-                                  info[0])
+                self.logger.debug('{0} |  Plotting {1}'.format(self.system,
+                                                               info[0]))
                 # Generate figure and encode to base64
                 plot_axis = gen_plot.plot_var(
                     self.data,
@@ -171,19 +167,18 @@ class Report(object):
                     system=self.system,
                     logger=self.logger,
                     **optional_kwargs
-                                               )
+                )
                 _b64figure = gen_plot.to_base64(plot_axis)
                 plt.close(plot_axis.get_figure())  # close figure
                 if _b64figure:
                     yield (info[1].strip(), _b64figure)
         except IOError:
-            self.logger.error('Graphs definition file not found: %s',
-                              self.graphs_definition_file)
+            self.logger.error('Graphs definition file not found: {0}'
+                              .format(self.graphs_definition_file))
         except Exception as unexpected:
-            self.logger.error('%s | Unexpected exception found while '
-                              'creating graphs: %s',
-                              self.system,
-                              repr(unexpected))
+            self.logger.error('{0} | Unexpected exception found while '
+                              'creating graphs: {1}'.format(self.system,
+                                                            repr(unexpected)))
         yield None
 
 

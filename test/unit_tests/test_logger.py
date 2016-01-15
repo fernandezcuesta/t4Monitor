@@ -38,8 +38,6 @@ class TestLogger(unittest.TestCase):
         # Check that file handler's loglevel is the same as logger loglevel
         # Check that console handler's loglevel is the same as specified
         for _handler in my_logger.handlers:
-            print("%s <> %s" % (logger.DEFAULT_LOGLEVEL,
-                                _handler.level))
             if isinstance(_handler, handlers.TimedRotatingFileHandler):
                 self.assertEqual(_handler.level, my_logger.level)
             else:

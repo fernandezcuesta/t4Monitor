@@ -1,15 +1,17 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-from __future__ import print_function, absolute_import
+from __future__ import absolute_import
 
-import argparse
-import logging
 import sys
+import logging
+import argparse
+
+import six
 
 from . import collector
 from .logger import DEFAULT_LOGLEVEL
 
-__all__ = ('parse_arugments_cli',
+__all__ = ('parse_arguments_cli',
            'parse_arguments_local',
            'parse_arguments_main'
            )
@@ -26,7 +28,7 @@ Additional tools:
 
 
 def get_input(text):
-    return raw_input(text)
+    return six.input(text)
 
 
 def check_for_sysargs(parser, args=None):
@@ -38,16 +40,16 @@ def check_for_sysargs(parser, args=None):
     if not args:
         # parser.parse_args(args)
         parser.print_help()
-        print('')
+        six.print_('')
         while True:
             ans = get_input('No arguments were specified, continue with '
                             'defaults (check running with --config)? (y|[N]) ')
             if ans in ('y', 'Y'):
-                print('Proceeding with default settings')
+                six.print_('Proceeding with default settings')
                 break
             elif not ans or ans in ('n', 'N'):
                 sys.exit('Aborting')
-            print('Please enter y or n.')
+            six.print_('Please enter y or n.')
     return vars(parser.parse_args(args))
 
 
@@ -67,15 +69,15 @@ def create_parser(args=None, prog=None):
         '--settings', dest='settings_file',
         default=collector.DEFAULT_SETTINGS_FILE,
         help='Settings file (check defaults with --config)'
-        )
+    )
     parser.add_argument('--loglevel', default=DEFAULT_LOGLEVEL,
                         choices=['DEBUG',
                                  'INFO',
                                  'WARNING',
                                  'ERROR',
                                  'CRITICAL'],
-                        help='Debug level (default: %s)' %
-                        logging.getLevelName(DEFAULT_LOGLEVEL),
+                        help='Debug level (default: {0})'
+                        .format(logging.getLevelName(DEFAULT_LOGLEVEL)),
                         nargs='?')
     return parser
 
@@ -96,7 +98,7 @@ def parse_arguments_cli(args=None):
                         help=argparse.SUPPRESS)
     parser.add_argument('--system', help=argparse.SUPPRESS)
     for null_argument in ['help', 'all', 'noreports', 'nologs']:
-        parser.add_argument('--{}'.format(null_argument),
+        parser.add_argument('--{0}'.format(null_argument),
                             action='store_true',
                             help=argparse.SUPPRESS)
     return check_for_sysargs(parser, args)
@@ -111,9 +113,9 @@ def parse_arguments_local(args=None, prog=None, pkl=True):
                         action="help",
                         help="show this help message and exit")
     filetype = 'pkl' if pkl else 'csv'
-    parser.add_argument('{}_file'.format(filetype),
+    parser.add_argument('{0}_file'.format(filetype),
                         type=str,
-                        metavar='input_{}_file'.format(filetype),
+                        metavar='input_{0}_file'.format(filetype),
                         help='Pickle (optionally gzipped) data file' if pkl
                         else 'Plain CSV file')
     parser.add_argument('--system',

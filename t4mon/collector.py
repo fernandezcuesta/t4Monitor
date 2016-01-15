@@ -20,31 +20,23 @@ from __future__ import absolute_import
 import os
 import copy
 import gzip
-import Queue
 import zipfile
 import datetime as dt
 import tempfile
 import threading
-import __builtin__
-import ConfigParser
-
-from cStringIO import StringIO
 from contextlib import contextmanager
 
 import tqdm
 import pandas as pd
-import sshtunnel
+from six import iterkeys
 from paramiko import SFTPClient, SSHException
 
+import sshtunnel
+from six.moves import queue, cPickle, builtins, cStringIO, configparser
 from sshtunnels.sftpsession import SftpSession, SFTPSessionError
 
 from . import df_tools, gen_plot, calculations
 from .logger import init_logger
-
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
 
 __all__ = ('add_methods_to_pandas_dataframe',
            'Collector',
@@ -63,6 +55,9 @@ if not os.path.exists(DEFAULT_SETTINGS_FILE):
 # Avoid using locale in Linux+Windows environments, keep these lowercase
 MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
           'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+
+
+# sshtunnel.DAEMON = True  # Cleanly stop threads when quitting
 
 
 @contextmanager
@@ -84,9 +79,9 @@ def get_datetag(date=None):
     """
     if not date:
         date = dt.date.today()
-    return '%02i%s%i' % (date.day,
-                         MONTHS[date.month-1],
-                         date.year)
+    return '{0:02d}{1}{2}'.format(date.day,
+                                  MONTHS[date.month - 1],
+                                  date.year)
 
 
 class ConfigReadError(Exception):
@@ -155,7 +150,7 @@ class Collector(object):
           - All class arguments as defined above
 
           - conf
-              Type: ConfigParser.SafeConfigParser
+              Type: configParser.SafeConfigParser
               Default: SafeConfigParser object as obtained from sample
                        configuration file
               Description: Object containing the settings as read from
@@ -185,7 +180,7 @@ class Collector(object):
                            in the configuration file (MISC/remote_log_cmd)
 
           - results_queue
-              Type: Queue.Queue()
+              Type: queue.Queue()
               Default: empty Queue object
               Description: Queue containing the system IDs which data
                            collection is ready
@@ -241,7 +236,7 @@ class Collector(object):
         self.logger = logger or init_logger()
         self.logs = {}
         self.nologs = nologs
-        self.results_queue = Queue.Queue()
+        self.results_queue = queue.Queue()
         self.safe = safe
         self.settings_file = settings_file or DEFAULT_SETTINGS_FILE
         self.server = None
@@ -268,7 +263,7 @@ class Collector(object):
                 ''.format(self.alldays,
                           self.nologs,
                           self.data.shape,
-                          self.logs.keys(),
+                          list(self.logs.keys()),
                           not self.safe,
                           'Yes' if self.server else 'No',
                           self.settings_file,
@@ -281,7 +276,7 @@ class Collector(object):
         """
         Return a string with the configuration file contents
         """
-        config = StringIO()
+        config = cStringIO()
         self.conf.write(config)
         config.seek(0)
         return config.read()
@@ -353,24 +348,26 @@ class Collector(object):
                 threaded=True,
                 logger=self.logger,
                 ssh_private_key=pkey,
-                set_keepalive=15
+                set_keepalive=15,
+                raise_exception_if_any_forwarder_have_a_problem=False
             )
-            self.server.check_local_side_of_tunnels()
+            self.server.is_use_local_check_up = True  # Check local side
             self.start_server()
             # Add the system<>port bindings to the return object
-            self.server.tunnelports = dict(zip(systems,
-                                               self.server.local_bind_ports))
-            self.logger.debug('Registered tunnels: %s',
-                              self.server.tunnelports)
+            self.server.tunnelports = dict(
+                list(zip(systems, self.server.local_bind_ports))
+            )
+            self.logger.debug('Registered tunnels: {0}'
+                              .format(self.server.tunnelports))
 
         except AssertionError:
-            self.logger.error('Local tunnel ports MUST be different: %s',
-                              tunnelports)
+            self.logger.error('Local tunnel ports MUST be different: {0}'
+                              .format(tunnelports))
             raise sshtunnel.BaseSSHTunnelForwarderError
         except sshtunnel.BaseSSHTunnelForwarderError:
-            self.logger.error('%sCould not open connection to remote server: '
-                              '%s:%s',
-                              '%s | ' % system if system else '',
+            self.logger.error('{0}Could not open connection to remote server: '
+                              '{1}:{2}',
+                              '{0} | '.format(system if system else ''),
                               jumpbox_addr,
                               jumpbox_port)
             raise sshtunnel.BaseSSHTunnelForwarderError
@@ -387,7 +384,7 @@ class Collector(object):
             if not self.server._is_started:
                 raise sshtunnel.BaseSSHTunnelForwarderError(
                     "Couldn't start server"
-                                                            )
+                )
         except AttributeError as msg:
             raise sshtunnel.BaseSSHTunnelForwarderError(msg)
 
@@ -412,7 +409,7 @@ class Collector(object):
             return False
         port = self.server.tunnelports[system]
         return any(port in address_tuple for address_tuple
-                   in self.server.tunnel_is_up.iterkeys()
+                   in iterkeys(self.server.tunnel_is_up)
                    if self.server.tunnel_is_up[address_tuple])
 
     def get_sftp_session(self, system):
@@ -424,9 +421,9 @@ class Collector(object):
         Return an SFTPClient object
         """
         if system not in self.conf.sections():
-            self.logger.error('%s | System not found in configuration',
-                              system)
-            raise SFTPSessionError('connection to %s failed' % system)
+            self.logger.error('{0} | System not found in configuration'
+                              .format(system))
+            raise SFTPSessionError('connection to {0} failed'.format(system))
 
         if self.use_gateway:
             remote_system_address = '127.0.0.1'
@@ -435,10 +432,10 @@ class Collector(object):
             remote_system_address = self.conf.get(system, 'ip_or_hostname')
             remote_system_port = self.conf.getint(system, 'ssh_port')
 
-        self.logger.info('%s | Connecting to %sport %s',
-                         system,
-                         'tunnel ' if self.use_gateway else '',
-                         remote_system_port)
+        self.logger.info('{0} | Connecting to {1}port {2}'
+                         .format(system,
+                                 'tunnel ' if self.use_gateway else '',
+                                 remote_system_port))
 
         ssh_pass = self.conf.get(system, 'password').strip("\"' ") or None \
             if self.conf.has_option(system, 'password') else None
@@ -459,7 +456,7 @@ class Collector(object):
                                ssh_port=remote_system_port,
                                logger=self.logger)
         except SFTPSessionError:
-            raise SFTPSessionError('connection to %s failed' % system)
+            raise SFTPSessionError('connection to {0} failed'.format(system))
 
     def files_lookup(self,
                      hostname=None,
@@ -499,15 +496,14 @@ class Collector(object):
 
         if sftp_session:
             self.logger.debug('Using established sftp session...')
-            self.logger.debug("Looking for remote files (%s) at '%s'",
-                              spec_list,
-                              files_folder)
+            self.logger.debug("Looking for remote files ({0}) at '{1}'"
+                              .format(spec_list, files_folder))
             filesource = sftp_session
         else:
             self.logger.debug('Using local filesystem to get the files')
-            self.logger.debug("Looking for local files (%s) at '%s'",
-                              spec_list,
-                              os.path.abspath(files_folder))
+            self.logger.debug("Looking for local files ({0}) at '{1}'"
+                              .format(spec_list,
+                                      os.path.abspath(files_folder)))
             filesource = os
         # get file list by filtering with taglist (case insensitive)
         try:
@@ -517,17 +513,17 @@ class Collector(object):
                 if key not in self.filecache:  # fill the cache
                     self.filecache[key] = filesource.listdir('.')
                 else:
-                    self.logger.debug('Using cached file list for %s', key)
-                files = ['{}/{}'.format(filesource.getcwd(), f)
+                    self.logger.debug('Using cached file list for {0}'
+                                      .format(key))
+                files = ['{0}/{1}'.format(filesource.getcwd(), f)
                          for f in self.filecache[key]
                          if all([v.upper() in f.upper() for v in spec_list])
                          ]
             if not files and not sftp_session:
                 files = filespec_list  # Relative and absolute paths (local)
         except EnvironmentError:  # cannot do the chdir
-            self.logger.error('%s | Directory "%s" not found at destination',
-                              hostname,
-                              files_folder)
+            self.logger.error('{0} | Directory "{1}" not found at destination'
+                              .format(hostname, files_folder))
             return
         return files
 
@@ -558,16 +554,16 @@ class Collector(object):
                                   sftp_session=sftp_session,
                                   **kwargs)
         if not files:
-            self.logger.debug('Nothing gathered from %s, no files were '
-                              'selected for pattern "%s"',
-                              hostname or 'local system',
-                              filespec_list)
+            self.logger.debug('Nothing gathered from {0}, no files were '
+                              'selected for pattern "{1}"'
+                              .format(hostname or 'local system',
+                                      filespec_list))
             return _df
 
-        progressbar_prefix = 'Loading {}files{}'.format(
-                                  'compressed ' if compressed else '',
-                                  ' from %s' % hostname if hostname else ''
-                              )
+        progressbar_prefix = 'Loading {0}files{1}'.format(
+            'compressed ' if compressed else '',
+            ' from {0}'.format(hostname if hostname else '')
+        )
         for a_file in tqdm.tqdm(files,
                                 leave=True,
                                 desc=progressbar_prefix,
@@ -601,17 +597,14 @@ class Collector(object):
         if not log_cmd:
             self.logger.error('No command was specified for log collection')
             return
-        self.logger.warning('Getting log output from %s (Remote command: %s), '
-                            'may take a while...',
-                            system,
-                            log_cmd)
+        self.logger.warning('Getting log output from {0} (Remote command: {1})'
+                            ', may take a while...'.format(system, log_cmd))
         try:  # ignoring stdin and stderr for OpenVMS SSH2
-            (_, stdout, _) = ssh_session.\
-                             exec_command(log_cmd)
+            (_, stdout, _) = ssh_session.exec_command(log_cmd)
             return stdout.readlines()
         except Exception as _exc:
-            self.logger.error('%s | Error occurred while getting logs: %s',
-                              system, repr(_exc))
+            self.logger.error('{0} | Error occurred while getting logs: {1}'
+                              .format(system, repr(_exc)))
             return None
 
     def get_single_day_data(self, given_date=None):
@@ -629,9 +622,8 @@ class Collector(object):
 
         def _single_day_and_system_data(system, given_date=None):
             given_date = get_datetag(given_date)
-            self.logger.info('Collecting data for system: %s; day: %s',
-                             system,
-                             given_date)
+            self.logger.info('Collecting data for system: {0}; day: {1}'
+                             .format(system, given_date))
             with self.get_sftp_session(system) as session:
                 result_data = self.get_system_data(session,
                                                    system,
@@ -681,20 +673,21 @@ class Collector(object):
                                         sftp_session=session,
                                         files_folder=destdir)
         if data.empty:
-            self.logger.warning('%s | No data was obtained!', system)
+            self.logger.warning('{0} | No data was obtained!'.format(system))
         else:
-            self.logger.info('%s | Dataframe shape obtained: %s. '
-                             'Now applying calculations...',
-                             system, data.shape)
+            self.logger.info('{0} | Dataframe shape obtained: {1}. '
+                             'Now applying calculations...'.format(system,
+                                                                   data.shape))
             calc_file = self.conf.get('MISC', 'calculations_file')
             if not os.path.isabs(calc_file):
-                calc_file = '%s%s%s' % (os.path.dirname(os.path.abspath(
-                                       self.settings_file)),
-                                       os.sep,
-                                       calc_file)
+                calc_file = '{0}{1}{2}'.format(
+                    os.path.dirname(os.path.abspath(self.settings_file)),
+                    os.sep,
+                    calc_file
+                )
             data.apply_calcs(calc_file, system)
-            self.logger.info('%s | Dataframe shape after calculations: %s',
-                             system, data.shape)
+            self.logger.info('{0} | Dataframe shape after calculations: {1}'
+                             .format(system, data.shape))
         return data
 
     def get_data_and_logs(self, system):
@@ -706,16 +699,16 @@ class Collector(object):
         """
         # TODO: allow parallel (data | log) collection
         try:
-            self.logger.info('%s | Collecting statistics...', system)
+            self.logger.info('{0} | Collecting statistics...'.format(system))
             if self.use_gateway and not self.check_if_tunnel_is_up(system):
-                self.logger.error('%s | System not reachable!', system)
+                self.logger.error('{0} | System not reachable!'.format(system))
                 raise SFTPSessionError
 
             # Get an sftp session
             sftp_session = self.get_sftp_session(system)
             if not sftp_session:
-                raise SFTPSessionError('Cannot open an SFTP session to %s' %
-                                       system)
+                raise SFTPSessionError('Cannot open an SFTP session to {0}'
+                                       .format(system))
             with sftp_session as session:  # open the session
                 # Get data from the remote system
                 result_data = self.get_system_data(session, system)
@@ -729,12 +722,12 @@ class Collector(object):
                         sftp_session.ssh_transport,
                         system,
                         self.conf.get('MISC', 'remote_log_cmd')
-                    ) or '{} | Missing logs!'.format(system)
+                    ) or '{0} | Missing logs!'.format(system)
         except (IOError, SFTPSessionError):
             result_data = pd.DataFrame()
             result_logs = 'Could not get information from this system'
 
-        self.logger.debug('%s | Consolidating results', system)
+        self.logger.debug('{0} | Consolidating results'.format(system))
         self.data = df_tools.consolidate_data(result_data,
                                               dataframe=self.data,
                                               system=system)
@@ -757,8 +750,8 @@ class Collector(object):
         # wait for threads to end, first one to finish will leave
         # the result in the queue
         for system in self.systems:
-            self.logger.info('%s | Done collecting data!',
-                             self.results_queue.get())
+            self.logger.info('{0} | Done collecting data!'
+                             .format(self.results_queue.get()))
 
     def threaded_handler(self):
         """
@@ -772,17 +765,18 @@ class Collector(object):
         Get data&logs. Serial (legacy) handler, working inside a for loop
         """
         for system in self.systems:
-            self.logger.info('%s | Initializing tunnel', system)
+            self.logger.info('{0} | Initializing tunnel'.format(system))
             try:
                 if self.use_gateway:
                     self.init_tunnels(system=system)
                 self.get_data_and_logs(system=system)
-                self.stop_server()
             except (sshtunnel.BaseSSHTunnelForwarderError,
                     IOError,
                     SFTPSessionError):
                 self.logger.warning('Continue to next system (if any)')
                 continue
+            finally:
+                self.stop_server()
 
     def start(self):
         """
@@ -795,7 +789,7 @@ class Collector(object):
                 self.threaded_handler()
         except (sshtunnel.BaseSSHTunnelForwarderError, AttributeError) as exc:
             self.logger.error('Could not initialize the SSH tunnels, '
-                              'aborting (%s)', repr(exc))
+                              'aborting ({0})'.format(repr(exc)))
         except SSHException:
             self.logger.error('Could not open remote connection')
         except Exception as exc:
@@ -805,13 +799,13 @@ class Collector(object):
         """
         Save collector object to [optionally] gzipped pickle
         """
-        buffer_object = StringIO()
+        buffer_object = cStringIO()
         col_copy = copy.copy(self)
         # cannot pickle a Queue, logging, or sshtunnel objects
         col_copy.results_queue = col_copy.logger = col_copy.server = None
-        pickle.dump(obj=col_copy,
-                    file=buffer_object,
-                    protocol=pickle.HIGHEST_PROTOCOL)
+        cPickle.dump(obj=col_copy,
+                     file=buffer_object,
+                     protocol=cPickle.HIGHEST_PROTOCOL)
         buffer_object.flush()
         if name.endswith('.gz'):
             compress = True
@@ -819,9 +813,9 @@ class Collector(object):
 
         if compress:
             output = gzip
-            name = "%s.gz" % name
+            name = "{0}.gz".format(name)
         else:
-            output = __builtin__
+            output = builtins
 
         with output.open(name, 'wb') as pkl_out:
             pkl_out.write(buffer_object.getvalue())
@@ -833,14 +827,13 @@ class Collector(object):
         CSV files
         """
         temp_dir = tempfile.gettempdir()
-        self.logger.info('Decompressing ZIP file %s into %s...',
-                         zip_file,
-                         temp_dir)
+        self.logger.info('Decompressing ZIP file {0} into {1}...'
+                         .format(zip_file, temp_dir))
         _df = pd.DataFrame()
         if not isinstance(sftp_session, SFTPClient):
-            sftp_session = __builtin__  # open local file
+            sftp_session = builtins  # open local file
         with sftp_session.open(zip_file) as file_descriptor:
-            c = StringIO()
+            c = cStringIO()
             c.write(file_descriptor.read())
             c.seek(0)
         decompressed_files = []
@@ -856,11 +849,11 @@ class Collector(object):
                     filespec_list=decompressed_files
                 )
         except (zipfile.BadZipfile, zipfile.LargeZipFile) as exc:
-            self.logger.error('Bad ZIP file: %s', zip_file)
+            self.logger.error('Bad ZIP file: {0}'.format(zip_file))
             self.logger.exception(exc)
         finally:
             for a_file in decompressed_files:
-                self.logger.debug('Deleting file %s', a_file)
+                self.logger.debug('Deleting file {0}'.format(a_file))
                 os.remove(a_file)
             c.close()
 
@@ -882,10 +875,10 @@ def read_pickle(name, compress=False, logger=None):
     if compress or name.endswith('.gz'):
         mode = gzip
     else:
-        mode = __builtin__
+        mode = builtins
 
     with mode.open(name, 'rb') as picklein:
-        collector = pickle.load(picklein)
+        collector = cPickle.load(picklein)
     collector.logger = logger or init_logger()
     return collector
 
@@ -894,16 +887,16 @@ def read_config(settings_file=None, **kwargs):
     """
     Return ConfigParser object from configuration file
     """
-    config = ConfigParser.SafeConfigParser()
+    config = configparser.SafeConfigParser()
     try:
         settings_file = settings_file or DEFAULT_SETTINGS_FILE
         settings = config.read(settings_file)
-    except ConfigParser.Error as _exc:
+    except configparser.Error as _exc:
         raise ConfigReadError(repr(_exc))
 
     if not settings or not config.sections():
-        raise ConfigReadError('Could not read configuration %s!' %
-                              settings_file)
+        raise ConfigReadError('Could not read configuration {0}!'
+                              .format(settings_file))
     return config
 
 

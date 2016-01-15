@@ -7,7 +7,7 @@ Created on Mon May 25 11:10:57 2015
 from __future__ import absolute_import
 
 import sys
-from cStringIO import StringIO
+from six.moves import cStringIO
 
 import numpy as np
 from matplotlib import dates as md
@@ -39,7 +39,7 @@ def update_colors(ax, cmap=None):
 def plot_var(dataframe, *var_names, **optional):
     """
     Plot the specified variable names from the dataframe overlaying
-    all plots for each variable and silently skipping unexisting variables.
+    all plots for each variable and silently skipping non-existing variables.
 
     - Optionally selects which system to filter on (i.e. system='localhost')
     - Optionally sends keyword parameters to pyplot (**optional)
@@ -75,15 +75,14 @@ def plot_var(dataframe, *var_names, **optional):
         plotaxis.legend(loc='best')
         return plotaxis
     except (TypeError, AssertionError):
-        logger.error('%s%s not drawn%s',
-                     '{} | '.format(system_filter) if system_filter else '',
+        logger.error('{0}{1} not drawn{2}'.format(
+                     '{0} | '.format(system_filter) if system_filter else '',
                      var_names,
-                     ' for this system' if system_filter else '')
+                     ' for this system' if system_filter else ''))
     except Exception as exc:
         item, item, exc_tb = sys.exc_info()
-        logger.error('Exception at plot_var (line %s): %s',
-                     exc_tb.tb_lineno,
-                     repr(exc))
+        logger.error('Exception at plot_var (line {0}): {1}'
+                     .format(exc_tb.tb_lineno, repr(exc)))
     # Return an empty figure if an exception was raised
     item = plt.figure()
     return item.gca()
@@ -110,8 +109,8 @@ def plot_var_by_system(dataframe, *var_names, **optional):
         # Remove outliers (>3 std away from mean)
         sel = df_tools.remove_outliers(sel.dropna(), n_std=3)
         for item in sel.columns:
-            logger.debug('Drawing item: %s (%s)' % (item, system))
-            plotaxis = sel[item].plot(label='%s %s' % (item, system),
+            logger.debug('Drawing item: {0} ({1})'.format(item, system))
+            plotaxis = sel[item].plot(label='{0} {1}'.format(item, system),
                                       **optional)
     update_colors(plotaxis, cmap)
     return plotaxis
@@ -142,14 +141,14 @@ def to_base64(dataframe_plot, img_fmt=None):
     except AssertionError:
         return ''
 
-    fbuffer = StringIO()
+    fbuffer = cStringIO()
     fig = dataframe_plot.get_figure()
     fig.savefig(fbuffer,
                 format=img_fmt,
                 bbox_inches='tight')
     encoded_plot = 'data:image/{};base64,{}'.format(
-                       img_fmt,
-                       fbuffer.getvalue().encode("base64")
-                   )
+        img_fmt,
+        fbuffer.getvalue().encode("base64")
+    )
     fbuffer.close()
     return encoded_plot

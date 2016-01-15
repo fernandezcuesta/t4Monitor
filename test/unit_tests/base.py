@@ -4,7 +4,9 @@
 *t4mon* - T4 monitoring base test functions for functional tests
 """
 
+import pickle
 import shutil
+import logging
 import tempfile
 import unittest
 from os import path
@@ -14,10 +16,10 @@ import pandas as pd
 
 from t4mon import logger
 from t4mon.collector import (
-    add_methods_to_pandas_dataframe,
     Collector,
     read_config,
-    read_pickle
+    read_pickle,
+    add_methods_to_pandas_dataframe
 )
 from t4mon.orchestrator import Orchestrator
 
@@ -58,15 +60,44 @@ def random_tag(n=5):
 
 def delete_temporary_folder(folder, logger=None):
     """
-    Delete a temporary folder in the local filesystem
+    Delete a temporary folder in the local file system
     """
     if path.isdir(folder):
         try:
             shutil.rmtree(folder)
             if logger:
-                logger.debug('Temporary folder deleted: %s', folder)
+                logger.debug('Temporary folder deleted: {0}'.format(folder))
         except OSError:
             pass  # was already deleted or no permissions
+
+
+class MockLoggingHandler(logging.Handler, object):
+    """Mock logging handler to check for expected logs.
+
+    Messages are available from an instance's `messages` dict, in order,
+    indexed by a lowercase log level string (e.g., 'debug', 'info', etc.).
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.messages = {'debug': [], 'info': [], 'warning': [], 'error': [],
+                         'critical': []}
+        super(MockLoggingHandler, self).__init__(*args, **kwargs)
+
+    def emit(self, record):
+        "Store a message from ``record`` in the instance's ``messages`` dict."
+        self.acquire()
+        try:
+            self.messages[record.levelname.lower()].append(record.getMessage())
+        finally:
+            self.release()
+
+    def reset(self):
+        self.acquire()
+        try:
+            for message_list in self.messages:
+                self.messages[message_list] = []
+        finally:
+            self.release()
 
 
 class OrchestratorSandbox(Orchestrator):
@@ -128,7 +159,7 @@ class CollectorSandbox(Collector):
                                     nologs=self.nologs,
                                     safe=self.safe,
                                     settings_file=self.settings_file)
-        my_clone.conf = self.conf
+        my_clone.conf = pickle.loads(pickle.dumps(self.conf))
         my_clone.data = self.data.copy()  # call by reference
         if system in self.logs:
             my_clone.logs[system] = self.logs[system]
@@ -142,16 +173,21 @@ class BaseTestClass(unittest.TestCase):
     """ Base TestCase for unit and functional tests """
     @classmethod
     def setUpClass(cls):
-        add_methods_to_pandas_dataframe(logger=LOGGER)
-        cls.test_data = read_pickle(name=TEST_PKL, logger=LOGGER).data
+        cls.logger = LOGGER
+        cls._test_log_handler = MockLoggingHandler(level='DEBUG')
+        cls.logger.addHandler(cls._test_log_handler)
+        cls.test_log_messages = cls._test_log_handler.messages
 
-        cls.collector_test = CollectorSandbox(logger=LOGGER,
+        add_methods_to_pandas_dataframe(logger=cls.logger)
+        cls.test_data = read_pickle(name=TEST_PKL, logger=cls.logger).data
+
+        cls.collector_test = CollectorSandbox(logger=cls.logger,
                                               settings_file=TEST_CONFIG,
                                               nologs=True,
                                               alldays=True)
         cls.collector_test.logs['my_sys'] = 'These are my dummy log results'
         cls.collector_test.conf.set('DEFAULT', 'folder', MY_DIR)
-        cls.orchestrator_test = OrchestratorSandbox(logger=LOGGER,
+        cls.orchestrator_test = OrchestratorSandbox(logger=cls.logger,
                                                     settings_file=TEST_CONFIG,
                                                     alldays=True)
         cls.orchestrator_test.logs = cls.collector_test.logs

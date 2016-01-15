@@ -2,6 +2,6 @@ Jinja2>=2.7.3
 matplotlib>=1.4.3
 pandas>=0.15.2
 paramiko>=1.15.2
+six
 tqdm
--e git+https://github.com/fernandezcuesta/sshtunnel.git@devel#egg=sshtunnel-0.0.4.5
--e git+https://github.com/uqfoundation/pathos.git#egg=pathos-0.2a1.dev0
+-e git+https://github.com/fernandezcuesta/sshtunnel.git@devel#egg=sshtunnel-0.0.6

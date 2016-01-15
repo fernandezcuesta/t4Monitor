@@ -6,15 +6,14 @@
 
 from __future__ import print_function, absolute_import
 
+import tempfile
 from os import sep
+from test.functional_tests import base as b
 
 import pandas as pd
-import tempfile
-from t4mon import collector
-from sshtunnel import BaseSSHTunnelForwarderError
-from sshtunnels.sftpsession import SftpSession
 
-from test.functional_tests import base as b
+from t4mon import collector
+from sshtunnels.sftpsession import SftpSession
 
 
 class TestOrchestrator(b.TestWithTempConfig):
@@ -64,11 +63,13 @@ class TestCollector(b.TestWithSsh):
             self.assertTrue(monitor.server.tunnel_is_up[port])
         monitor.stop_server()
 
-        # Should raise an exception if local ports aren't unique
+        # Should log an error if local ports aren't unique
         monitor = self.sandbox.collector.clone()
         monitor.conf.set('DEFAULT', 'tunnel_port', '22000')
-        with self.assertRaises(BaseSSHTunnelForwarderError):
-            monitor.init_tunnels()
+        with monitor:
+            self.assertIn("Couldn't open tunnel :22000 <> 127.0.0.1:22 "
+                          "might be in use or destination not reachable.",
+                          self.test_log_messages['error'])
 
     def test_getstatsfromhost(self):
         """ Test function for get_stats_from_host """
@@ -80,19 +81,19 @@ class TestCollector(b.TestWithSsh):
         with SftpSession(
             hostname='127.0.0.1',
             ssh_port=monitor.server.tunnelports[test_system_id]
-                         ) as s:
+        ) as s:
             data = monitor.get_stats_from_host(
                 filespec_list=['.csv'],
                 hostname=test_system_id,
                 sftp_session=s,
-                logger=b.LOGGER,
+                logger=self.logger,
                 files_folder=monitor.conf.get(test_system_id, 'folder')
             )
             should_be_empty_data = monitor.get_stats_from_host(
                 filespec_list=['i_do_not_exist/'],
                 hostname=test_system_id,
                 sftp_session=s,
-                logger=b.LOGGER,
+                logger=self.logger,
                 files_folder=monitor.conf.get(test_system_id, 'folder') + sep
             )
         self.assertIsInstance(data, pd.DataFrame)
@@ -110,8 +111,8 @@ class TestCollector(b.TestWithSsh):
                 with SftpSession(
                     hostname='127.0.0.1',
                     ssh_port=monitor.server.tunnelports[system_id],
-                    logger=b.LOGGER
-                                 ) as s:
+                    logger=self.logger
+                ) as s:
                     data = monitor.get_system_data(system=system_id,
                                                    session=s)
                     # When the folder does not exist it should return empty df
@@ -127,19 +128,19 @@ class TestCollector(b.TestWithSsh):
         with self.sandbox.collector as col:
             with SftpSession(
                 hostname='127.0.0.1',
-                logger=b.LOGGER,
+                logger=self.logger,
                 ssh_port=col.server.tunnelports[test_system_id]
             ) as s:
                 logs = col.get_system_logs(
-                           ssh_session=s.ssh_transport,
-                           system=test_system_id,
-                           log_cmd='netstat -nrt'
-                       )
+                    ssh_session=s.ssh_transport,
+                    system=test_system_id,
+                    log_cmd='netstat -nrt'
+                )
                 self.assertIn('0.0.0.0', ''.join(logs))
                 logs = col.get_system_logs(
-                           ssh_session=s.get_channel(),
-                           system=test_system_id
-                       )
+                    ssh_session=s.get_channel(),
+                    system=test_system_id
+                )
                 self.assertIsNone(logs)
 
     def test_get_data_and_logs(self):
@@ -162,7 +163,7 @@ class TestCollector(b.TestWithSsh):
             self.assertIn('Log collection omitted',
                           monitor.logs['System_2'])
 
-            # Now test with an unexisting system
+            # Now test with an non-existing system
             monitor.get_data_and_logs(system='wrong_system_id')
             self.assertTrue(monitor.select(system='wrong_system_id').empty)
 
@@ -176,7 +177,7 @@ class TestCollector(b.TestWithSsh):
     def test_threaded_handler(self):
         """ Test function for threaded_handler (AKA fast mode) """
         monitor = collector.Collector(settings_file=b.TEST_CONFIG,
-                                      logger=b.LOGGER,
+                                      logger=self.logger,
                                       alldays=True,
                                       nologs=True)
         monitor.conf.set('DEFAULT', 'folder', b.MY_DIR)
@@ -188,20 +189,20 @@ class TestCollector(b.TestWithSsh):
     def test_collector_start(self):
         """ Test function for Collector.start """
         monitor = collector.Collector(settings_file=b.TEST_CONFIG,
-                                      logger=b.LOGGER,
+                                      logger=self.logger,
                                       alldays=True,
                                       nologs=True,
                                       safe=False)
         monitor.start()
-        # main reads by itself the config file, where the folder is not set
-        # thus won't find the files and return an empty dataframe
+        # main reads by itself the configuration file, where the folder is not
+        # set, thus won't find the files and return an empty dataframe
         self.assertIsInstance(monitor.data, pd.DataFrame)
         self.assertTrue(monitor.data.empty)
         self.assertIsInstance(monitor.logs, dict)
 
         # Same by calling the threaded version
         monitor = collector.Collector(alldays=True,
-                                      logger=b.LOGGER,
+                                      logger=self.logger,
                                       nologs=True,
                                       settings_file=b.TEST_CONFIG,
                                       safe=True)

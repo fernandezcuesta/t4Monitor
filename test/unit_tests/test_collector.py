@@ -3,16 +3,15 @@
 """
 *t4mon* - T4 monitoring **test functions** for collector.py
 """
-from __future__ import print_function, absolute_import
+from __future__ import absolute_import
 
-import Queue
-import datetime as dt
 import logging
+import datetime as dt
 import tempfile
-import ConfigParser
 
 import pandas as pd
 from pandas.util.testing import assert_frame_equal
+from six.moves import configparser, queue
 
 from t4mon import df_tools, collector
 
@@ -25,6 +24,7 @@ from .base import (
     BaseTestClass
 )
 
+
 class TestCollector(BaseTestClass):
 
     """ Set of test functions for collector.py """
@@ -32,7 +32,7 @@ class TestCollector(BaseTestClass):
     def test_config(self):
         """ test function for read_config """
         config = collector.read_config(TEST_CONFIG)
-        self.assertIsInstance(config, ConfigParser.SafeConfigParser)
+        self.assertIsInstance(config, configparser.SafeConfigParser)
         self.assertGreater(config.sections(), 2)
         self.assertIn('GATEWAY', config.sections())
         self.assertTrue(all([key in [i[0] for i in config.items('DEFAULT')]
@@ -51,9 +51,9 @@ class TestCollector(BaseTestClass):
         df2 = col.data
         df2.clean_calcs(TEST_CALC)  # undo calculations
         df1 = df_tools.consolidate_data(
-                  df1,
-                  system=df2.index.get_level_values('system').unique()[0]
-              )
+            df1,
+            system=df2.index.get_level_values('system').unique()[0]
+        )
 
         self.assertIsInstance(df1, pd.DataFrame)
         self.assertIsInstance(df2, pd.DataFrame)
@@ -64,9 +64,9 @@ class TestCollector(BaseTestClass):
         # first of all, check default values
         my_collector = collector.Collector()
         self.assertIsNone(my_collector.server)
-        self.assertIsInstance(my_collector.results_queue, Queue.Queue)
+        self.assertIsInstance(my_collector.results_queue, queue.Queue)
         self.assertIsInstance(my_collector.conf,
-                              ConfigParser.SafeConfigParser)
+                              configparser.SafeConfigParser)
         self.assertFalse(my_collector.alldays)
         self.assertFalse(my_collector.nologs)
         self.assertFalse(my_collector.safe)
@@ -95,14 +95,17 @@ class TestCollector(BaseTestClass):
                          coll_clone.settings_file)
         self.assertEqual(self.collector_test.server,
                          coll_clone.server)
-        self.assertEqual(self.collector_test.conf,
-                         coll_clone.conf)
+        self.assertListEqual(self.collector_test.conf.sections(),
+                             coll_clone.conf.sections())
+        for section in coll_clone.conf.sections():
+            self.assertListEqual(self.collector_test.conf.items(section),
+                                 coll_clone.conf.items(section))
         self.assertEqual(self.collector_test.safe,
                          coll_clone.safe)
         self.assertDictEqual(self.collector_test.filecache,
                              coll_clone.filecache)
 
-        self.assertIn('Settings file: {}'.format(
+        self.assertIn('Settings file: {0}'.format(
                       self.collector_test.settings_file
                       ),
                       self.collector_test.__str__())
@@ -113,7 +116,7 @@ class TestCollector(BaseTestClass):
             self.collector_test.to_pickle(name=picklegz.name,
                                           compress=True)
             picklegz.file.close()
-            picklegz.name = '{}.gz'.format(picklegz.name)
+            picklegz.name = '{0}.gz'.format(picklegz.name)
             assert_frame_equal(self.collector_test.data,
                                collector.read_pickle(picklegz.name,
                                                      compress=True).data)

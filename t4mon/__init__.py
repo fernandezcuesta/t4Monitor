@@ -39,7 +39,7 @@
 isort:skip_file
 """
 
-from __future__ import print_function, absolute_import
+from __future__ import absolute_import
 
 import os
 import sys
@@ -52,7 +52,7 @@ if os.name == 'posix':
     matplotlib.use('Cairo')
 else:
     matplotlib.use('TkAgg')
-    import FileDialog  # Required by matplotlib when using TkAgg backend
+    import six.moves.tkinter_filedialog  # Required when using TkAgg backend
 
 from .collector import (add_methods_to_pandas_dataframe,
                         read_config,
@@ -66,7 +66,7 @@ from .arguments_parser import (parse_arguments_cli,
                                parse_arguments_main)
 
 
-__version_info__ = (0, 12, 6)
+__version_info__ = (0, 14, 0)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
@@ -94,9 +94,10 @@ def main():  # pragma: no cover
         return
     for par in ['local', 'localcsv']:
         if arguments.get(par, False):
-            sys_arguments.remove('--{}'.format(par))
+            sys_arguments.remove('--{0}'.format(par))
             create_reports_from_local(sys_arguments,
-                                      prog='{} --{}'.format(sys.argv[0], par),
+                                      prog='{0} --{1}'.format(sys.argv[0],
+                                                              par),
                                       pkl=par is 'local')
             return
     arguments = parse_arguments_main(sys_arguments)
@@ -112,7 +113,7 @@ def create_reports_from_local(arguments,
     """
     arguments = parse_arguments_local(arguments, prog=prog, pkl=pkl)
     _orchestrator = Orchestrator(**arguments)
-    argument_file_name = '{}_file'.format('pkl' if pkl else 'csv')
+    argument_file_name = '{0}_file'.format('pkl' if pkl else 'csv')
     _orchestrator.create_reports_from_local(arguments.pop(argument_file_name),
                                             pkl=pkl,
                                             **arguments)

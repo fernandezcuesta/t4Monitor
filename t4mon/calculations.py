@@ -9,7 +9,7 @@ calc_file format:
 # This is just a comment ##########################
 # Inline comments may start either with # or ;
 C = (A + B) / B  ; A and B are valid columns
-D = (C + 100.0) / (A + C)  # lines are prcessed in order
+D = (C + 100.0) / (A + C)  # lines are processed in order
 
 """
 from __future__ import absolute_import
@@ -74,11 +74,11 @@ def oper_wrapper(self, oper1, funct, oper2):
         else:
             return self.oper(self[oper1], funct, self[oper2])
     except KeyError as exc:
-        self.logger.warning('%s not found in dataset, returning NaN',
-                            repr(exc))
+        self.logger.warning('{0} not found in dataset, returning NaN'
+                            .format(repr(exc)))
     except Exception as exc:
         self.logger.error('Returning NaN. Unexpected error during '
-                          'calculations: %s', repr(exc))
+                          'calculations: {0}'.format(repr(exc)))
     return float('NaN')
 
 
@@ -95,15 +95,16 @@ def recursive_lis(self, sign_pattern, parn_pattern, res, c_list):
         par = re.findall(parn_pattern, c_list)
         if par:
             # First parenthesis will be TTAG1, second will be TTAG2, ...
-            tmp_tag = '%s%i' % (TTAG, sum([TTAG in col for col in self]) + 1)
+            tmp_tag = '{0}{1}'.format(TTAG,
+                                      sum([TTAG in col for col in self]) + 1)
             # Resolve equation inside parenthesis and come back
             self.recursive_lis(sign_pattern, parn_pattern, tmp_tag, par[0])
             # Update c_list by replacing the solved equation by 'TTAGN'
-            c_list = c_list.strip().replace('(%s)' % par[0], tmp_tag)
+            c_list = c_list.strip().replace('({0})'.format(par[0]), tmp_tag)
             # Solve the rest of the equation (yet another parenthesis?)
             self.recursive_lis(sign_pattern, parn_pattern, res, c_list)
         else:
-            # print "Shouldn't be any parenthesis here:", c_list
+            # Shouldn't be any parenthesis here
             c_list = re.split(sign_pattern, re.sub(' ', '', c_list))
 
     # Break the recursive loop if we already have the result
@@ -128,9 +129,8 @@ def recursive_lis(self, sign_pattern, parn_pattern, res, c_list):
         return res.strip()
     except Exception as exc:
         _, _, exc_tb = sys.exc_info()
-        self.logger.error('Unexpected exception at calculations (line %s): %s',
-                          exc_tb.tb_lineno,
-                          repr(exc))
+        self.logger.error('Unexpected exception at calculations (line {0}): '
+                          '{1}'.format(exc_tb.tb_lineno, repr(exc)))
         return
 
 
@@ -139,7 +139,8 @@ def clean_calcs(self, calc_file):
     Delete columns added by apply_lis
     """
     try:
-        self.logger.info('Dataframe shape before cleanup: %s', self.shape)
+        self.logger.info('Dataframe shape before cleanup: {0}'
+                         .format(self.shape))
         with open(calc_file, 'r') as calcfile:
             colnames = [line.split('=')[0].strip() for line in calcfile
                         if line[0] not in ';#!/%[ ' and len(line) > 3]
@@ -147,15 +148,18 @@ def clean_calcs(self, calc_file):
             for col in colnames:
                 try:
                     self.drop(col, axis=1, inplace=True)
-                    self.logger.debug('Deleted column: %s', col)
+                    self.logger.debug('Deleted column: {0}'.format(col))
                 except ValueError:
                     if len(col) > 20:  # truncate the column name if too long
-                        col = '{}...'.format(col[:20])
-                    self.logger.debug('Error while cleaning column %s', col)
+                        col = '{0}...'.format(col[:20])
+                    self.logger.debug('Error while cleaning column {0}'
+                                      .format(col))
                     continue
-        self.logger.info('Dataframe shape after cleanup: %s', self.shape)
+        self.logger.info('Dataframe shape after cleanup: {0}'
+                         .format(self.shape))
     except IOError:
-        self.logger.error("Could not process calculation file: %s", calc_file)
+        self.logger.error("Could not process calculation file: {0}"
+                          .format(calc_file))
 
 
 def clean_comments(line, pattern=None):
@@ -190,9 +194,10 @@ def apply_calcs(self, calc_file, system=None):
                 line = clean_comments(line, comments_pattern)
                 if not line:
                     continue
-                self.logger.debug('%sProcessing: %s',
-                                  '%s | ' % system if system else '',
-                                  line)
+                self.logger.debug('{0}Processing: {1}'
+                                  .format('{0} | '.format(system) if
+                                          system else '',
+                                          line))
                 self.recursive_lis(arithmetic_pattern,
                                    parenthesis_pattern,
                                    *line.split('='))
@@ -200,4 +205,5 @@ def apply_calcs(self, calc_file, system=None):
         for colname in self.columns[[TTAG in col for col in self]]:
             del self[colname]
     except IOError:
-        self.logger.error("Could not process calculation file: %s", calc_file)
+        self.logger.error("Could not process calculation file: {0}"
+                          .format(calc_file))

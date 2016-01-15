@@ -103,6 +103,6 @@ class TestCalculations(unittest.TestCase):
             df_with_calcs.clean_calcs(calcs_file.name)
 
         assert_frame_equal(self.testdf, df_with_calcs)
-        # Attempting to clean from a non-exising file does nothing
+        # Attempting to clean from a non-existing file does nothing
         self.assertIsNone(self.testdf.clean_calcs('non-existing-file'))
         self.testdf.clean_calcs('test/test_data.csv')  # wrong calcs file

@@ -1,5 +1,6 @@
 include t4mon/conf/*
+include *.rst
 include *.md
-include requirements.txt
+include requirements*.txt
 include test/*
 include local/*

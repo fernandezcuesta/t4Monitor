@@ -1,16 +1,17 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import
 
 import datetime as dt
 import logging
 import os
+import sys
 
-import copy_reg
 import pandas as pd
 import types
 from functools import wraps
 from multiprocessing import Pool
+from six.moves import configparser, copyreg
 
 from . import collector  # isort:skip
 from .logger import init_logger  # isort:skip
@@ -23,9 +24,14 @@ __all__ = ('Orchestrator')
 
 # Make the Orchestrator class pickable, required by Pool.map()
 def _pickle_method(method):
-    func_name = method.im_func.__name__
-    obj = method.im_self
-    cls = method.im_class
+    if sys.version < (3, ):
+        func_name = method.im_func.__name__
+        obj = method.im_self
+        cls = method.im_class
+    else:
+        func_name = method.__func__.__name__
+        obj = method.__self__
+        cls = method.__class__
     return _unpickle_method, (func_name, obj, cls)
 
 
@@ -39,7 +45,7 @@ def _unpickle_method(func_name, obj, cls):
             break
     return func.__get__(obj, cls)
 
-copy_reg.pickle(types.MethodType, _pickle_method, _unpickle_method)
+copyreg.pickle(types.MethodType, _pickle_method, _unpickle_method)
 
 
 class Orchestrator(object):
@@ -80,12 +86,12 @@ class Orchestrator(object):
                         if item not in ['GATEWAY', 'MISC']]
 
     def __str__(self):
-        return ('Orchestrator object created on {} with loglevel {}\n'
-                'reports folder: {}\n'
-                'store folder: {}\n'
-                'data size: {}\n'
-                'settings_file: {}\n'
-                'mode: {}'.format(
+        return ('Orchestrator object created on {0} with loglevel {1}\n'
+                'reports folder: {2}\n'
+                'store folder: {3}\n'
+                'data size: {4}\n'
+                'settings_file: {5}\n'
+                'mode: {6}'.format(
                     self.date_time,
                     logging.getLevelName(self.logger.level),
                     self.reports_folder,
@@ -103,9 +109,9 @@ class Orchestrator(object):
             return filename
         else:
             relpath = os.path.dirname(os.path.abspath(self.settings_file))
-            return '{}{}{}'.format(relpath,
-                                   os.sep if relpath != os.sep else '',
-                                   filename)
+            return '{0}{1}{2}'.format(relpath,
+                                      os.sep if relpath != os.sep else '',
+                                      filename)
 
     def check_external_files_from_config(self, add_external_to_object=True):
         """
@@ -115,7 +121,8 @@ class Orchestrator(object):
         Optionally add all the external files to the Orchestrator object.
         """
         conf = collector.read_config(self.settings_file)
-        self.logger.debug('Using settings file: %s', self.settings_file)
+        self.logger.debug('Using settings file: {0}'
+                          .format(self.settings_file))
         for external_file in ['calculations_file',
                               'html_template',
                               'graphs_definition_file']:
@@ -124,13 +131,13 @@ class Orchestrator(object):
             if conf.has_option('MISC', external_file):
                 value = self.get_absolute_path(conf.get('MISC', external_file))
             else:
-                _msg = 'Entry for {} not found in MISC section (file: {})'\
+                _msg = 'Entry for {0} not found in MISC section (file: {1})'\
                     .format(external_file, self.settings_file)
                 raise collector.ConfigReadError(_msg)
 
             # Check if external files do exist
             if not os.path.isfile(value):
-                _msg = '{} NOT found: {}'.format(external_file, value)
+                _msg = '{0} NOT found: {1}'.format(external_file, value)
                 raise collector.ConfigReadError(_msg)
 
             # Update Orchestrator object
@@ -146,18 +153,20 @@ class Orchestrator(object):
         """
         # Create store folder if needed
         try:
-            self.logger.debug('Using store folder: %s', self.store_folder)
+            self.logger.debug('Using store folder: {0}'
+                              .format(self.store_folder))
             os.makedirs(self.store_folder)
         except OSError:
-            self.logger.debug('Store folder already exists: %s',
-                              os.path.abspath(self.store_folder))
+            self.logger.debug('Store folder already exists: {0}'
+                              .format(os.path.abspath(self.store_folder)))
         # Create reports folder if needed
         try:
-            self.logger.debug('Using reports folder: %s', self.reports_folder)
+            self.logger.debug('Using reports folder: {0}'
+                              .format(self.reports_folder))
             os.makedirs(self.reports_folder)
         except OSError:
-            self.logger.debug('Reports folder already exists: %s',
-                              os.path.abspath(self.reports_folder))
+            self.logger.debug('Reports folder already exists: {0}'
+                              .format(os.path.abspath(self.reports_folder)))
 
     def check_files(self):
         """
@@ -173,13 +182,13 @@ class Orchestrator(object):
         Raises collector.ConfigReadError if not everything is in place
         """
         if not os.path.isfile(self.settings_file):
-            self.logger.critical('Settings file not found: %s',
-                                 self.settings_file)
+            self.logger.critical('Settings file not found: {0}'
+                                 .format(self.settings_file))
             raise collector.ConfigReadError
         try:
             self.check_external_files_from_config()
         except (collector.ConfigReadError,
-                collector.ConfigParser.Error) as _exc:
+                configparser.Error) as _exc:
             self.logger.exception(_exc)
             raise collector.ConfigReadError
         # Check that destination folders are in place
@@ -213,9 +222,8 @@ class Orchestrator(object):
         report_name = '{0}/Report_{1}_{2}.html'.format(self.reports_folder,
                                                        self.date_tag(),
                                                        system)
-        logger.debug('%s | Generating HTML report (%s)',
-                     system,
-                     report_name)
+        logger.debug('{0} | Generating HTML report ({1})'
+                     .format(system, report_name))
         with open(report_name, 'w') as output:
             output.writelines(gen_report(container=self,
                                          system=system))
@@ -249,17 +257,18 @@ class Orchestrator(object):
         destfile = '{0}/data_{1}.pkl'.format(self.store_folder,
                                              self.date_tag())
         col.to_pickle(destfile, compress=True)
-        self.logger.info('  -->  %s.gz', destfile)
+        self.logger.info('  -->  {0}.gz'.format(destfile))
         destfile = '{0}/data_{1}.csv'.format(self.store_folder,
                                              self.date_tag())
         col.data.to_csv(destfile)
-        self.logger.info('  -->  %s', destfile)
+        self.logger.info('  -->  {0}'.format(destfile))
 
         # Write logs
         if not col.nologs:
             for system in col.systems:
                 if system not in col.logs:
-                    self.logger.warning('No log info found for %s', system)
+                    self.logger.warning('No log info found for {0}'
+                                        .format(system))
                     continue
                 with open('{0}/logs_{1}_{2}.txt'.format(self.store_folder,
                                                         system,
@@ -312,9 +321,8 @@ class Orchestrator(object):
         """
         # load the input file
         if not os.path.exists(data_file):
-            self.logger.error('%s file %s cannot be found',
-                              'PKL' if pkl else 'CSV',
-                              data_file)
+            self.logger.error('{0} file {1} cannot be found'
+                              .format('PKL' if pkl else 'CSV', data_file))
             raise IOError
         if pkl:
             _collector = collector.read_pickle(data_file,
@@ -337,7 +345,7 @@ class Orchestrator(object):
         for system in self.systems:
             self.logs[system] = 'Log collection omitted for '\
                                 'locally generated reports at '\
-                                '{} for {}'.format(self.date_tag(), system)
+                                '{0} for {1}'.format(self.date_tag(), system)
             self.logger.info(self.logs[system])
 
         # Create the reports

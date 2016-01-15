@@ -12,11 +12,7 @@ import pandas as pd
 
 from t4mon.gen_report import Report, gen_report
 
-from .base import (
-    TEST_CSV,
-    TEST_HTMLTEMPLATE,
-    BaseTestClass
-)
+from .base import TEST_CSV, TEST_HTMLTEMPLATE, BaseTestClass
 
 
 class TestGenReport(BaseTestClass):
@@ -33,9 +29,10 @@ class TestGenReport(BaseTestClass):
         html_rendered = ''.join((chunk for chunk in gen_report(my_container,
                                                                system)))
         self.assertIn('<title>Monitoring of {} at {}</title>'.format(
-                          system,
-                          my_container.date_time),
-                      html_rendered)
+            system,
+            my_container.date_time),
+            html_rendered
+        )
 
         graph_titles = []
         with open(my_container.graphs_definition_file, 'r') as graphs_file:
@@ -71,7 +68,7 @@ class TestGenReport(BaseTestClass):
 
         _report = Report(my_container, system)
         my_graph = _report.render_graphs().next()
-        # test that the generated graph is a valid b64 encoded png
+        # test that the generated graph is a valid base64 encoded PNG file
         self.assertIsInstance(my_graph, tuple)
         for tuple_element in my_graph:
             self.assertIsInstance(tuple_element, str)

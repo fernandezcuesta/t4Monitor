@@ -6,7 +6,6 @@
 from __future__ import absolute_import
 
 import os
-import logging
 from datetime import datetime as dt
 
 import pandas as pd
@@ -73,7 +72,7 @@ class TestOrchestrator(BaseTestClass):
 
         # Check with missing settings file
         with self.assertRaises(collector.ConfigReadError):
-            _orchestrator.settings_file = 'test/unexisting.file'
+            _orchestrator.settings_file = 'test/non_existing.file'
             _orchestrator.check_files()
 
     def test_check_files_raises_exception_if_bad_settings(self):
@@ -94,9 +93,9 @@ class TestOrchestrator(BaseTestClass):
         _orchestrator.reports_written = []  # reset the count
         _orchestrator.safe = True
         _orchestrator.data = df_tools.consolidate_data(
-                                 partial_dataframe=self.test_data,
-                                 dataframe=self.test_data,
-                                 system='SYS2'
+            partial_dataframe=self.test_data,
+            dataframe=self.test_data,
+            system='SYS2'
         )
         _orchestrator.reports_generator()
         self.assertNotEqual(_orchestrator.reports_written, [])
