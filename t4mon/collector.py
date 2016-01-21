@@ -18,7 +18,7 @@
 from __future__ import absolute_import
 
 import os
-import copy
+# import copy
 import gzip
 import zipfile
 import datetime as dt
@@ -26,32 +26,23 @@ import tempfile
 import threading
 from contextlib import contextmanager
 
+from six import BytesIO, iterkeys
+
 import tqdm
 import pandas as pd
-from six import iterkeys
-from paramiko import SFTPClient, SSHException
-
 import sshtunnel
-from six.moves import queue, cPickle, builtins, cStringIO, configparser
+from paramiko import SFTPClient, SSHException
+from six.moves import queue, cPickle, builtins, cStringIO
 from sshtunnels.sftpsession import SftpSession, SFTPSessionError
 
-from . import df_tools, gen_plot, calculations
+from . import df_tools, gen_plot, arguments, calculations
 from .logger import init_logger
 
 __all__ = ('add_methods_to_pandas_dataframe',
            'Collector',
            'load_zipfile',
-           'read_pickle',
-           'read_config')
+           'read_pickle')
 
-# CONSTANTS
-DEFAULT_SETTINGS_FILE = os.path.join(os.getcwd(), 'settings.cfg')
-if not os.path.exists(DEFAULT_SETTINGS_FILE):
-    DEFAULT_SETTINGS_FILE = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        'conf',
-        'settings.cfg'
-    )
 # Avoid using locale in Linux+Windows environments, keep these lowercase
 MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
           'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
@@ -82,14 +73,6 @@ def get_datetag(date=None):
     return '{0:02d}{1}{2}'.format(date.day,
                                   MONTHS[date.month - 1],
                                   date.year)
-
-
-class ConfigReadError(Exception):
-
-    """
-    Exception subclass (dummy) raised while reading configuration file
-    """
-    pass
 
 
 class Collector(object):
@@ -230,7 +213,7 @@ class Collector(object):
                  **kwargs):
 
         self.alldays = alldays
-        self.conf = read_config(settings_file)
+        self.conf = arguments.read_config(settings_file)
         self.data = pd.DataFrame()
         self.filecache = {}
         self.logger = logger or init_logger()
@@ -238,7 +221,7 @@ class Collector(object):
         self.nologs = nologs
         self.results_queue = queue.Queue()
         self.safe = safe
-        self.settings_file = settings_file or DEFAULT_SETTINGS_FILE
+        self.settings_file = settings_file or arguments.DEFAULT_SETTINGS_FILE
         self.server = None
         self.systems = [item for item in self.conf.sections()
                         if item not in ['GATEWAY', 'MISC']]
@@ -271,6 +254,23 @@ class Collector(object):
                           self.dump_config()
                           )
                 )
+
+    def __getstate__(self):
+        """
+        """
+        odict = self.__dict__.copy()
+        odict['loggername'] = self.logger.name
+        for item in ['logger', 'results_queue', 'server']:
+            del odict[item]
+        return odict
+
+    def __setstate__(self, state):
+        """
+        """
+        state['logger'] = init_logger(state.get('loggername'))
+        state['results_queue'] = queue.Queue()
+        state['server'] = None
+        self.__dict__.update(state)
 
     def dump_config(self):
         """
@@ -316,7 +316,7 @@ class Collector(object):
         """
         self.logger.info('Initializing tunnels')
         if not self.conf:
-            self.conf = read_config(self.settings_file)
+            self.conf = arguments.read_config(self.settings_file)
 
         jumpbox_addr = self.conf.get('GATEWAY', 'ip_or_hostname')
         jumpbox_port = self.conf.getint('GATEWAY', 'ssh_port')
@@ -799,11 +799,11 @@ class Collector(object):
         """
         Save collector object to [optionally] gzipped pickle
         """
-        buffer_object = cStringIO()
-        col_copy = copy.copy(self)
+        buffer_object = BytesIO()
+        # col_copy = copy.copy(self)
         # cannot pickle a Queue, logging, or sshtunnel objects
-        col_copy.results_queue = col_copy.logger = col_copy.server = None
-        cPickle.dump(obj=col_copy,
+        # col_copy.results_queue = col_copy.logger = col_copy.server = None
+        cPickle.dump(obj=self,
                      file=buffer_object,
                      protocol=cPickle.HIGHEST_PROTOCOL)
         buffer_object.flush()
@@ -832,8 +832,8 @@ class Collector(object):
         _df = pd.DataFrame()
         if not isinstance(sftp_session, SFTPClient):
             sftp_session = builtins  # open local file
-        with sftp_session.open(zip_file) as file_descriptor:
-            c = cStringIO()
+        with sftp_session.open(zip_file, 'rb') as file_descriptor:
+            c = BytesIO()
             c.write(file_descriptor.read())
             c.seek(0)
         decompressed_files = []
@@ -878,26 +878,9 @@ def read_pickle(name, compress=False, logger=None):
         mode = builtins
 
     with mode.open(name, 'rb') as picklein:
-        collector = cPickle.load(picklein)
-    collector.logger = logger or init_logger()
-    return collector
-
-
-def read_config(settings_file=None, **kwargs):
-    """
-    Return ConfigParser object from configuration file
-    """
-    config = configparser.SafeConfigParser()
-    try:
-        settings_file = settings_file or DEFAULT_SETTINGS_FILE
-        settings = config.read(settings_file)
-    except configparser.Error as _exc:
-        raise ConfigReadError(repr(_exc))
-
-    if not settings or not config.sections():
-        raise ConfigReadError('Could not read configuration {0}!'
-                              .format(settings_file))
-    return config
+        collector_ = cPickle.load(picklein)
+    collector_.logger = logger or init_logger()
+    return collector_
 
 
 def add_methods_to_pandas_dataframe(logger=None):

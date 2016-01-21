@@ -10,39 +10,16 @@ import datetime as dt
 import tempfile
 
 import pandas as pd
+from t4mon import df_tools, arguments, collector
+from six.moves import queue, configparser
 from pandas.util.testing import assert_frame_equal
-from six.moves import configparser, queue
 
-from t4mon import df_tools, collector
-
-from .base import (
-    TEST_CSV,
-    TEST_PKL,
-    TEST_CALC,
-    TEST_CONFIG,
-    TEST_ZIPFILE,
-    BaseTestClass
-)
+from .base import TEST_CSV, TEST_PKL, TEST_CALC, TEST_ZIPFILE, BaseTestClass
 
 
 class TestCollector(BaseTestClass):
 
     """ Set of test functions for collector.py """
-
-    def test_config(self):
-        """ test function for read_config """
-        config = collector.read_config(TEST_CONFIG)
-        self.assertIsInstance(config, configparser.SafeConfigParser)
-        self.assertGreater(config.sections(), 2)
-        self.assertIn('GATEWAY', config.sections())
-        self.assertTrue(all([key in [i[0] for i in config.items('DEFAULT')]
-                             for key in ['ssh_port', 'ssh_timeout',
-                                         'tunnel_port', 'folder', 'username',
-                                         'ip_or_hostname']]))
-        # Trying to read a bad formatted config file should raise an exception
-        self.assertRaises(collector.ConfigReadError,
-                          collector.read_config,
-                          TEST_CSV)
 
     def test_getstats(self):
         """ Test function for get_stats_from_host """
@@ -73,7 +50,7 @@ class TestCollector(BaseTestClass):
         self.assertIsInstance(my_collector.logger,
                               logging.Logger)
         self.assertEqual(my_collector.settings_file,
-                         collector.DEFAULT_SETTINGS_FILE)
+                         arguments.DEFAULT_SETTINGS_FILE)
         self.assertIsInstance(my_collector.data,
                               pd.DataFrame)
         self.assertDictEqual(my_collector.logs,
@@ -112,6 +89,7 @@ class TestCollector(BaseTestClass):
 
     def test_compressed_pickle(self):
         """ Test to_pickle and read_pickle for compressed pkl.gz files """
+        self.logger.error(self.collector_test.__dict__)
         with tempfile.NamedTemporaryFile() as picklegz:
             self.collector_test.to_pickle(name=picklegz.name,
                                           compress=True)

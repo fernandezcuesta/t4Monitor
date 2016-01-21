@@ -16,7 +16,6 @@ from __future__ import absolute_import
 
 import re
 import sys
-
 from numbers import Number
 
 TTAG = '__calculations_tmp'  # temporal column names tag

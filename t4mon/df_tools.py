@@ -11,12 +11,12 @@ import os.path
 from itertools import takewhile
 from collections import OrderedDict
 
-import numpy as np
-import pandas as pd
 from six import string_types, advance_iterator
-from paramiko import SFTPClient
 
+import numpy as np
 import t4mon
+import pandas as pd
+from paramiko import SFTPClient
 from six.moves import builtins, cStringIO
 
 from .logger import init_logger

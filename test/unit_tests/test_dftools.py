@@ -11,11 +11,10 @@ import unittest
 import numpy as np
 import pandas as pd
 import pytest
+from t4mon import df_tools, collector
 from pandas.util.testing import assert_frame_equal
 
-from t4mon import df_tools, collector
-
-from .base import LOGGER, TEST_CSV, BaseTestClass
+from . import base
 
 TEST_CSV_SHAPE = (286, 930)  # dataframe shape as generated from CSV
 TEST_PKL_SHAPE = (286, 942)  # dataframe shape after calculations (as stored)
@@ -28,17 +27,17 @@ class TestAuxiliaryFunctions(unittest.TestCase):
     """
     @classmethod
     def setUpClass(cls):
-        collector.add_methods_to_pandas_dataframe(LOGGER)
+        collector.add_methods_to_pandas_dataframe(base.LOGGER)
 
     def test_reload_from_csv(self):
         """ Test loading a dataframe from CSV file (plain or T4 format)
         """
         # Test with a T4-CSV
-        df1 = df_tools.reload_from_csv(TEST_CSV)
+        df1 = df_tools.reload_from_csv(base.TEST_CSV)
         self.assertTupleEqual(df1.shape, TEST_CSV_SHAPE)
         # Test with a plain CSV
         with tempfile.NamedTemporaryFile() as plaincsv:
-            df1.to_csv(plaincsv)
+            df1.to_csv(plaincsv.name)
             plaincsv.file.close()
             df2 = df_tools.reload_from_csv(plaincsv.name, plain=True)
             assert_frame_equal(df1, df2)
@@ -46,7 +45,7 @@ class TestAuxiliaryFunctions(unittest.TestCase):
     def test_t4csv_to_plain(self):
         """ Test T4 to plain CSV conversion """
         with tempfile.NamedTemporaryFile() as test_plain:
-            df_tools.t4csv_to_plain(TEST_CSV, output=test_plain)
+            df_tools.t4csv_to_plain(base.TEST_CSV, output=test_plain.name)
             with open(TEST_PLAINCSV, 'r') as this, open(test_plain.name,
                                                         'r') as that:
                 self.assertTrue(this.read(), that.read())
@@ -74,13 +73,13 @@ class TestAuxiliaryFunctions(unittest.TestCase):
         assert_frame_equal(df1.drop(rnd_row, axis=0), df2)
 
 
-class TestDFTools(BaseTestClass):
+class TestDFTools(base.BaseTestClass):
 
     """ Set of test functions for df_tools.py """
 
     def test_extract_t4csv(self):
         """ Test function for extract_t4csv """
-        with open(TEST_CSV, 'r') as filedescriptor:
+        with open(base.TEST_CSV, 'r') as filedescriptor:
             (fields, data) = df_tools.extract_t4csv(filedescriptor)
 
         self.assertIsInstance(fields, list)
@@ -143,7 +142,7 @@ class TestDFTools(BaseTestClass):
 
     def test_todataframe(self):
         """ Test function for to_dataframe """
-        with open(TEST_CSV, 'r') as testcsv:
+        with open(base.TEST_CSV, 'r') as testcsv:
             (field_names, data) = df_tools.extract_t4csv(testcsv)
         dataframe = df_tools.to_dataframe(field_names, data)
         self.assertIsInstance(dataframe, pd.DataFrame)
@@ -163,22 +162,22 @@ class TestDFTools(BaseTestClass):
         """
         Test to_dataframe when a no header passed matching the datetime tag
         """
-        with open(TEST_CSV, 'r') as testcsv:
+        with open(base.TEST_CSV, 'r') as testcsv:
             (field_names, data) = df_tools.extract_t4csv(testcsv)
         # fake the header
-        df_timecol = (s for s in field_names
-                      if df_tools.DATETIME_TAG in s).next()
+        df_timecol = next(s for s in field_names if
+                          df_tools.DATETIME_TAG in s)
         field_names[field_names.index(df_timecol)] = 'time_index'
         with self.assertRaises(df_tools.ToDfError):
             df_tools.to_dataframe(field_names, data)
 
     def test_dataframize(self):
         """ Test function for dataframize """
-        dataframe = df_tools.dataframize(TEST_CSV, logger=self.logger)
+        dataframe = df_tools.dataframize(base.TEST_CSV, logger=self.logger)
         self.assertTupleEqual(dataframe.shape, TEST_CSV_SHAPE)
         # test with a non-T4Format CSV, should return empty DF
         with tempfile.NamedTemporaryFile() as plaincsv:
-            dataframe.to_csv(plaincsv)
+            dataframe.to_csv(plaincsv.name)
             plaincsv.file.close()
             assert_frame_equal(pd.DataFrame(),
                                df_tools.dataframize(plaincsv.name))
@@ -229,8 +228,8 @@ class TestDFTools(BaseTestClass):
         t4files = df_tools.dataframe_to_t4csv(dataframe=self.test_data,
                                               output=t.name)
         self.assertTrue(len(t4files) > 0)
-        that = self.collector_test.get_stats_from_host(t4files.values())
-        that = df_tools.consolidate_data(that, system=t4files.keys()[0])
+        that = self.collector_test.get_stats_from_host(list(t4files.values()))
+        that = df_tools.consolidate_data(that, system=list(t4files.keys())[0])
         assert_frame_equal(self.test_data, that)
 
     def test_remove_duplicate_columns(self):

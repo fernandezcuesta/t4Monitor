@@ -5,10 +5,11 @@
 """
 from __future__ import absolute_import
 
-import pandas as pd
-from matplotlib import pyplot as plt
+import six
 
+import pandas as pd
 from t4mon import df_tools, gen_plot
+from matplotlib import pyplot as plt
 
 from .base import TEST_DATAFRAME, BaseTestClass
 
@@ -20,9 +21,9 @@ class TestGenPlot(BaseTestClass):
     def test_tobase64(self):
         """ Test function for to_base64 """
         plot_fig = TEST_DATAFRAME.plot()
-        self.assertIsInstance(gen_plot.to_base64(plot_fig), str)
+        self.assertIsInstance(gen_plot.to_base64(plot_fig), six.binary_type)
         self.assertTrue(gen_plot.to_base64(plot_fig).
-                        startswith('data:image/png;base64,'))
+                        startswith(six.b('data:image/png;base64,')))
         # Converting an empty plot, should return an empty string
         self.assertEqual(gen_plot.to_base64(plt.figure().gca()), '')
 

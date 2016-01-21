@@ -54,16 +54,16 @@ else:
     matplotlib.use('TkAgg')
     import six.moves.tkinter_filedialog  # Required when using TkAgg backend
 
-from .collector import (add_methods_to_pandas_dataframe,
-                        read_config,
-                        read_pickle)
+from .collector import add_methods_to_pandas_dataframe, read_pickle
 from .gen_plot import plot_var
+from .gen_report import gen_report
 from .logger import init_logger
 
 from .orchestrator import Orchestrator
-from .arguments_parser import (parse_arguments_cli,
-                               parse_arguments_local,
-                               parse_arguments_main)
+from .arguments import (parse_arguments_cli,
+                        parse_arguments_local,
+                        parse_arguments_main,
+                        read_config)
 
 
 __version_info__ = (0, 14, 0)

@@ -14,7 +14,10 @@ from os import path, remove
 import paramiko
 from six import print_
 
+from t4mon.arguments import get_absolute_path
 from ..unit_tests.base import BaseTestClass, MY_DIR, TEST_CONFIG
+
+TEST_CONFIG = TEST_CONFIG
 
 
 class TestWithSsh(BaseTestClass):
@@ -62,9 +65,8 @@ class TestWithTempConfig(TestWithSsh):
         for misc_item in ['calculations_file',
                           'html_template',
                           'graphs_definition_file']:
-            _file = cls.orchestrator_test.get_absolute_path(
-                cls.conf.get('MISC', misc_item)
-            )
+            _file = get_absolute_path(cls.conf.get('MISC', misc_item),
+                                      cls.orchestrator_test.settings_file)
             cls.orchestrator_test.logger.debug('Copying {0} to {1}'
                                                .format(_file,
                                                        cls.temporary_dir))

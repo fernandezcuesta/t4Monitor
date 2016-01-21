@@ -29,7 +29,7 @@ class TestOrchestrator(b.TestWithTempConfig):
         # work in a temporary directory
         orch = self.sandbox
         orch.safe = True
-        with tempfile.NamedTemporaryFile() as temp_config:
+        with tempfile.NamedTemporaryFile(mode='w') as temp_config:
             orch.conf.write(temp_config)
             temp_config.seek(0)
             orch.settings_file = temp_config.name

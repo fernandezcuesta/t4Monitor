@@ -11,9 +11,8 @@ import tempfile
 import unittest
 
 import pandas as pd
-from pandas.util.testing import assert_frame_equal
-
 from t4mon import collector
+from pandas.util.testing import assert_frame_equal
 
 from .base import LOGGER
 
@@ -73,7 +72,7 @@ class TestCalculations(unittest.TestCase):
 
     def test_apply_calcs(self):
         """ Test function for apply_calcs """
-        with tempfile.NamedTemporaryFile() as calcs_file:
+        with tempfile.NamedTemporaryFile(mode='w') as calcs_file:
             calcs_file.write('D = B * A\n')  # D = 8 * 2 = 16
             calcs_file.write('E = B * 2 - A + C\n')  # E = 8*2 - 2 + 16 = 30
             calcs_file.write('F = B * (2 - A) + C\n')  # F = 8*(2-2) + 16 = 16
@@ -93,7 +92,7 @@ class TestCalculations(unittest.TestCase):
     def test_clean_calculations(self):
         """ Test function for clean_calculations """
         df_with_calcs = self.testdf.copy()
-        with tempfile.NamedTemporaryFile() as calcs_file:
+        with tempfile.NamedTemporaryFile(mode='w') as calcs_file:
             calcs_file.write('D = B * A\n')
             calcs_file.write('E = B / 2 - A + C\n')
             calcs_file.write('F = B / 0\n')  # Division by zero

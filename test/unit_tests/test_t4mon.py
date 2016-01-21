@@ -17,7 +17,7 @@ class TestInit(unittest.TestCase):
 
     def test_dump_config(self):
         """ Test function for dump_config """
-        with tempfile.SpooledTemporaryFile() as temp_file:
+        with tempfile.SpooledTemporaryFile(mode='w') as temp_file:
             init_func.dump_config(temp_file)
             temp_file.seek(0)
             config_dump = temp_file.readlines()

@@ -5,16 +5,21 @@ Report generator module based on Jinja2
 """
 from __future__ import absolute_import
 
+import codecs
 import datetime as dt
 from os import path
-# from ast import literal_eval  # TODO: is literal_eval working in Linux?
 
 import jinja2
+import six
 import tqdm
 from matplotlib import pyplot as plt
 
 from . import gen_plot
 from .logger import init_logger
+from .arguments import read_config, get_absolute_path
+
+
+# from ast import literal_eval  # TODO: is literal_eval working in Linux?
 
 
 class Report(object):
@@ -81,7 +86,7 @@ class Report(object):
         self.system = system
         # Transparently pass all container items
         for item in container.__dict__:
-            self.__setattr__(item, container.__getattribute__(item))
+            setattr(self, item, getattr(container, item))
         if 'loglevel' not in self.__dict__:
             self.loglevel = logger.DEFAULT_LOGLEVEL
         if logger:
@@ -91,6 +96,13 @@ class Report(object):
         current_date = dt.datetime.strptime(self.date_time,
                                             "%d/%m/%Y %H:%M:%S")
         self.year = current_date.year
+        # populate self.html_template and self.graphs_definition_file
+        conf = read_config(self.settings_file)
+        for item in ['html_template', 'graphs_definition_file']:
+            setattr(self,
+                    item,
+                    get_absolute_path(conf.get('MISC', item),
+                                      self.settings_file))
 
     def render(self):
         """
@@ -171,7 +183,8 @@ class Report(object):
                 _b64figure = gen_plot.to_base64(plot_axis)
                 plt.close(plot_axis.get_figure())  # close figure
                 if _b64figure:
-                    yield (info[1].strip(), _b64figure)
+                    yield (six.u(info[1].strip()),
+                           codecs.decode(_b64figure, 'utf-8'))
         except IOError:
             self.logger.error('Graphs definition file not found: {0}'
                               .format(self.graphs_definition_file))

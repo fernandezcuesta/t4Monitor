@@ -2,29 +2,28 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
-import datetime as dt
-import logging
 import os
-import sys
-
-import pandas as pd
-import types
+import logging
+import datetime as dt
 from functools import wraps
 from multiprocessing import Pool
-from six.moves import configparser, copyreg
 
-from . import collector  # isort:skip
-from .logger import init_logger  # isort:skip
-from .gen_report import gen_report  # isort:skip
-from .df_tools import consolidate_data, reload_from_csv  # isort:skip
+import six
+import types
+import pandas as pd
 
+from . import arguments
+from .collector import Collector, read_pickle
+from .logger import init_logger
+from .df_tools import reload_from_csv, consolidate_data
+from .gen_report import gen_report
 
 __all__ = ('Orchestrator')
 
 
-# Make the Orchestrator class pickable, required by Pool.map()
+# Make the Orchestrator class picklable, required by Pool.map()
 def _pickle_method(method):
-    if sys.version < (3, ):
+    if six.PY2:
         func_name = method.im_func.__name__
         obj = method.im_self
         cls = method.im_class
@@ -44,8 +43,6 @@ def _unpickle_method(func_name, obj, cls):
         else:
             break
     return func.__get__(obj, cls)
-
-copyreg.pickle(types.MethodType, _pickle_method, _unpickle_method)
 
 
 class Orchestrator(object):
@@ -76,14 +73,14 @@ class Orchestrator(object):
         self.logs = {}
         self.noreports = noreports
         self.reports_written = []
-        self.reports_folder = './reports'
-        self.settings_file = settings_file or collector.DEFAULT_SETTINGS_FILE
-        self.store_folder = './store'
+        self.settings_file = settings_file or arguments.DEFAULT_SETTINGS_FILE
         self.safe = safe
+        self.reports_folder = None
+        self.store_folder = None
+        self.systems = None
         self.kwargs = kwargs
-        self.systems = [item for item in
-                        collector.read_config(self.settings_file).sections()
-                        if item not in ['GATEWAY', 'MISC']]
+
+        self.set_folders()
 
     def __str__(self):
         return ('Orchestrator object created on {0} with loglevel {1}\n'
@@ -101,48 +98,19 @@ class Orchestrator(object):
                     'safe' if self.safe else 'fast'
                 ))
 
-    def get_absolute_path(self, filename=''):
+    def __getstate__(self):
         """
-        Get the absolute path if relative to the settings file location
         """
-        if os.path.isabs(filename):
-            return filename
-        else:
-            relpath = os.path.dirname(os.path.abspath(self.settings_file))
-            return '{0}{1}{2}'.format(relpath,
-                                      os.sep if relpath != os.sep else '',
-                                      filename)
+        odict = self.__dict__.copy()
+        odict['loggername'] = self.logger.name
+        del odict['logger']
+        return odict
 
-    def check_external_files_from_config(self, add_external_to_object=True):
+    def __setstate__(self, state):
         """
-        Read the settings file and check if external config files (i.e.
-        calculations_file, html_template) are defined and exist in the
-        filesystem.
-        Optionally add all the external files to the Orchestrator object.
         """
-        conf = collector.read_config(self.settings_file)
-        self.logger.debug('Using settings file: {0}'
-                          .format(self.settings_file))
-        for external_file in ['calculations_file',
-                              'html_template',
-                              'graphs_definition_file']:
-
-            # Check if all external files are properly configured
-            if conf.has_option('MISC', external_file):
-                value = self.get_absolute_path(conf.get('MISC', external_file))
-            else:
-                _msg = 'Entry for {0} not found in MISC section (file: {1})'\
-                    .format(external_file, self.settings_file)
-                raise collector.ConfigReadError(_msg)
-
-            # Check if external files do exist
-            if not os.path.isfile(value):
-                _msg = '{0} NOT found: {1}'.format(external_file, value)
-                raise collector.ConfigReadError(_msg)
-
-            # Update Orchestrator object
-            if add_external_to_object:
-                self.__setattr__(external_file, value)
+        state['logger'] = init_logger(state.get('loggername'))
+        self.__dict__.update(state)
 
     def check_folders(self):
         """
@@ -151,22 +119,46 @@ class Orchestrator(object):
         - reports output folder (self.reports_folder)
         - CSV and DAT store folder (self.store_folder)
         """
-        # Create store folder if needed
-        try:
-            self.logger.debug('Using store folder: {0}'
-                              .format(self.store_folder))
-            os.makedirs(self.store_folder)
-        except OSError:
-            self.logger.debug('Store folder already exists: {0}'
-                              .format(os.path.abspath(self.store_folder)))
-        # Create reports folder if needed
-        try:
-            self.logger.debug('Using reports folder: {0}'
-                              .format(self.reports_folder))
-            os.makedirs(self.reports_folder)
-        except OSError:
-            self.logger.debug('Reports folder already exists: {0}'
-                              .format(os.path.abspath(self.reports_folder)))
+        for folder in ['store', 'reports']:
+            try:
+                value = getattr(self, '{0}_folder'.format(folder))
+                self.logger.debug('Using {0} folder: {1}'
+                                  .format(folder, value))
+                os.makedirs(value)
+            except OSError:
+                self.logger.debug('{0} folder already exists: {1}'
+                                  .format(folder, os.path.abspath(value)))
+
+    def check_external_files_from_config(self, add_external_to_object=True):
+        """
+        Read the settings file and check if external config files (i.e.
+        calculations_file, html_template) are defined and exist in the
+        filesystem.
+        Optionally add all the external files to the Orchestrator object.
+        """
+        conf = arguments.read_config(self.settings_file)
+        for external_file in ['calculations_file',
+                              'html_template',
+                              'graphs_definition_file']:
+
+            # Check if all external files are properly configured
+            if conf.has_option('MISC', external_file):
+                value = arguments.get_absolute_path(conf.get('MISC',
+                                                             external_file),
+                                                    self.settings_file)
+            else:
+                _msg = 'Entry for {0} not found in MISC section (file: {1})'\
+                    .format(external_file, self.settings_file)
+                raise arguments.ConfigReadError(_msg)
+
+            # Check if external files do exist
+            if not os.path.isfile(value):
+                _msg = '{0} NOT found: {1}'.format(external_file, value)
+                raise arguments.ConfigReadError(_msg)
+
+            # Update Orchestrator object
+            if add_external_to_object:
+                self.__setattr__(external_file, value)
 
     def check_files(self):
         """
@@ -179,20 +171,18 @@ class Orchestrator(object):
         - reports output folder (self.reports_folder)
         - CSV and DAT store folder (self.store_folder)
 
-        Raises collector.ConfigReadError if not everything is in place
+        Raises arguments.ConfigReadError if not everything is in place
         """
         if not os.path.isfile(self.settings_file):
             self.logger.critical('Settings file not found: {0}'
                                  .format(self.settings_file))
-            raise collector.ConfigReadError
+            raise arguments.ConfigReadError
         try:
             self.check_external_files_from_config()
-        except (collector.ConfigReadError,
-                configparser.Error) as _exc:
+        except (arguments.ConfigReadError,
+                six.moves.configparser.Error) as _exc:
             self.logger.exception(_exc)
-            raise collector.ConfigReadError
-        # Check that destination folders are in place
-        self.check_folders()
+            raise arguments.ConfigReadError
 
     def _check_files(func):
         """ Decorator wrapper for check_files """
@@ -201,6 +191,25 @@ class Orchestrator(object):
             self.check_files()
             return func(self, *args, **kwargs)
         return wrapped
+
+    def _check_folders(func):
+        """ Decorator wrapper for check_folders """
+        @wraps(func)
+        def wrapped(self, *args, **kwargs):
+            self.check_folders()
+            return func(self, *args, **kwargs)
+        return wrapped
+
+    @_check_files
+    def set_folders(self):
+        """Read reports and store folders and systems from settings file"""
+        self.logger.debug('Using settings file: {0}'
+                          .format(self.settings_file))
+        conf = arguments.read_config(self.settings_file)
+        self.reports_folder = conf.get('MISC', 'reports_folder') or './reports'
+        self.store_folder = conf.get('MISC', 'store_folder') or './store'
+        self.systems = [item for item in conf.sections()
+                        if item not in ['GATEWAY', 'MISC']]
 
     def date_tag(self):
         """
@@ -211,19 +220,19 @@ class Orchestrator(object):
         return dt.date.strftime(current_date,
                                 "%Y%m%d_%H%M")
 
-    def create_report(self, system=None, logger=None):
+    @_check_folders
+    def create_report(self, system=None):
         """
         Create a single report for a particular system
         """
         # TODO: allow creating a common report (comparison)
         if not system:
             raise AttributeError('Need a value for system!')
-        logger = logger or init_logger(self.loglevel)
         report_name = '{0}/Report_{1}_{2}.html'.format(self.reports_folder,
                                                        self.date_tag(),
                                                        system)
-        logger.debug('{0} | Generating HTML report ({1})'
-                     .format(system, report_name))
+        self.logger.debug('{0} | Generating HTML report ({1})'
+                          .format(system, report_name))
         with open(report_name, 'w') as output:
             output.writelines(gen_report(container=self,
                                          system=system))
@@ -233,22 +242,24 @@ class Orchestrator(object):
         """
         Call jinja2 template, separately to safely store the logs
         in case of error.
-        Doing this with a multiprocessing pool to avoid problems with GC and
-        matplotlib backends under Windows environments
+        Doing this with a multiprocessing pool instead of threads in order to
+        avoid problems with GC and matplotlib backends particularly with
+        Windows environments.
         """
         if self.safe:
             for system in self.systems:
                 self.reports_written.append(self.create_report(system))
         else:
-            # make the collector pickable
-            _logger = self.logger
-            self.logger = None
+            # make the collector picklable
+            # _logger = self.logger
+            # self.logger = None
             pool = Pool(processes=len(self.systems))
             written = pool.map(self.create_report, self.systems)
             self.reports_written.extend(written)
             pool.close()
-            self.logger = _logger
+            # self.logger = _logger
 
+    @_check_folders
     def local_store(self, col):
         """
         Make a local copy of the current data in CSV and gzipped pickle
@@ -282,7 +293,7 @@ class Orchestrator(object):
         Main method, get data and logs, store and render the HTML output
         """
         # Open the connection and gather all data and logs
-        _collector = collector.Collector(
+        _collector = Collector(
             logger=self.logger,
             settings_file=self.settings_file,
             safe=self.safe,
@@ -325,8 +336,7 @@ class Orchestrator(object):
                               .format('PKL' if pkl else 'CSV', data_file))
             raise IOError
         if pkl:
-            _collector = collector.read_pickle(data_file,
-                                               logger=self.logger)
+            _collector = read_pickle(data_file, logger=self.logger)
             self.data = _collector.data
             self.logs = _collector.logs
             if system:
@@ -351,3 +361,12 @@ class Orchestrator(object):
         # Create the reports
         self.reports_generator()
         self.logger.info('Done!')
+
+if six.PY2:
+    six.moves.copyreg.pickle(types.MethodType,
+                             _pickle_method,
+                             _unpickle_method)
+else:
+    six.moves.copyreg.pickle(Orchestrator,
+                             _pickle_method,
+                             _unpickle_method)

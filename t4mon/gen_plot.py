@@ -7,11 +7,14 @@ Created on Mon May 25 11:10:57 2015
 from __future__ import absolute_import
 
 import sys
-from six.moves import cStringIO
+import codecs
+
+import six
 
 import numpy as np
 from matplotlib import dates as md
-from matplotlib import pylab, pyplot as plt
+from matplotlib import pyplot as plt
+from matplotlib import pylab
 
 from . import df_tools
 from .logger import init_logger
@@ -141,14 +144,14 @@ def to_base64(dataframe_plot, img_fmt=None):
     except AssertionError:
         return ''
 
-    fbuffer = cStringIO()
+    fbuffer = six.BytesIO()
     fig = dataframe_plot.get_figure()
     fig.savefig(fbuffer,
                 format=img_fmt,
                 bbox_inches='tight')
-    encoded_plot = 'data:image/{};base64,{}'.format(
-        img_fmt,
-        fbuffer.getvalue().encode("base64")
-    )
+    fbuffer.seek(0)
+    encoded_plot = six.b('data:image/{0};base64,'
+                         .format(img_fmt)) + codecs.encode(fbuffer.read(),
+                                                           'base64')
     fbuffer.close()
     return encoded_plot

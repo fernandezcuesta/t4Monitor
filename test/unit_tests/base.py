@@ -4,6 +4,7 @@
 *t4mon* - T4 monitoring base test functions for functional tests
 """
 
+import sys
 import pickle
 import shutil
 import logging
@@ -13,11 +14,10 @@ from os import path
 
 import numpy as np
 import pandas as pd
-
 from t4mon import logger
+from t4mon.arguments import read_config
 from t4mon.collector import (
     Collector,
-    read_config,
     read_pickle,
     add_methods_to_pandas_dataframe
 )
@@ -49,8 +49,8 @@ TEST_DATAFRAME = pd.DataFrame(np.random.randn(100, 4),
                                        'test4'])
 TEST_GRAPHS_FILE = 'test/test_graphs.cfg'
 TEST_HTMLTEMPLATE = 'test/test_template.html'
-TEST_PKL = 'test/test_data.pkl.gz'
 TEST_ZIPFILE = 'test/test_t4.zip'
+TEST_PKL = 'test/test_data{}.pkl.gz'.format(sys.version_info[0])
 
 
 def random_tag(n=5):
@@ -141,12 +141,12 @@ class OrchestratorSandbox(Orchestrator):
         conf = read_config(self.settings_file)
         for folder in ['reports_folder', 'store_folder']:
             # first of all delete the original folders created during __init__
-            delete_temporary_folder(self.__getattribute__(folder))
+            delete_temporary_folder(getattr(self, folder))
             value = conf.get('MISC', folder)
-            self.__setattr__(folder,
-                             path.join(tempfile.gettempdir(),
-                                       value))
-            self.folders.append(self.__getattribute__(folder))
+            setattr(self,
+                    folder,
+                    path.join(tempfile.gettempdir(), value))
+            self.folders.append(getattr(self, folder))
 
 
 class CollectorSandbox(Collector):
