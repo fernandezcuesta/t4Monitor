@@ -1,3 +1,4 @@
+- [0.14.1] - Py3 compatible, small refactoring, updated for latest sshtunnel dev release
 - [0.14.0] - 0.14 branch will bring Python3 compatibility, first changes done
 - [0.13.0] - Merged to stable branch
 - [0.12.6] - Rename select_var to select, add exclusion list to get_matching_columns
