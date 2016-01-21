@@ -48,7 +48,7 @@ class TestCollector(b.TestWithSsh):
 
     """ Set of test functions for interactive (ssh) methods of collector.py """
 
-    def test_inittunnels(self):
+    def test_init_tunnels(self):
         """ Test function for init_tunnels """
         monitor = self.sandbox.collector
         monitor.conf = None
@@ -71,7 +71,7 @@ class TestCollector(b.TestWithSsh):
                           "might be in use or destination not reachable.",
                           self.test_log_messages['error'])
 
-    def test_getstatsfromhost(self):
+    def test_get_stats_from_host(self):
         """ Test function for get_stats_from_host """
         test_system_id = 'System_1'
         monitor = self.sandbox.collector
@@ -101,11 +101,11 @@ class TestCollector(b.TestWithSsh):
         self.assertTrue(should_be_empty_data.empty)
         monitor.stop_server()
 
-    def test_getsysdata(self):
+    def test_get_system_data(self):
         """ Test function for get_system_data """
         system_id = 'System_1'
-        for alldays in [True, False]:
-            with self.sandbox.collector as monitor:
+        with self.sandbox.collector as monitor:
+            for alldays in [True, False]:
                 monitor.alldays = alldays  # Ignore timestamp on test data
                 monitor.conf.set('DEFAULT', 'folder', b.MY_DIR)
                 with SftpSession(
@@ -119,10 +119,10 @@ class TestCollector(b.TestWithSsh):
                     monitor.conf.set('DEFAULT', 'folder', 'do-not-exist')
                     self.assertTrue(monitor.get_system_data(system=system_id,
                                                             session=s).empty)
-            self.assertIsInstance(data, pd.DataFrame)
-            self.assertNotEqual(data.empty, alldays)
+                self.assertIsInstance(data, pd.DataFrame)
+                self.assertNotEqual(data.empty, alldays)
 
-    def test_getsyslogs(self):
+    def test_get_system_logs(self):
         """ Test function for get_system_logs """
         test_system_id = 'System_1'
         with self.sandbox.collector as col:
