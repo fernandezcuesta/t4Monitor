@@ -5,7 +5,7 @@
 """
 from __future__ import absolute_import
 
-import codecs
+import base64
 import imghdr
 import tempfile
 
@@ -84,7 +84,7 @@ class TestGenReport(base.BaseTestClass):
             self.assertIsInstance(tuple_element, six.string_types)
         my_graph = my_graph[1][len('data:image/png;base64,'):]
         with tempfile.NamedTemporaryFile() as temporary_file:
-            temporary_file.write(codecs.decode(six.b(my_graph), 'base64'))
+            temporary_file.write(base64.b64decode(six.b(my_graph)))
             temporary_file.file.close()
             self.assertEqual(imghdr.what(temporary_file.name), 'png')
 

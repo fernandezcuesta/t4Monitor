@@ -259,7 +259,8 @@ class Collector(object):
         """
         """
         odict = self.__dict__.copy()
-        odict['loggername'] = self.logger.name
+        if self.logger:
+            odict['loggername'] = self.logger.name
         for item in ['logger', 'results_queue', 'server']:
             del odict[item]
         return odict
@@ -267,7 +268,9 @@ class Collector(object):
     def __setstate__(self, state):
         """
         """
-        state['logger'] = init_logger(state.get('loggername'))
+        state['logger'] = init_logger(name=state.get('loggername'))
+        if 'loggername' in state:
+            del state['loggername']
         state['results_queue'] = queue.Queue()
         state['server'] = None
         self.__dict__.update(state)
@@ -800,9 +803,6 @@ class Collector(object):
         Save collector object to [optionally] gzipped pickle
         """
         buffer_object = BytesIO()
-        # col_copy = copy.copy(self)
-        # cannot pickle a Queue, logging, or sshtunnel objects
-        # col_copy.results_queue = col_copy.logger = col_copy.server = None
         cPickle.dump(obj=self,
                      file=buffer_object,
                      protocol=cPickle.HIGHEST_PROTOCOL)
@@ -879,6 +879,8 @@ def read_pickle(name, compress=False, logger=None):
 
     with mode.open(name, 'rb') as picklein:
         collector_ = cPickle.load(picklein)
+    if logger:
+        collector_.logger = logger
     collector_.logger = logger or init_logger()
     return collector_
 

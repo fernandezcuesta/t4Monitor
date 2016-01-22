@@ -35,8 +35,8 @@ def init_logger(loglevel=None, name=__name__):
         _add_handler(logger,
                      handler=_handler,
                      loglevel=loglevel)
-    logger.info('Initialized logger with level: {0}'
-                .format(logger.handlers[1].level))
+        logger.info('Initialized logger with level: {0}'
+                    .format(loglevel))
     return logger
 
 

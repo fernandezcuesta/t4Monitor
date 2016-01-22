@@ -7,7 +7,7 @@ Created on Mon May 25 11:10:57 2015
 from __future__ import absolute_import
 
 import sys
-import codecs
+import base64
 
 import six
 
@@ -151,7 +151,6 @@ def to_base64(dataframe_plot, img_fmt=None):
                 bbox_inches='tight')
     fbuffer.seek(0)
     encoded_plot = six.b('data:image/{0};base64,'
-                         .format(img_fmt)) + codecs.encode(fbuffer.read(),
-                                                           'base64')
+                         .format(img_fmt)) + base64.b64encode(fbuffer.read())
     fbuffer.close()
     return encoded_plot
