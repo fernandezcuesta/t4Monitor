@@ -1,3 +1,4 @@
+- [0.14.2] - Backwards compatibility to py3.3 added, minor issue fixed
 - [0.14.1] - Py3 compatible, small refactoring, updated for latest sshtunnel dev release
 - [0.14.0] - 0.14 branch will bring Python3 compatibility, first changes done
 - [0.13.0] - Merged to stable branch

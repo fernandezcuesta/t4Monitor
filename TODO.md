@@ -1,6 +1,6 @@
 - <s>Fix threading bug under windows with the plots</s>
 
-- Move from threading to multiprocessing **[Done for report renderer]**
+- <s>Move from threading to multiprocessing</s>
 
 - <s>Let `sshtunnel` (which will rely on `paramiko`) choose the tunnel ports
 instead of `collector` giving a random port, which **may be in use**.</s>
@@ -23,7 +23,7 @@ according to `container.data.system` instead of
 
 - CLI: move from argparse+tqdm to Click (argument parsing and progressbar)
 
-- python3 compatibility
+- <s>python3 compatibility</s>
 
 - move from setuptools to distutils
 
