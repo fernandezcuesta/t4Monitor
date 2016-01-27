@@ -97,10 +97,13 @@ For Windows::
 Testing the package
 -------------------
 
-.. |Build Status| image:: https://travis-ci.org/fernandezcuesta/t4Monitor.svg?branch=master
-  :target: https://travis-ci.org/fernandezcuesta/t4Monitor
+.. |Test Status| image:: https://travis-ci.org/fernandezcuesta/t4Monitor.svg?branch=master
+.. _Test Status: https://travis-ci.org/fernandezcuesta/t4Monitor
+
 .. |Coverage Status| image:: https://coveralls.io/repos/fernandezcuesta/t4Monitor/badge.svg?branch=master&service=github
-  :target: https://coveralls.io/github/fernandezcuesta/t4Monitor?branch=master
+.. _Coverage Status: https://coveralls.io/github/fernandezcuesta/t4Monitor?branch=master
+
+|Test Status|_ |Coverage Status|_
 
 To run all the unit and functional tests (latter requires the SSH server to be
 up and running)
