@@ -106,16 +106,39 @@ Testing the package
 
 |Test Status|_ |Coverage Status|_
 
-To run all the unit and functional tests (latter requires the SSH server to be
-up and running)
+Requirements:
+^^^^^^^^^^^^^
 
+- `tox <https://pypi.python.org/pypi/tox>`_
+- `pytest <http://pytest.org/>`_
+- `pytest-cov <https://pypi.python.org/pypi/pytest-cov>`_
+- `pytest-xdist <https://pypi.python.org/pypi/pytest-xdist>`_
+- `flake8 <https://pypi.python.org/pypi/flake8>`_
+- `mock <https://pypi.python.org/pypi/mock>`_
 
+To run all the unit and functional tests:
+
+- unit tests only::
+
+    pytest -n4 test/unit_tests
+
+- functional tests only (requires a SSH server to be up and running on
+  localhost)::
+
+    pytest -n4 test/functional_tests
+
+- all tests in all supported python versions (requires all major versions from
+  python2.7 to python3.5)::
+
+    tox
 
 
 Building documentation
 ----------------------
 
 Requires:
+^^^^^^^^^
+
     - `sphinx <http://sphinx-doc.org/>`_
     - `sphinxcontrib-napoleon <https://pypi.python.org/pypi/sphinxcontrib-napoleon>`_
 
