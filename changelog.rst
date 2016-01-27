@@ -1,3 +1,8 @@
+- [0.14.3] - Sphinx documentation added, API changes
+- [0.14.2] - Backwards compatibility to py3.3 added, minor issue fixed
+- [0.14.1] - Py3 compatible, small refactoring, updated for latest sshtunnel dev release
+- [0.14.0] - 0.14 branch will bring Python3 compatibility, first changes done
+- [0.13.0] - Merged to stable branch
 - [0.12.6] - Rename select_var to select, add exclusion list to get_matching_columns
 - [0.12.5] - Remote file list cache, add (test_)get_datetag, gen_plot refactor
 - [0.12.4] - Add get_single_day_data, refactor

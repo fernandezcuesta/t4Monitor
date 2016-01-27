@@ -1,21 +1,26 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-"""
-Created on Mon May 24 19:12:58 2015
-
-@author: fernandezjm
+""" Logging methods common to other submodules.
 """
 import logging
 from logging import handlers
 
-DEFAULT_LOGLEVEL = logging.WARNING  # Only for console output
+DEFAULT_LOGLEVEL = logging.WARNING  #: Default console handler level (WARNING)
 
 
 def init_logger(loglevel=None, name=__name__):
     """
     Initialize logger, sets the appropriate level and attaches:
-     - File handler: always in DEBUG mode
+     - File handler: always in ``DEBUG`` mode
      - Console handler: level configured as per loglevel
+
+    Keyword Arguments:
+        loglevel (Optional['CRITICAL'|'ERROR'|'WARNING'|'INFO'|'DEBUG']):
+            logging level for the console handler
+            (default :const:`DEFAULT_LOGLEVEL`)
+        name (Optional[str]): logger name
+    Return:
+        logging.Logger
     """
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
@@ -23,7 +28,7 @@ def init_logger(loglevel=None, name=__name__):
     # If no console handlers yet, add a new one
     if not any(isinstance(x, logging.Handler) for x in logger.handlers):
         # Add a file handler with 'DEBUG' level
-        log_name = '{}.log'.format(__name__.split('.')[0])
+        log_name = '{0}.log'.format(__name__.split('.')[0])
         _handler = handlers.TimedRotatingFileHandler(filename=log_name,
                                                      when='H')
         _add_handler(logger,
@@ -35,7 +40,8 @@ def init_logger(loglevel=None, name=__name__):
         _add_handler(logger,
                      handler=_handler,
                      loglevel=loglevel)
-    logger.info('Initialized logger with level: %s', logger.handlers[1].level)
+        logger.info('Initialized logger with level: {0}'
+                    .format(loglevel))
     return logger
 
 

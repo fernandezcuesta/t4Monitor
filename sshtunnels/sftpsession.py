@@ -4,15 +4,16 @@
 Open the sftp session to the destination
 """
 
+import time
 import getpass
 import logging
-import time
-from os.path import expanduser
 from socket import error as socket_error
 from socket import timeout as socket_timeout
+from os.path import expanduser
 
 import paramiko
-import sshtunnel
+
+from sshtunnel import HandlerSSHTunnelForwarderError
 
 
 class SFTPSessionError(Exception):
@@ -108,7 +109,7 @@ class SftpSession(object):
             self.logger.error("Server doesn't allow sftp or tunnel forwarding,"
                               " aborting... %s", _exc)
             raise SFTPSessionError
-        except sshtunnel.HandlerSSHTunnelForwarderError as _exc:
+        except HandlerSSHTunnelForwarderError as _exc:
             self.logger.error('Something went wrong with the SSH '
                               'transport: %s', repr(_exc))
 

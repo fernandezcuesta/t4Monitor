@@ -1,18 +1,15 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-from __future__ import print_function, absolute_import
+from __future__ import absolute_import
 
-import argparse
-import logging
+import os
 import sys
+import logging
+import argparse
 
-from . import collector
-from .logger import DEFAULT_LOGLEVEL
+import six
 
-__all__ = ('parse_arugments_cli',
-           'parse_arguments_local',
-           'parse_arguments_main'
-           )
+from . import logger
 
 TITLE = 'T4 collector and report generator script'
 
@@ -24,12 +21,64 @@ Additional tools:
  --localcsv: create reports from local CSV (typically under 'store/' folder)
 """
 
+#: Sample settings file, can be checked with :func:`t4mon.dump_config`
+DEFAULT_SETTINGS_FILE = os.path.join(os.getcwd(), 'settings.cfg')
+if not os.path.exists(DEFAULT_SETTINGS_FILE):
+    DEFAULT_SETTINGS_FILE = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        'conf',
+        'settings.cfg'
+    )
 
-def get_input(text):
-    return raw_input(text)
+
+class ConfigReadError(Exception):
+
+    """
+    Exception subclass (dummy) raised while reading configuration file
+    """
+    pass
 
 
-def check_for_sysargs(parser, args=None):
+def __get_input(text):
+    return six.input(text)
+
+
+def get_absolute_path(filename='', settings_file=None):
+    """
+    Get the absolute path if relative to the settings file location
+    """
+    if os.path.isabs(filename):
+        return filename
+    else:
+        relative_path = os.path.dirname(
+            os.path.abspath(settings_file or DEFAULT_SETTINGS_FILE)
+        )
+        return os.path.join(relative_path, filename)
+
+
+def read_config(settings_file=None, **kwargs):
+    """
+    Return ConfigParser object from configuration file
+
+    Arguments:
+        settings_file (Optional[str]):
+            File containing the settings, defaults to
+            :const:`DEFAULT_SETTINGS_FILE`
+    """
+    config = six.moves.configparser.SafeConfigParser()
+    try:
+        settings_file = settings_file or DEFAULT_SETTINGS_FILE
+        settings = config.read(settings_file)
+    except six.moves.configparser.Error as _exc:
+        raise ConfigReadError(repr(_exc))
+
+    if not settings or not config.sections():
+        raise ConfigReadError('Could not read configuration {0}!'
+                              .format(settings_file))
+    return config
+
+
+def __check_for_sysargs(parser, args=None):
     """
     Check if relevant parameters were specified or ask the user to proceed
     with defaults
@@ -38,20 +87,21 @@ def check_for_sysargs(parser, args=None):
     if not args:
         # parser.parse_args(args)
         parser.print_help()
-        print('')
+        six.print_('')
         while True:
-            ans = get_input('No arguments were specified, continue with '
-                            'defaults (check running with --config)? (y|[N]) ')
+            ans = __get_input('No arguments were specified, continue with '
+                              'defaults (check running with --config)? '
+                              '(y|[N]) ')
             if ans in ('y', 'Y'):
-                print('Proceeding with default settings')
+                six.print_('Proceeding with default settings')
                 break
             elif not ans or ans in ('n', 'N'):
                 sys.exit('Aborting')
-            print('Please enter y or n.')
+            six.print_('Please enter y or n.')
     return vars(parser.parse_args(args))
 
 
-def create_parser(args=None, prog=None):
+def __create_parser(args=None, prog=None):
     """
     Common parser parts for parse_arguments_local and parse_arguments_main
     """
@@ -65,26 +115,26 @@ def create_parser(args=None, prog=None):
                              'more stable under Windows environment')
     parser.add_argument(
         '--settings', dest='settings_file',
-        default=collector.DEFAULT_SETTINGS_FILE,
+        default=DEFAULT_SETTINGS_FILE,
         help='Settings file (check defaults with --config)'
-        )
-    parser.add_argument('--loglevel', default=DEFAULT_LOGLEVEL,
+    )
+    parser.add_argument('--loglevel', default=logger.DEFAULT_LOGLEVEL,
                         choices=['DEBUG',
                                  'INFO',
                                  'WARNING',
                                  'ERROR',
                                  'CRITICAL'],
-                        help='Debug level (default: %s)' %
-                        logging.getLevelName(DEFAULT_LOGLEVEL),
+                        help='Debug level (default: {0})'
+                        .format(logging.getLevelName(logger.DEFAULT_LOGLEVEL)),
                         nargs='?')
     return parser
 
 
-def parse_arguments_cli(args=None):
+def _parse_arguments_cli(args=None):
     """
     Parse arguments directly passed from CLI
     """
-    parser = create_parser()
+    parser = __create_parser()
     parser.add_argument('--config', action='store_true',
                         help='Show current configuration')
     parser.add_argument('--local', action='store_true',
@@ -96,38 +146,38 @@ def parse_arguments_cli(args=None):
                         help=argparse.SUPPRESS)
     parser.add_argument('--system', help=argparse.SUPPRESS)
     for null_argument in ['help', 'all', 'noreports', 'nologs']:
-        parser.add_argument('--{}'.format(null_argument),
+        parser.add_argument('--{0}'.format(null_argument),
                             action='store_true',
                             help=argparse.SUPPRESS)
-    return check_for_sysargs(parser, args)
+    return __check_for_sysargs(parser, args)
 
 
-def parse_arguments_local(args=None, prog=None, pkl=True):
+def _parse_arguments_local(args=None, prog=None, pkl=True):
     """
     Argument parser for create_reports_from_local
     """
-    parser = create_parser(prog=prog)
+    parser = __create_parser(prog=prog)
     parser.add_argument("-h", "--help",
                         action="help",
                         help="show this help message and exit")
     filetype = 'pkl' if pkl else 'csv'
-    parser.add_argument('{}_file'.format(filetype),
+    parser.add_argument('{0}_file'.format(filetype),
                         type=str,
-                        metavar='input_{}_file'.format(filetype),
+                        metavar='input_{0}_file'.format(filetype),
                         help='Pickle (optionally gzipped) data file' if pkl
                         else 'Plain CSV file')
     parser.add_argument('--system',
                         type=str,
                         help='System for which generate the report. '
                              'Defaults to all')
-    return check_for_sysargs(parser, args)
+    return __check_for_sysargs(parser, args)
 
 
-def parse_arguments_main(args=None):
+def _parse_arguments_main(args=None):
     """
     Argument parser for main method
     """
-    parser = create_parser()
+    parser = __create_parser()
     parser.description += DESCRIPTION
     parser.add_argument("-h", "--help",
                         action="help",
@@ -140,4 +190,4 @@ def parse_arguments_main(args=None):
                              'and stored locally')
     parser.add_argument('--nologs', action='store_true',
                         help='Skip log collection from remote hosts')
-    return check_for_sysargs(parser, args)
+    return __check_for_sysargs(parser, args)

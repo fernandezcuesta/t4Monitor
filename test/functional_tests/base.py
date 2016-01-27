@@ -3,20 +3,21 @@
 """
 *t4mon* - T4 monitoring base test functions for unit tests
 """
-from __future__ import print_function, absolute_import
+from __future__ import absolute_import
 
 import shutil
 import socket
 import tempfile
 import unittest
-
 from os import path, remove
 
 import paramiko
+from six import print_
 
-from t4mon.collector import read_config
+from t4mon.arguments import get_absolute_path
+from ..unit_tests.base import BaseTestClass, MY_DIR, TEST_CONFIG
 
-from ..unit_tests.base import *
+TEST_CONFIG = TEST_CONFIG
 
 
 class TestWithSsh(BaseTestClass):
@@ -34,10 +35,10 @@ class TestWithSsh(BaseTestClass):
             ssh.close()
         except (paramiko.BadHostKeyException, paramiko.AuthenticationException,
                 paramiko.SSHException, socket.error, socket.gaierror) as exc:
-            print('Exception while trying to setup interactive SSH tests. '
-                  'It is assumed that SSH to localhost is setup with pkey and '
-                  'settings are configured in ~/.ssh/config for "localhost".\n'
-                  'ERROR: %s', exc)
+            print_('Exception while trying to setup interactive SSH tests. '
+                   'It is assumed that SSH to localhost is setup with pkey '
+                   'and settings are configured in ~/.ssh/config for '
+                   '"localhost".\nERROR: {0}'.format(exc))
             raise unittest.SkipTest
 
     def setUp(self):  # make a clone for every new test
@@ -50,25 +51,25 @@ class TestWithSsh(BaseTestClass):
 
 class TestWithTempConfig(TestWithSsh):
 
-    """ Test class to handle working in a temporary dir """
+    """ Test class to handle working in a temporary directory """
     @classmethod
     def setUpClass(cls):
         super(TestWithTempConfig, cls).setUpClass()
-        cls.conf = read_config(settings_file=TEST_CONFIG)  # TODO: remove this?
+        cls.conf = cls.collector_test.conf
+        # read_config(settings_file=TEST_CONFIG)
         cls.temporary_dir = tempfile.gettempdir()
-        cls.orchestrator_test.logger.info('Using temporary dir: %s',
-                                          cls.temporary_dir)
+        cls.orchestrator_test.logger.info('Using temporary directory: {0}'
+                                          .format(cls.temporary_dir))
 
         # Copy all required files to the temporary directory
         for misc_item in ['calculations_file',
                           'html_template',
                           'graphs_definition_file']:
-            _file = cls.orchestrator_test.get_absolute_path(
-                cls.conf.get('MISC', misc_item)
-            )
-            cls.orchestrator_test.logger.debug('Copying %s to %s',
-                                               _file,
-                                               cls.temporary_dir)
+            _file = get_absolute_path(cls.conf.get('MISC', misc_item),
+                                      cls.orchestrator_test.settings_file)
+            cls.orchestrator_test.logger.debug('Copying {0} to {1}'
+                                               .format(_file,
+                                                       cls.temporary_dir))
             shutil.copy(_file,
                         cls.temporary_dir)
 
@@ -82,8 +83,8 @@ class TestWithTempConfig(TestWithSsh):
             ext_file_path = path.join(cls.temporary_dir,
                                       cls.conf.get('MISC', ext_file))
             if path.isfile(ext_file_path):
-                cls.orchestrator_test.logger.debug('Deleting %s',
-                                                   ext_file_path)
+                cls.orchestrator_test.logger.debug('Deleting {0}'
+                                                   .format(ext_file_path))
                 remove(ext_file_path)
 
     def setUp(self):

@@ -6,32 +6,20 @@
 from __future__ import absolute_import
 
 import os
-import logging
 from datetime import datetime as dt
 
 import pandas as pd
+from t4mon.df_tools import consolidate_data
+from t4mon.arguments import ConfigReadError
+from t4mon.orchestrator import Orchestrator
 from pandas.util.testing import assert_frame_equal
 
-from t4mon import df_tools, collector
-from t4mon.orchestrator import Orchestrator
-
-from .base import TEST_CSV, TEST_PKL, BAD_CONFIG, TEST_CONFIG, BaseTestClass
+from .base import TEST_CSV, TEST_PKL, BAD_CONFIG, BaseTestClass
 
 
 class TestOrchestrator(BaseTestClass):
 
     """ Set of test functions for orchestrator.py """
-
-    def test_get_absolute_path(self):
-        """ Test auxiliary function get_absolute_path """
-        self.assertEqual(
-            self.orchestrator_test.get_absolute_path(),
-            os.path.dirname(os.path.abspath(TEST_CONFIG)) + os.sep
-        )
-        self.assertEqual(
-            self.orchestrator_test.get_absolute_path('/home/user/file.txt'),
-            '/home/user/file.txt'
-        )
 
     def test_orchestrator(self):
         """ Check that Orchestrator has the correct fields by default """
@@ -61,44 +49,42 @@ class TestOrchestrator(BaseTestClass):
         """ Test check_files"""
         _orchestrator = self.orchestrator_test.clone()
         # First of all, check with default settings
-        self.assertIsNone(_orchestrator.check_files())
+        self.assertIsNone(_orchestrator._check_files())
 
         # Check with wrong settings file
-        with self.assertRaises(collector.ConfigReadError):
+        with self.assertRaises(ConfigReadError):
             _orchestrator.settings_file = BAD_CONFIG
-            _orchestrator.check_files()
-        with self.assertRaises(collector.ConfigReadError):
+            _orchestrator._check_files()
+        with self.assertRaises(ConfigReadError):
             _orchestrator.settings_file = TEST_CSV
-            _orchestrator.check_files()
+            _orchestrator._check_files()
 
         # Check with missing settings file
-        with self.assertRaises(collector.ConfigReadError):
-            _orchestrator.settings_file = 'test/unexisting.file'
-            _orchestrator.check_files()
+        with self.assertRaises(ConfigReadError):
+            _orchestrator.settings_file = 'test/non_existing.file'
+            _orchestrator._check_files()
 
     def test_check_files_raises_exception_if_bad_settings(self):
         """ Check that if the setting file contains a link to a
         non existing file, init will raise an exception """
-        with self.assertRaises(collector.ConfigReadError):
+        with self.assertRaises(ConfigReadError):
             Orchestrator(settings_file=BAD_CONFIG).check_files()
 
     def test_reports_generator(self):
-        """ Test function for Orchestrator.reports_generator() """
+        """ Test function for Orchestrator._reports_generator() """
         _orchestrator = self.orchestrator_test.clone()
         _orchestrator.data = self.test_data
-        _orchestrator.reports_generator()
+        _orchestrator._reports_generator()
         self.assertNotEqual(_orchestrator.reports_written, [])
         for report_file in _orchestrator.reports_written:
             self.assertTrue(os.path.exists(report_file))
         # Test the non-threaded version
         _orchestrator.reports_written = []  # reset the count
         _orchestrator.safe = True
-        _orchestrator.data = df_tools.consolidate_data(
-                                 partial_dataframe=self.test_data,
-                                 dataframe=self.test_data,
-                                 system='SYS2'
-        )
-        _orchestrator.reports_generator()
+        _orchestrator.data = consolidate_data(partial_dataframe=self.test_data,
+                                              dataframe=self.test_data,
+                                              system='SYS2')
+        _orchestrator._reports_generator()
         self.assertNotEqual(_orchestrator.reports_written, [])
         self.assertEqual(len(_orchestrator.reports_written), 2)
         for report_file in _orchestrator.reports_written:
@@ -136,7 +122,7 @@ class TestOrchestrator(BaseTestClass):
         _orchestrator = self.orchestrator_test.clone()
         _collector = self.collector_test.clone()
         _collector.data = self.test_data
-        _orchestrator.local_store(_collector)
+        _orchestrator._local_store(_collector)
         for extension in ['pkl.gz', 'csv']:
             filename = '{0}/data_{1}.{2}'.format(_orchestrator.store_folder,
                                                  _orchestrator.date_tag(),

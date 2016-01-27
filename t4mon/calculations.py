@@ -1,30 +1,33 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
-Make simple arithmetical calculations on pandas DataFrame columns.
-Configuration: calc_file
+Make simple arithmetical calculations on pandas DataFrame columns based in
+entries configured in a calculations file (``calc_file``).
 
-calc_file format:
+Note:
+    ``calc_file`` format::
 
-# This is just a comment ##########################
-# Inline comments may start either with # or ;
-C = (A + B) / B  ; A and B are valid columns
-D = (C + 100.0) / (A + C)  # lines are prcessed in order
+        # This is just a comment ##########################
+        # Inline comments may start either with # or ;
+        C = (A + B) / B  ; A and B are valid columns
+        D = (C + 100.0) / (A + C)  # lines are processed in order
 
 """
 from __future__ import absolute_import
 
 import re
 import sys
-
 from numbers import Number
 
 TTAG = '__calculations_tmp'  # temporal column names tag
 
 
+__all__ = ('apply_calcs', 'clean_calcs')
+
+
 def oper(self, oper1, funct, oper2):
     """
-    Returns funct(oper1, oper2)
+    Return funct(oper1, oper2)
     """
     try:
         if funct is '+':
@@ -50,7 +53,7 @@ def oper(self, oper1, funct, oper2):
 
 def oper_wrapper(self, oper1, funct, oper2):
     """
-    Returns the operation defined by f {+-*/} for oper1 and oper2 for df
+    Return the operation defined by f {+-*/} for oper1 and oper2 for df
     """
     try:
         oper1 = float(oper1)
@@ -74,11 +77,11 @@ def oper_wrapper(self, oper1, funct, oper2):
         else:
             return self.oper(self[oper1], funct, self[oper2])
     except KeyError as exc:
-        self.logger.warning('%s not found in dataset, returning NaN',
-                            repr(exc))
+        self.logger.warning('{0} not found in dataset, returning NaN'
+                            .format(repr(exc)))
     except Exception as exc:
         self.logger.error('Returning NaN. Unexpected error during '
-                          'calculations: %s', repr(exc))
+                          'calculations: {0}'.format(repr(exc)))
     return float('NaN')
 
 
@@ -95,15 +98,16 @@ def recursive_lis(self, sign_pattern, parn_pattern, res, c_list):
         par = re.findall(parn_pattern, c_list)
         if par:
             # First parenthesis will be TTAG1, second will be TTAG2, ...
-            tmp_tag = '%s%i' % (TTAG, sum([TTAG in col for col in self]) + 1)
+            tmp_tag = '{0}{1}'.format(TTAG,
+                                      sum([TTAG in col for col in self]) + 1)
             # Resolve equation inside parenthesis and come back
             self.recursive_lis(sign_pattern, parn_pattern, tmp_tag, par[0])
             # Update c_list by replacing the solved equation by 'TTAGN'
-            c_list = c_list.strip().replace('(%s)' % par[0], tmp_tag)
+            c_list = c_list.strip().replace('({0})'.format(par[0]), tmp_tag)
             # Solve the rest of the equation (yet another parenthesis?)
             self.recursive_lis(sign_pattern, parn_pattern, res, c_list)
         else:
-            # print "Shouldn't be any parenthesis here:", c_list
+            # Shouldn't be any parenthesis here
             c_list = re.split(sign_pattern, re.sub(' ', '', c_list))
 
     # Break the recursive loop if we already have the result
@@ -128,34 +132,9 @@ def recursive_lis(self, sign_pattern, parn_pattern, res, c_list):
         return res.strip()
     except Exception as exc:
         _, _, exc_tb = sys.exc_info()
-        self.logger.error('Unexpected exception at calculations (line %s): %s',
-                          exc_tb.tb_lineno,
-                          repr(exc))
+        self.logger.error('Unexpected exception at calculations (line {0}): '
+                          '{1}'.format(exc_tb.tb_lineno, repr(exc)))
         return
-
-
-def clean_calcs(self, calc_file):
-    """
-    Delete columns added by apply_lis
-    """
-    try:
-        self.logger.info('Dataframe shape before cleanup: %s', self.shape)
-        with open(calc_file, 'r') as calcfile:
-            colnames = [line.split('=')[0].strip() for line in calcfile
-                        if line[0] not in ';#!/%[ ' and len(line) > 3]
-            # self.drop(colnames, axis=1, inplace=True)
-            for col in colnames:
-                try:
-                    self.drop(col, axis=1, inplace=True)
-                    self.logger.debug('Deleted column: %s', col)
-                except ValueError:
-                    if len(col) > 20:  # truncate the column name if too long
-                        col = '{}...'.format(col[:20])
-                    self.logger.debug('Error while cleaning column %s', col)
-                    continue
-        self.logger.info('Dataframe shape after cleanup: %s', self.shape)
-    except IOError:
-        self.logger.error("Could not process calculation file: %s", calc_file)
 
 
 def clean_comments(line, pattern=None):
@@ -176,9 +155,16 @@ def clean_comments(line, pattern=None):
         return line.strip()
 
 
-def apply_calcs(self, calc_file, system=None):
+def apply_calcs(dataframe, calc_file, system=None):
     """
-    Read calculations file, make the calculations and get rid of temporary data
+    Apply inplace calculations to dataframe as specified by ``calc_file``
+    entries
+
+    Arguments:
+        dataframe (pandas.Dataframe): Original dataframe
+        calc_file (str): Calculations filename
+    Keyword Arguments:
+        system (Optional[str]): System name, only used for logging purposes
     """
     try:
         # Define regex patterns
@@ -190,14 +176,48 @@ def apply_calcs(self, calc_file, system=None):
                 line = clean_comments(line, comments_pattern)
                 if not line:
                     continue
-                self.logger.debug('%sProcessing: %s',
-                                  '%s | ' % system if system else '',
-                                  line)
-                self.recursive_lis(arithmetic_pattern,
-                                   parenthesis_pattern,
-                                   *line.split('='))
+                dataframe.logger.debug('{0}Processing: {1}'.format(
+                    '{0} | '.format(system) if system else '',
+                    line
+                ))
+                dataframe.recursive_lis(arithmetic_pattern,
+                                        parenthesis_pattern,
+                                        *line.split('='))
         # Delete temporary columns (starting with TTAG)
-        for colname in self.columns[[TTAG in col for col in self]]:
-            del self[colname]
+        for colname in dataframe.columns[[TTAG in col for col in dataframe]]:
+            del dataframe[colname]
     except IOError:
-        self.logger.error("Could not process calculation file: %s", calc_file)
+        dataframe.logger.error("Could not process calculation file: {0}"
+                               .format(calc_file))
+
+
+def clean_calcs(dataframe, calc_file):
+    """
+    Delete inplace columns added by :func:`~apply_calcs()`
+
+    Arguments:
+        dataframe (pandas.Dataframe): Dataframe with additional columns
+            product of calculations
+        calc_file (str): Calculations filename
+    """
+    try:
+        dataframe.logger.info('Dataframe shape before cleanup: {0}'
+                              .format(dataframe.shape))
+        with open(calc_file, 'r') as calcfile:
+            colnames = [line.split('=')[0].strip() for line in calcfile
+                        if line[0] not in ';#!/%[ ' and len(line) > 3]
+            for col in colnames:
+                try:
+                    dataframe.drop(col, axis=1, inplace=True)
+                    dataframe.logger.debug('Deleted column: {0}'.format(col))
+                except ValueError:
+                    if len(col) > 20:  # truncate the column name if too long
+                        col = '{0}...'.format(col[:20])
+                    dataframe.logger.debug('Error while cleaning column {0}'
+                                           .format(col))
+                    continue
+        dataframe.logger.info('Dataframe shape after cleanup: {0}'
+                              .format(dataframe.shape))
+    except IOError:
+        dataframe.logger.error("Could not process calculation file: {0}"
+                               .format(calc_file))

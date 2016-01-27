@@ -4,20 +4,22 @@
 *t4mon* - T4 monitoring base test functions for functional tests
 """
 
+import sys
+import pickle
 import shutil
+import logging
 import tempfile
 import unittest
 from os import path
 
 import numpy as np
 import pandas as pd
-
 from t4mon import logger
+from t4mon.arguments import read_config
 from t4mon.collector import (
-    add_methods_to_pandas_dataframe,
     Collector,
-    read_config,
-    read_pickle
+    read_pickle,
+    add_methods_to_pandas_dataframe
 )
 from t4mon.orchestrator import Orchestrator
 
@@ -47,8 +49,8 @@ TEST_DATAFRAME = pd.DataFrame(np.random.randn(100, 4),
                                        'test4'])
 TEST_GRAPHS_FILE = 'test/test_graphs.cfg'
 TEST_HTMLTEMPLATE = 'test/test_template.html'
-TEST_PKL = 'test/test_data.pkl.gz'
 TEST_ZIPFILE = 'test/test_t4.zip'
+TEST_PKL = 'test/test_data{}.pkl.gz'.format(sys.version_info[0])
 
 
 def random_tag(n=5):
@@ -58,15 +60,44 @@ def random_tag(n=5):
 
 def delete_temporary_folder(folder, logger=None):
     """
-    Delete a temporary folder in the local filesystem
+    Delete a temporary folder in the local file system
     """
     if path.isdir(folder):
         try:
             shutil.rmtree(folder)
             if logger:
-                logger.debug('Temporary folder deleted: %s', folder)
+                logger.debug('Temporary folder deleted: {0}'.format(folder))
         except OSError:
             pass  # was already deleted or no permissions
+
+
+class MockLoggingHandler(logging.Handler, object):
+    """Mock logging handler to check for expected logs.
+
+    Messages are available from an instance's `messages` dict, in order,
+    indexed by a lowercase log level string (e.g., 'debug', 'info', etc.).
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.messages = {'debug': [], 'info': [], 'warning': [], 'error': [],
+                         'critical': []}
+        super(MockLoggingHandler, self).__init__(*args, **kwargs)
+
+    def emit(self, record):
+        "Store a message from ``record`` in the instance's ``messages`` dict."
+        self.acquire()
+        try:
+            self.messages[record.levelname.lower()].append(record.getMessage())
+        finally:
+            self.release()
+
+    def reset(self):
+        self.acquire()
+        try:
+            for message_list in self.messages:
+                self.messages[message_list] = []
+        finally:
+            self.release()
 
 
 class OrchestratorSandbox(Orchestrator):
@@ -96,26 +127,26 @@ class OrchestratorSandbox(Orchestrator):
         my_clone.folders = self.folders
         my_clone.folders.append(my_clone.reports_folder)
         my_clone.folders.append(my_clone.store_folder)
-        my_clone.check_folders()  # force creation of destination folders
+        my_clone._check_folders()  # force creation of destination folders
 
         return my_clone
 
     def __init__(self, *args, **kwargs):
         super(OrchestratorSandbox, self).__init__(*args, **kwargs)
         # Get external files from configuration
-        self.check_external_files_from_config()
+        self._check_external_files_from_config()
         self.folders = []
 
         # Override destination folders to be inside tempdir
         conf = read_config(self.settings_file)
         for folder in ['reports_folder', 'store_folder']:
             # first of all delete the original folders created during __init__
-            delete_temporary_folder(self.__getattribute__(folder))
+            delete_temporary_folder(getattr(self, folder))
             value = conf.get('MISC', folder)
-            self.__setattr__(folder,
-                             path.join(tempfile.gettempdir(),
-                                       value))
-            self.folders.append(self.__getattribute__(folder))
+            setattr(self,
+                    folder,
+                    path.join(tempfile.gettempdir(), value))
+            self.folders.append(getattr(self, folder))
 
 
 class CollectorSandbox(Collector):
@@ -128,7 +159,7 @@ class CollectorSandbox(Collector):
                                     nologs=self.nologs,
                                     safe=self.safe,
                                     settings_file=self.settings_file)
-        my_clone.conf = self.conf
+        my_clone.conf = pickle.loads(pickle.dumps(self.conf))
         my_clone.data = self.data.copy()  # call by reference
         if system in self.logs:
             my_clone.logs[system] = self.logs[system]
@@ -142,16 +173,21 @@ class BaseTestClass(unittest.TestCase):
     """ Base TestCase for unit and functional tests """
     @classmethod
     def setUpClass(cls):
-        add_methods_to_pandas_dataframe(logger=LOGGER)
-        cls.test_data = read_pickle(name=TEST_PKL, logger=LOGGER).data
+        cls.logger = LOGGER
+        cls._test_log_handler = MockLoggingHandler(level='DEBUG')
+        cls.logger.addHandler(cls._test_log_handler)
+        cls.test_log_messages = cls._test_log_handler.messages
 
-        cls.collector_test = CollectorSandbox(logger=LOGGER,
+        add_methods_to_pandas_dataframe(logger=cls.logger)
+        cls.test_data = read_pickle(name=TEST_PKL, logger=cls.logger).data
+
+        cls.collector_test = CollectorSandbox(logger=cls.logger,
                                               settings_file=TEST_CONFIG,
                                               nologs=True,
                                               alldays=True)
         cls.collector_test.logs['my_sys'] = 'These are my dummy log results'
         cls.collector_test.conf.set('DEFAULT', 'folder', MY_DIR)
-        cls.orchestrator_test = OrchestratorSandbox(logger=LOGGER,
+        cls.orchestrator_test = OrchestratorSandbox(logger=cls.logger,
                                                     settings_file=TEST_CONFIG,
                                                     alldays=True)
         cls.orchestrator_test.logs = cls.collector_test.logs
