@@ -3,8 +3,9 @@ t4Monitor
 *OpenVMS statistics (T4) collector and reporting tools*
 
 t4Monitor is a module that allows easy collection, preprocessing and reporting
-of generic `t4 <http://h71000.www7.hp.com/openvms/products/t4/>` compliant
-counters stored in Format-1 or Format-2 Comma Separated Values (CSV) files.
+of generic `OpenVMS' T4 <http://h71000.www7.hp.com/openvms/products/t4/>`_
+compliant counters stored in Format-1 or Format-2 Comma Separated Values (CSV)
+files.
 
 Its features include:
 
