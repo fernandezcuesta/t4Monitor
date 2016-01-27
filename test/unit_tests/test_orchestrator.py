@@ -49,20 +49,20 @@ class TestOrchestrator(BaseTestClass):
         """ Test check_files"""
         _orchestrator = self.orchestrator_test.clone()
         # First of all, check with default settings
-        self.assertIsNone(_orchestrator.check_files())
+        self.assertIsNone(_orchestrator._check_files())
 
         # Check with wrong settings file
         with self.assertRaises(ConfigReadError):
             _orchestrator.settings_file = BAD_CONFIG
-            _orchestrator.check_files()
+            _orchestrator._check_files()
         with self.assertRaises(ConfigReadError):
             _orchestrator.settings_file = TEST_CSV
-            _orchestrator.check_files()
+            _orchestrator._check_files()
 
         # Check with missing settings file
         with self.assertRaises(ConfigReadError):
             _orchestrator.settings_file = 'test/non_existing.file'
-            _orchestrator.check_files()
+            _orchestrator._check_files()
 
     def test_check_files_raises_exception_if_bad_settings(self):
         """ Check that if the setting file contains a link to a
@@ -71,10 +71,10 @@ class TestOrchestrator(BaseTestClass):
             Orchestrator(settings_file=BAD_CONFIG).check_files()
 
     def test_reports_generator(self):
-        """ Test function for Orchestrator.reports_generator() """
+        """ Test function for Orchestrator._reports_generator() """
         _orchestrator = self.orchestrator_test.clone()
         _orchestrator.data = self.test_data
-        _orchestrator.reports_generator()
+        _orchestrator._reports_generator()
         self.assertNotEqual(_orchestrator.reports_written, [])
         for report_file in _orchestrator.reports_written:
             self.assertTrue(os.path.exists(report_file))
@@ -84,7 +84,7 @@ class TestOrchestrator(BaseTestClass):
         _orchestrator.data = consolidate_data(partial_dataframe=self.test_data,
                                               dataframe=self.test_data,
                                               system='SYS2')
-        _orchestrator.reports_generator()
+        _orchestrator._reports_generator()
         self.assertNotEqual(_orchestrator.reports_written, [])
         self.assertEqual(len(_orchestrator.reports_written), 2)
         for report_file in _orchestrator.reports_written:
@@ -122,7 +122,7 @@ class TestOrchestrator(BaseTestClass):
         _orchestrator = self.orchestrator_test.clone()
         _collector = self.collector_test.clone()
         _collector.data = self.test_data
-        _orchestrator.local_store(_collector)
+        _orchestrator._local_store(_collector)
         for extension in ['pkl.gz', 'csv']:
             filename = '{0}/data_{1}.{2}'.format(_orchestrator.store_folder,
                                                  _orchestrator.date_tag(),

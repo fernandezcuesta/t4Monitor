@@ -1,16 +1,129 @@
 t4Monitor
-#########
+=========
+*OpenVMS statistics (T4) statistics collector and reporting tools*
 
-.. image:: https://travis-ci.org/fernandezcuesta/t4Monitor.svg?branch=master
-  :target: https://travis-ci.org/fernandezcuesta/t4Monitor
-.. image:: https://coveralls.io/repos/fernandezcuesta/t4Monitor/badge.svg?branch=master&service=github
-  :target: https://coveralls.io/github/fernandezcuesta/t4Monitor?branch=master 
+t4Monitor is a module that allows easy collection, preprocessing and reporting
+of generic `t4 <http://h71000.www7.hp.com/openvms/products/t4/>` compliant
+counters stored in Format-1 or Format-2 Comma Separated Values (CSV) files.
+
+Its features include:
 
 - Download OpenVMS statistics (T4) over sftp through optional SSH tunnels over
   a single gateway.
-- T4-Format (flavours 1 and 2) CSV to Pandas dataframe. Merge all remote CSVs
-  into a single, plain (not T4) CSV and a gzipped pickle file containing the
-  dataframe and its associated metadata.
-- Apply simple arithmetical operations to the dataframe.
-- HTML (Jinja2 templates) report generation by graphing selected dataframe
-  columns.
+- simple methods for collecting T4-compliant CSV files
+- process collected statistics based in simple arithmetic functions (addition,
+  multiplication, division and substraction) based in collected metrics or
+  scalars
+- easy-to-use API for graphing and reporting statistics (to HTML using Jinja2
+  templates)
+- handle compressed CSV files
+- T4-Format (flavours 1 and 2) CSV to Pandas dataframe conversion.
+  All remote CSVs are merged into a single dataframe
+- conversion to/from plain CSV (i.e. excel compliant) format
+- generic remote command output retrieval
+- multiprocess/multithread methods for fast retrieval (in parallel for each
+  system)
+- detailed log output in two parallel streams, on-screen for customizable
+  severity logs and rotating file for detailed logging information
+- comprehensive test suite
+
+
+Note:
+
+T4 CSV files header may come in 2 different formats:
+
+**Format 1**
+
+The first four lines are header data::
+
+    line0: Header information containing T4 revision and system information
+
+    line1: Collection date   (optional line)
+
+    line2: Start time        (optional line)
+
+    line3: Parameter Heading (comma separated)
+
+or
+
+**Format 2** ::
+
+    line0: Header information containing T4 revision and system information
+    line1: <delim> START COLUMN HEADERS  <delim>  where <delim> is a triple `$`
+    line2: parameter headings (comma separated)
+    ...
+
+    line 'n': <delim> END COLUMN HEADERS <delim>  where <delim> is a triple `$`
+
+The remaining lines are the comma separated values.
+The first column is the sample time.
+Each line represents a sample, typically 60 seconds apart.
+
+However T4 incorrectly places an extra raw line with the column averages
+almost at the end of the file. That line will be considered as a closing
+hash and contents followed by it (sometimes even more samples...) is ignored.
+
+
+Requirements
+------------
+
+- Python 2.7 or later
+- `Jinja2 <http://jinja.pocoo.org>`_
+- `matplotlib <http://matplotlib.org/>`_
+- `pandas <http://pandas.pydata.org/>`_
+- `paramiko <http://www.paramiko.org/>`_
+- `six <https://pypi.python.org/pypi/six>`_
+- `tqdm <https://github.com/tqdm/tqdm)>`_
+- `cairocffi <https://pythonhosted.org/cairocffi/>`_ (linux only)
+- `Anaconda-Miniconda <https://www.continuum.io/why-anaconda>`_
+- `sshtunnel <https://github.com/pahaz/sshtunnel>`_
+
+How to install
+--------------
+
+For Linux::
+
+    git clone https://github.com/fernandezcuesta/t4Monitor.git
+    cd t4Monitor
+    pip install requirements.txt
+    python setup.py develop
+
+For Windows::
+
+    git clone https://github.com/fernandezcuesta/t4Monitor.git
+    cd t4Monitor
+    install_windows.bat
+
+Testing the package
+-------------------
+
+.. |Build Status| image:: https://travis-ci.org/fernandezcuesta/t4Monitor.svg?branch=master
+  :target: https://travis-ci.org/fernandezcuesta/t4Monitor
+.. |Coverage Status| image:: https://coveralls.io/repos/fernandezcuesta/t4Monitor/badge.svg?branch=master&service=github
+  :target: https://coveralls.io/github/fernandezcuesta/t4Monitor?branch=master
+
+To run all the unit and functional tests (latter requires the SSH server to be
+up and running)
+
+
+
+
+Building documentation
+----------------------
+
+Requires:
+    - `sphinx <http://sphinx-doc.org/>`_
+    - `sphinxcontrib-napoleon <https://pypi.python.org/pypi/sphinxcontrib-napoleon>`_
+
+::
+
+    > cd docs
+    > make html
+
+
+License information
+-------------------
+
+2014-2016 (c) J.M. Fernández - fernandez.cuesta@gmail.com
+
+License: The MIT License (MIT) - see `LICENSE` file

@@ -78,9 +78,9 @@ class TestDFTools(base.BaseTestClass):
     """ Set of test functions for df_tools.py """
 
     def test_extract_t4csv(self):
-        """ Test function for extract_t4csv """
+        """ Test function for _extract_t4csv """
         with open(base.TEST_CSV, 'r') as filedescriptor:
-            (fields, data) = df_tools.extract_t4csv(filedescriptor)
+            (fields, data) = df_tools._extract_t4csv(filedescriptor)
 
         self.assertIsInstance(fields, list)
         self.assertIsInstance(data, list)
@@ -109,11 +109,11 @@ class TestDFTools(base.BaseTestClass):
         assert_frame_equal(pd.DataFrame(), df_tools.select(self.test_data,
                                                            system='BAD_ID',
                                                            logger=self.logger))
-        # Extract filtering by an existing system (only one in this case)
+        # Extract filtering by an existing system
         self.assertTupleEqual(df_tools.select(self.test_data,
                                               system='SYSTEM_1',
                                               logger=self.logger).shape,
-                              TEST_PKL_SHAPE)  # calcs applied, 930->944
+                              TEST_PKL_SHAPE)
         # Extract an empty DF should return empty DF
         assert_frame_equal(pd.DataFrame(), df_tools.select(pd.DataFrame(),
                                                            logger=self.logger))
@@ -143,7 +143,7 @@ class TestDFTools(base.BaseTestClass):
     def test_todataframe(self):
         """ Test function for to_dataframe """
         with open(base.TEST_CSV, 'r') as testcsv:
-            (field_names, data) = df_tools.extract_t4csv(testcsv)
+            (field_names, data) = df_tools._extract_t4csv(testcsv)
         dataframe = df_tools.to_dataframe(field_names, data)
         self.assertIsInstance(dataframe, pd.DataFrame)
         self.assertTupleEqual(dataframe.shape, TEST_CSV_SHAPE)
@@ -163,7 +163,7 @@ class TestDFTools(base.BaseTestClass):
         Test to_dataframe when a no header passed matching the datetime tag
         """
         with open(base.TEST_CSV, 'r') as testcsv:
-            (field_names, data) = df_tools.extract_t4csv(testcsv)
+            (field_names, data) = df_tools._extract_t4csv(testcsv)
         # fake the header
         df_timecol = next(s for s in field_names if
                           df_tools.DATETIME_TAG in s)

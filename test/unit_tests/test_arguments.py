@@ -47,7 +47,7 @@ class TestArguments(unittest.TestCase):
                           base.TEST_CSV)
 
     def test_parse_arguments_main(self):
-        parser = arguments.parse_arguments_main(
+        parser = arguments._parse_arguments_main(
             ['--all',
              '--settings={}'.format(base.BAD_CONFIG),
              '--loglevel=DEBUG']
@@ -59,12 +59,13 @@ class TestArguments(unittest.TestCase):
         self.assertEqual(parser['settings_file'], base.BAD_CONFIG)
         self.assertFalse(parser['safe'])
 
-    @patch('t4mon.arguments.get_input', return_value='y')
+    @patch('t4mon.arguments.__get_input', return_value='y')
     def test_answer_yes_when_no_arguments_entered(self, input):
-        """ Test that all defaults values are returned by parser when
+        """
+        Test that all defaults values are returned by parser when
         no arguments are passed and 'y' ys selected.
         """
-        parser = arguments.parse_arguments_main([])
+        parser = arguments._parse_arguments_main([])
         self.assertFalse(parser['alldays'])
         self.assertEqual(parser['loglevel'], DEFAULT_LOGLEVEL)
         self.assertFalse(parser['nologs'])
@@ -73,27 +74,29 @@ class TestArguments(unittest.TestCase):
                          arguments.DEFAULT_SETTINGS_FILE)
         self.assertFalse(parser['safe'])
 
-    @patch('t4mon.arguments.get_input', return_value='n')
+    @patch('t4mon.arguments.__get_input', return_value='n')
     def test_answer_no_when_no_arguments_entered(self, input):
-        """ Test that an sys.exit is raised if answered 'n'
+        """
+        Test that an sys.exit is raised if answered 'n'
         """
         with self.assertRaises(SystemExit):
-            arguments.parse_arguments_main([])
+            arguments._parse_arguments_main([])
 
-    @patch('t4mon.arguments.get_input')
+    @patch('t4mon.arguments.__get_input')
     def test_wrong_answer_when_no_arguments_entered(self, mock):
-        """ Test nothing's broken when answer is not ['Y', 'y', 'N', 'n']
+        """
+        Test nothing's broken when answer is not ['Y', 'y', 'N', 'n']
         """
         with self.assertRaises(SystemExit):
             mock.side_effect = ['k', 'l', 'yeah', 'N']
-            arguments.parse_arguments_main([])
+            arguments._parse_arguments_main([])
 
-    @patch('t4mon.arguments.get_input')
+    @patch('t4mon.arguments.__get_input')
     def test_insufficient_arguments_raise_error(self, mock):
         """
         Test that a sys.exit is raised if no CSV or PKL input files
-        are specified for parse_arguments_local
+        are specified for _parse_arguments_local
         """
         with self.assertRaises(SystemExit):
             mock.side_effect = ['k', 'l', 'yeah', 'Y']  # go on with defaults
-            arguments.parse_arguments_local([])
+            arguments._parse_arguments_local([])

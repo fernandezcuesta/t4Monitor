@@ -127,14 +127,14 @@ class OrchestratorSandbox(Orchestrator):
         my_clone.folders = self.folders
         my_clone.folders.append(my_clone.reports_folder)
         my_clone.folders.append(my_clone.store_folder)
-        my_clone.check_folders()  # force creation of destination folders
+        my_clone._check_folders()  # force creation of destination folders
 
         return my_clone
 
     def __init__(self, *args, **kwargs):
         super(OrchestratorSandbox, self).__init__(*args, **kwargs)
         # Get external files from configuration
-        self.check_external_files_from_config()
+        self._check_external_files_from_config()
         self.folders = []
 
         # Override destination folders to be inside tempdir

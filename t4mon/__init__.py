@@ -1,43 +1,6 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-"""
- T4Monitor: T4-compliant CSV processor and visualizer for OpenVMS
- -----------------------------------------------------------------------------
- 2014-2015 (c) J.M. Fernández - fernandez.cuesta@gmail.com
-
- t4 input_file
- CSV file header may come in 2 different formats:
-
-  ** Format 1: **
-  The first four lines are header data:
-
-  line0: Header information containing T4 revision info and system information
-
-  line1: Collection date   (optional line)
-
-  line2: Start time        (optional line)
-
-  line3: Parameter Heading (comma separated)
-
- or
-
-  ** Format 2: **
-
- line0: Header information containing T4 revision info and system information
- line1: <delim> START COLUMN HEADERS  <delim>  where <delim> is a triple `$`
- line2: parameter headings (comma separated)
- ...
-
-  line 'n': <delim> END COLUMN HEADERS  <delim>  where <delim> is a triple `$`
-
-  The remaining lines are the comma separated values. The first column is the
-  sample time. Each line represents a sample, typically 60 seconds apart.
-  However T4 incorrectly places an extra raw line with the column averages
-  almost at the end of the file. That line will be considered as a closing
-  hash and contents followed by it (sometimes even more samples...) is ignored
-
-isort:skip_file
-"""
+# isort:skip_file
 
 from __future__ import absolute_import
 
@@ -60,13 +23,10 @@ from .gen_report import gen_report
 from .logger import init_logger
 
 from .orchestrator import Orchestrator
-from .arguments import (parse_arguments_cli,
-                        parse_arguments_local,
-                        parse_arguments_main,
-                        read_config)
+from . import arguments
 
 
-__version_info__ = (0, 14, 1)
+__version_info__ = (0, 14, 3)
 __version__ = '.'.join(str(i) for i in __version_info__)
 __author__ = 'fernandezjm'
 
@@ -77,9 +37,12 @@ __all__ = ('main',
 def dump_config(output=None, **kwargs):
     """
     Dump current configuration to screen, useful for creating a new
-    settings.cfg file
+    ``settings.cfg`` file
+
+    Arguments:
+        output (Optional[str]): output filename, stdout if None
     """
-    conf = read_config(**kwargs)
+    conf = arguments.read_config(**kwargs)
     conf.write(output or sys.stdout)
 
 
@@ -88,9 +51,9 @@ def main():  # pragma: no cover
     Check input arguments and pass it to Orchestrator
     """
     sys_arguments = sys.argv[1:]
-    arguments = parse_arguments_cli(sys_arguments)
+    arguments_ = arguments._parse_arguments_cli(sys_arguments)
     if arguments.get('config', False):
-        dump_config(**arguments)
+        dump_config(**arguments_)
         return
     for par in ['local', 'localcsv']:
         if arguments.get(par, False):
@@ -100,20 +63,22 @@ def main():  # pragma: no cover
                                                               par),
                                       pkl=par is 'local')
             return
-    arguments = parse_arguments_main(sys_arguments)
-    _orchestrator = Orchestrator(**arguments)
+    arguments_ = arguments._parse_arguments_main(sys_arguments)
+    _orchestrator = Orchestrator(**arguments_)
     _orchestrator.start()
 
 
-def create_reports_from_local(arguments,
+def create_reports_from_local(cli_arguments,
                               prog=None,
                               pkl=True):  # pragma: no cover
     """
     Create HTML reports from locally stored data
     """
-    arguments = parse_arguments_local(arguments, prog=prog, pkl=pkl)
-    _orchestrator = Orchestrator(**arguments)
+    arguments_ = arguments._parse_arguments_local(cli_arguments,
+                                                  prog=prog,
+                                                  pkl=pkl)
+    _orchestrator = Orchestrator(**arguments_)
     argument_file_name = '{0}_file'.format('pkl' if pkl else 'csv')
-    _orchestrator.create_reports_from_local(arguments.pop(argument_file_name),
+    _orchestrator.create_reports_from_local(arguments_.pop(argument_file_name),
                                             pkl=pkl,
-                                            **arguments)
+                                            **arguments_)

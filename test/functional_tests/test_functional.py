@@ -56,7 +56,7 @@ class TestCollector(b.TestWithSsh):
         # after init, tunnel should be already started
         self.assertTrue(monitor.server._is_started)
         # Starting again should be silent
-        self.assertIsNone(monitor.start_server())
+        self.assertIsNone(monitor._start_server())
         self.assertTrue(monitor.server._is_started)
         self.assertIsInstance(monitor.server.tunnel_is_up, dict)
         for port in monitor.server.tunnel_is_up:
@@ -76,7 +76,6 @@ class TestCollector(b.TestWithSsh):
         test_system_id = 'System_1'
         monitor = self.sandbox.collector
         monitor.init_tunnels()
-        monitor.start_server()
         monitor.conf.set('DEFAULT', 'folder', b.MY_DIR)
         with SftpSession(
             hostname='127.0.0.1',
@@ -134,7 +133,7 @@ class TestCollector(b.TestWithSsh):
                 logs = col.get_system_logs(
                     ssh_session=s.ssh_transport,
                     system=test_system_id,
-                    log_cmd='netstat -nrt'
+                    command='netstat -nrt'
                 )
                 self.assertIn('0.0.0.0', ''.join(logs))
                 logs = col.get_system_logs(
@@ -168,20 +167,20 @@ class TestCollector(b.TestWithSsh):
             self.assertTrue(monitor.select(system='wrong_system_id').empty)
 
     def test_serial_handler(self):
-        """ Test function for serial_handler (AKA safe mode) """
-        self.sandbox.collector.serial_handler()
+        """ Test function for _serial_handler (AKA safe mode) """
+        self.sandbox.collector._serial_handler()
         self.assertIsInstance(self.sandbox.collector.data, pd.DataFrame)
         self.assertFalse(self.sandbox.collector.data.empty)
         self.assertIsInstance(self.sandbox.collector.logs, dict)
 
     def test_threaded_handler(self):
-        """ Test function for threaded_handler (AKA fast mode) """
+        """ Test function for _threaded_handler (AKA fast mode) """
         monitor = collector.Collector(settings_file=b.TEST_CONFIG,
                                       logger=self.logger,
                                       alldays=True,
                                       nologs=True)
         monitor.conf.set('DEFAULT', 'folder', b.MY_DIR)
-        monitor.threaded_handler()
+        monitor._threaded_handler()
         self.assertIsInstance(monitor.data, pd.DataFrame)
         self.assertFalse(monitor.data.empty)
         self.assertIsInstance(monitor.logs, dict)
