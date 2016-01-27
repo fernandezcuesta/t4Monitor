@@ -1,6 +1,6 @@
 t4Monitor
 =========
-*OpenVMS statistics (T4) statistics collector and reporting tools*
+*OpenVMS statistics (T4) collector and reporting tools*
 
 t4Monitor is a module that allows easy collection, preprocessing and reporting
 of generic `t4 <http://h71000.www7.hp.com/openvms/products/t4/>` compliant
@@ -12,16 +12,16 @@ Its features include:
   a single gateway.
 - simple methods for collecting T4-compliant CSV files
 - process collected statistics based in simple arithmetic functions (addition,
-  multiplication, division and substraction) based in collected metrics or
+  multiplication, division and difference) based in collected metrics or
   scalars
 - easy-to-use API for graphing and reporting statistics (to HTML using Jinja2
   templates)
 - handle compressed CSV files
-- T4-Format (flavours 1 and 2) CSV to Pandas dataframe conversion.
+- T4-Format (flavors 1 and 2) CSV to Pandas dataframe conversion.
   All remote CSVs are merged into a single dataframe
 - conversion to/from plain CSV (i.e. excel compliant) format
 - generic remote command output retrieval
-- multiprocess/multithread methods for fast retrieval (in parallel for each
+- multiprocess/multi-thread methods for fast retrieval (in parallel for each
   system)
 - detailed log output in two parallel streams, on-screen for customizable
   severity logs and rotating file for detailed logging information
