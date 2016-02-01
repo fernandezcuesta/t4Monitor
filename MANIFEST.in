@@ -3,4 +3,4 @@ include *.rst
 include *.md
 include requirements*.txt
 include test/*
-include local/*
+include docs/*

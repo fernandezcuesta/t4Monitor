@@ -11,8 +11,9 @@ import unittest
 import numpy as np
 import pandas as pd
 import pytest
-from t4mon import df_tools, collector
 from pandas.util.testing import assert_frame_equal
+
+from t4mon import df_tools, collector
 
 from . import base
 

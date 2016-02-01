@@ -15,7 +15,8 @@ import paramiko
 from six import print_
 
 from t4mon.arguments import get_absolute_path
-from ..unit_tests.base import BaseTestClass, MY_DIR, TEST_CONFIG
+
+from ..unit_tests.base import MY_DIR, TEST_CONFIG, BaseTestClass
 
 TEST_CONFIG = TEST_CONFIG
 
