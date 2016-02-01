@@ -9,11 +9,10 @@ import os
 from datetime import datetime as dt
 
 import pandas as pd
-from pandas.util.testing import assert_frame_equal
-
 from t4mon.df_tools import consolidate_data
 from t4mon.arguments import ConfigReadError
 from t4mon.orchestrator import Orchestrator
+from pandas.util.testing import assert_frame_equal
 
 from .base import TEST_CSV, TEST_PKL, BAD_CONFIG, BaseTestClass
 

@@ -1,13 +1,11 @@
 machine:
   environment:
     TOX_PY27: '2.7.10'
+    TOX_PY33: '3.3.3'
+    TOX_PY34: '3.4.3'
     TOX_PY35: '3.5.0'
 
 dependencies:
   override:
-    - pip -V
-    - pip install -U pip
-    - pip install -U ipdb
-    - pip install --upgrade tox
-    - pip install --upgrade tox-pyenv
-    - pyenv local $TOX_PY35 $TOX_PY27
+    - pip install --upgrade tox{,-pyenv} versioneer
+    - pyenv local $TOX_PY35 $TOX_PY34 $TOX_PY33 $TOX_PY27

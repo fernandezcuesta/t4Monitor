@@ -3,4 +3,5 @@ include *.rst
 include *.md
 include requirements*.txt
 include test/*
-include docs/*
+include docs/*include versioneer.py
+include t4mon/_version.py

@@ -17,6 +17,7 @@ else:
     matplotlib.use('TkAgg')
     import six.moves.tkinter_filedialog  # Required when using TkAgg backend
 
+from ._version import get_versions
 from .collector import add_methods_to_pandas_dataframe, read_pickle
 from .gen_plot import plot_var
 from .gen_report import gen_report
@@ -26,12 +27,11 @@ from .orchestrator import Orchestrator
 from . import arguments
 
 
-__version_info__ = (0, 15, 0)
-__version__ = '.'.join(str(i) for i in __version_info__)
+__version__ = get_versions()['version']
 __author__ = 'fernandezjm'
-
 __all__ = ('main',
            'dump_config')
+del get_versions
 
 
 def dump_config(output=None, **kwargs):

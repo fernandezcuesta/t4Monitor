@@ -11,9 +11,8 @@ import tempfile
 import unittest
 
 import pandas as pd
-from pandas.util.testing import assert_frame_equal
-
 from t4mon import collector
+from pandas.util.testing import assert_frame_equal
 
 from .base import LOGGER
 

@@ -29,10 +29,9 @@ from contextlib import contextmanager
 
 import tqdm
 import pandas as pd
+import sshtunnel
 from six import BytesIO, iterkeys
 from paramiko import SFTPClient, SSHException
-
-import sshtunnel
 from six.moves import queue, cPickle, builtins, cStringIO
 from sshtunnels.sftpsession import SftpSession, SFTPSessionError
 

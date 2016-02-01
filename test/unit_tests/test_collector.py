@@ -10,10 +10,9 @@ import datetime as dt
 import tempfile
 
 import pandas as pd
-from pandas.util.testing import assert_frame_equal
-
 from t4mon import df_tools, arguments, collector
 from six.moves import queue, configparser
+from pandas.util.testing import assert_frame_equal
 
 from .base import TEST_CSV, TEST_PKL, TEST_CALC, TEST_ZIPFILE, BaseTestClass
 

@@ -2,12 +2,12 @@
 import os
 import sys
 
+import versioneer
+
 from pip.req import parse_requirements
 from setuptools import setup
 from pip.download import PipSession
 from setuptools.command.test import test as TestCommand
-
-import t4mon
 
 requires = [str(ir.req) for ir in parse_requirements('requirements-common.txt', session=PipSession)]
 
@@ -19,7 +19,6 @@ entry_points = {
         't4monitor = t4mon:main'
     ]
 }
-
 
 README = open('README.rst').read()
 CHANGELOG = open('changelog.rst').read()
@@ -35,11 +34,15 @@ class Tox(TestCommand):
         errcode = tox.cmdline(self.test_args)
         sys.exit(errcode)
 
+cmdclass_ = versioneer.get_cmdclass()
+cmdclass_['test'] = Tox
+
 setup(
     name="t4Monitor",
-    version=t4mon.__version__,
+    version=versioneer.get_version(),
+    cmdclass=cmdclass_,
     url='https://github.com/fernandezcuesta/t4Monitor',
-    license='MIT license',
+    license='MIT',
     author='JM Fernandez',
     author_email='fernandez.cuesta@gmail.com',
     description="Report OpenVMS hosts from T4 statistics",
@@ -63,6 +66,5 @@ setup(
          'Topic :: System :: Monitoring',
     ],
     tests_require=['tox'],
-    cmdclass = {'test': Tox},
-    test_suite='t4mon.tests',
+#    test_suite='t4mon.tests',
 )

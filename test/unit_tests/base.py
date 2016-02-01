@@ -14,7 +14,6 @@ from os import path
 
 import numpy as np
 import pandas as pd
-
 from t4mon import logger
 from t4mon.arguments import read_config
 from t4mon.collector import (

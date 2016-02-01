@@ -8,11 +8,10 @@ from __future__ import print_function, absolute_import
 
 import tempfile
 from os import sep
-from test.functional_tests import base as b
 
 import pandas as pd
-
 from t4mon import collector
+from test.functional_tests import base as b
 from sshtunnels.sftpsession import SftpSession
 
 
@@ -70,6 +69,31 @@ class TestCollector(b.TestWithSsh):
             self.assertIn("Couldn't open tunnel :22000 <> 127.0.0.1:22 "
                           "might be in use or destination not reachable.",
                           self.test_log_messages['error'])
+
+    def test_collector_start(self):
+        """ Test function for Collector.start """
+        monitor = collector.Collector(settings_file=b.TEST_CONFIG,
+                                      logger=self.logger,
+                                      alldays=True,
+                                      nologs=True,
+                                      safe=False)
+        monitor.start()
+        # main reads by itself the configuration file, where the folder is not
+        # set, thus won't find the files and return an empty dataframe
+        self.assertIsInstance(monitor.data, pd.DataFrame)
+        self.assertTrue(monitor.data.empty)
+        self.assertIsInstance(monitor.logs, dict)
+
+        # Same by calling the threaded version
+        monitor = collector.Collector(alldays=True,
+                                      logger=self.logger,
+                                      nologs=True,
+                                      settings_file=b.TEST_CONFIG,
+                                      safe=True)
+        monitor.start()
+        self.assertIsInstance(monitor.data, pd.DataFrame)
+        self.assertTrue(monitor.data.empty)
+        self.assertIsInstance(monitor.logs, dict)
 
     def test_get_stats_from_host(self):
         """ Test function for get_stats_from_host """
@@ -183,29 +207,4 @@ class TestCollector(b.TestWithSsh):
         monitor._threaded_handler()
         self.assertIsInstance(monitor.data, pd.DataFrame)
         self.assertFalse(monitor.data.empty)
-        self.assertIsInstance(monitor.logs, dict)
-
-    def test_collector_start(self):
-        """ Test function for Collector.start """
-        monitor = collector.Collector(settings_file=b.TEST_CONFIG,
-                                      logger=self.logger,
-                                      alldays=True,
-                                      nologs=True,
-                                      safe=False)
-        monitor.start()
-        # main reads by itself the configuration file, where the folder is not
-        # set, thus won't find the files and return an empty dataframe
-        self.assertIsInstance(monitor.data, pd.DataFrame)
-        self.assertTrue(monitor.data.empty)
-        self.assertIsInstance(monitor.logs, dict)
-
-        # Same by calling the threaded version
-        monitor = collector.Collector(alldays=True,
-                                      logger=self.logger,
-                                      nologs=True,
-                                      settings_file=b.TEST_CONFIG,
-                                      safe=True)
-        monitor.start()
-        self.assertIsInstance(monitor.data, pd.DataFrame)
-        self.assertTrue(monitor.data.empty)
         self.assertIsInstance(monitor.logs, dict)

@@ -1,12 +1,19 @@
 language: python
-python:
-  - 2.7
 install:
   - pip install -r requirements.txt
-before_script:
-  - pip install coveralls
-  - pip install pytest-cov
+  - pip install -r requirements-test.txt
+  - pip install coveralls versioneer
+python:
+  - "2.7"
+  - "3.3"
+  - "3.4"
+  - "3.5"
+before_install:
+  - pip install flake8 isort
+  - flake8 t4mon test
+  - isort -rc t4mon test
 script:
-  py.test --cov t4mon --cov-report term-missing -rXx
+  - py.test -rXx -n4 --cov t4mon --cov-report term-missing --timeout=30 --durations=10
 after_success:
+  sphinx-build -b html docs docs/_build/html
   coveralls
