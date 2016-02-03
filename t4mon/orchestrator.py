@@ -18,7 +18,7 @@ from .gen_report import gen_report
 
 
 # Make the Orchestrator class picklable, required by Pool.map()
-def _pickle_method(method):
+def _pickle_method(method):  # pragma: no cover
     if six.PY2:
         func_name = method.im_func.__name__
         obj = method.im_self
@@ -30,7 +30,7 @@ def _pickle_method(method):
     return _unpickle_method, (func_name, obj, cls)
 
 
-def _unpickle_method(func_name, obj, cls):
+def _unpickle_method(func_name, obj, cls):  # pragma: no cover
     for cls in cls.mro():
         try:
             func = cls.__dict__[func_name]

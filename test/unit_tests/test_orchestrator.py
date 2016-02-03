@@ -121,6 +121,7 @@ class TestOrchestrator(BaseTestClass):
         """
         _orchestrator = self.orchestrator_test.clone()
         _collector = self.collector_test.clone()
+        _collector.nologs = False
         _collector.data = self.test_data
         _orchestrator._local_store(_collector)
         for extension in ['pkl.gz', 'csv']:
