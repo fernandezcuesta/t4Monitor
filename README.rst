@@ -108,6 +108,7 @@ Testing the package
 
 Requirements:
 ^^^^^^^^^^^^^
+> Embedded in ``requirements-test.txt``.
 
 - `tox <https://pypi.python.org/pypi/tox>`_
 - `pytest <http://pytest.org/>`_
@@ -137,7 +138,6 @@ Building documentation
 ----------------------
 
 Requires:
-^^^^^^^^^
 
     - `sphinx <http://sphinx-doc.org/>`_
     - `sphinxcontrib-napoleon <https://pypi.python.org/pypi/sphinxcontrib-napoleon>`_
