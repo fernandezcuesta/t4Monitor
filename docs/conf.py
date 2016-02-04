@@ -11,7 +11,7 @@
 
 import sys, os
 import subprocess
-import t4mon
+import versioneer
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -49,7 +49,7 @@ copyright = u'2012-2016, J.M. Fernández'
 # built documents.
 #
 # The full version, including alpha/beta/rc tags.
-release = t4mon.__version__
+release = versioneer.get_version()
 # The short X.Y version.
 version = '.'.join(release.split('.')[:2])
 
