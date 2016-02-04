@@ -43,7 +43,7 @@ class TestCollector(BaseTestClass):
         self.assertIsNone(my_collector.server)
         self.assertIsInstance(my_collector.results_queue, queue.Queue)
         self.assertIsInstance(my_collector.conf,
-                              configparser.SafeConfigParser)
+                              configparser.ConfigParser)
         self.assertFalse(my_collector.alldays)
         self.assertFalse(my_collector.nologs)
         self.assertFalse(my_collector.safe)
