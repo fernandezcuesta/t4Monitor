@@ -10,7 +10,7 @@
 # serve to show the default.
 
 import sys, os
-import t4mon
+import subprocess
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -48,7 +48,7 @@ copyright = u'2012-2016, J.M. Fernández'
 # built documents.
 #
 # The full version, including alpha/beta/rc tags.
-release = t4mon.__version__
+release = subprocess.check_output(["git", "describe"])
 # The short X.Y version.
 version = '.'.join(release.split('.')[:2])
 
