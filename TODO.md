@@ -30,3 +30,5 @@ according to `container.data.system` instead of
 - minimize .EXE size for windows builds (*hint: matplotlib*)
 
 - <s>Fix help displayed when running a secondary mode, i.e. --local --help</s>
+
+- Check MPLD3

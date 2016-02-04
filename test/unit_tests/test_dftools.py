@@ -18,7 +18,7 @@ from . import base
 
 TEST_CSV_SHAPE = (286, 930)  # dataframe shape as generated from CSV
 TEST_PKL_SHAPE = (286, 942)  # dataframe shape after calculations (as stored)
-TEST_PLAINCSV = 'test/plain_csv.txt'
+TEST_PLAINCSV = 'test/plain_data.csv'
 
 
 class TestAuxiliaryFunctions(unittest.TestCase):
