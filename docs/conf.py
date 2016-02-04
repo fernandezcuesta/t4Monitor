@@ -10,8 +10,7 @@
 # serve to show the default.
 
 import sys, os
-import subprocess
-import versioneer
+import t4mon
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -49,7 +48,7 @@ copyright = u'2012-2016, J.M. Fernández'
 # built documents.
 #
 # The full version, including alpha/beta/rc tags.
-release = versioneer.get_version()
+release = t4mon.__version__
 # The short X.Y version.
 version = '.'.join(release.split('.')[:2])
 
