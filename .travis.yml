@@ -1,6 +1,6 @@
 language: python
 install:
-  - pip install -r requirements-test.txt
+  - pip install -r requirements/requirements-test.txt
   - pip install coveralls
   - pip install sphinx{,contrib-napoleon}
 python:
@@ -12,9 +12,8 @@ before_install:
   - pip install flake8 isort
   - flake8 t4mon test
   - isort -rc t4mon test
+  - sphinx-build -b html docs docs/_build/html  
 script:
   - py.test -rXx -n4 --cov t4mon --cov-report term-missing --timeout=30 --durations=10
-after_script:
-  - sphinx-build -b html docs docs/_build/html  
 after_success:
-  - coveralls
+  coveralls

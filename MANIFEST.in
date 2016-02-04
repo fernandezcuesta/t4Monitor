@@ -1,7 +1,7 @@
 include t4mon/conf/*
 include *.rst
 include *.md
-include requirements*.txt
+include requirements/*
 include test/*
 include docs/*include versioneer.py
 include t4mon/_version.py

@@ -68,6 +68,8 @@ hash and contents followed by it (sometimes even more samples...) is ignored.
 Requirements
 ------------
 
+> embedded in ``requirements/requirements.txt``.
+
 - Python 2.7 or later
 - `Jinja2 <http://jinja.pocoo.org>`_
 - `matplotlib <http://matplotlib.org/>`_
@@ -86,7 +88,7 @@ For Linux::
 
     git clone https://github.com/fernandezcuesta/t4Monitor.git
     cd t4Monitor
-    pip install requirements.txt
+    pip install requirements/requirements.txt
     python setup.py develop
 
 For Windows::

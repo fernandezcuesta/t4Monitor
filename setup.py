@@ -9,7 +9,9 @@ from setuptools import setup
 from pip.download import PipSession
 from setuptools.command.test import test as TestCommand
 
-requires = [str(ir.req) for ir in parse_requirements('requirements-common.txt', session=PipSession)]
+requires = [str(ir.req) for ir in
+            parse_requirements('requirements/requirements-common.txt',
+                               session=PipSession)]
 
 if sys.platform.startswith('linux') or sys.platform == 'darwin':
     requires.append('cairocffi')

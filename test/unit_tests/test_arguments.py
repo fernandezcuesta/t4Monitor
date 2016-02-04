@@ -30,11 +30,16 @@ class TestArguments(unittest.TestCase):
             arguments.get_absolute_path('file.txt', '/home/user/other.txt'),
             '/home/user/file.txt'
         )
+        # Giving an absolute path should return the same
+        self.assertEqual(
+            arguments.get_absolute_path('/path/to/file.dat'),
+            '/path/to/file.dat'
+        )
 
     def test_config(self):
         """ test function for read_config """
         config = arguments.read_config(base.TEST_CONFIG)
-        self.assertIsInstance(config, configparser.SafeConfigParser)
+        self.assertIsInstance(config, configparser.ConfigParser)
         self.assertGreater(len(config.sections()), 2)
         self.assertIn('GATEWAY', config.sections())
         self.assertTrue(all([key in [i[0] for i in config.items('DEFAULT')]
@@ -45,6 +50,10 @@ class TestArguments(unittest.TestCase):
         self.assertRaises(arguments.ConfigReadError,
                           arguments.read_config,
                           base.TEST_CSV)
+        # Same if the file is not found
+        self.assertRaises(arguments.ConfigReadError,
+                          arguments.read_config,
+                          'badfilename')
 
     def test_parse_arguments_main(self):
         parser = arguments._parse_arguments_main(
@@ -57,6 +66,22 @@ class TestArguments(unittest.TestCase):
         self.assertFalse(parser['nologs'])
         self.assertFalse(parser['noreports'])
         self.assertEqual(parser['settings_file'], base.BAD_CONFIG)
+        self.assertFalse(parser['safe'])
+
+    def test_parse_arguments_cli(self):
+        parser = arguments._parse_arguments_cli(
+            ['--config',
+             '--loglevel=DEBUG']
+        )
+        self.assertTrue(parser['config'])
+        self.assertEqual(parser['settings_file'],
+                         arguments.DEFAULT_SETTINGS_FILE)
+        self.assertFalse(parser['all'])
+        self.assertFalse(parser['help'])
+        self.assertFalse(parser['local'])
+        self.assertFalse(parser['localcsv'])
+        self.assertFalse(parser['nologs'])
+        self.assertFalse(parser['noreports'])
         self.assertFalse(parser['safe'])
 
     @patch('t4mon.arguments.__get_input', return_value='y')

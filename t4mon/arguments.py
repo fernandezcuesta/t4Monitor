@@ -65,7 +65,7 @@ def read_config(settings_file=None, **kwargs):
             File containing the settings, defaults to
             :const:`DEFAULT_SETTINGS_FILE`
     """
-    config = six.moves.configparser.SafeConfigParser()
+    config = six.moves.configparser.ConfigParser()
     try:
         settings_file = settings_file or DEFAULT_SETTINGS_FILE
         settings = config.read(settings_file)
