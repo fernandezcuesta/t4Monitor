@@ -119,10 +119,15 @@ class Collector(object):
 
     Attributes:
 
-        conf (configParser.SafeConfigParser):
+        alldays (boolean or False):
+            Define whether or not filter remote files on current date.
+            If ``True``, remote files will be filtered on a timestamp with the
+            ``DDMMMYYY`` format (i.e. ``20may2015``).
+
+        conf (configParser.ConfigParser):
             Object containing the settings as read from settings_file (passed
             as argument).
-            Default: ``SafeConfigParser`` object as obtained from sample
+            Default: ``ConfigParser`` object as obtained from sample
             configuration file.
 
         data (pandas.DataFrame):
@@ -141,18 +146,36 @@ class Collector(object):
             doing sucessive file lookups (slow when number of files is high).
             Default: empty dict
 
+        logger (Optional[logging.Logger]):
+            Logger object passed from an external function. A new logger is
+            created by calling :func:`t4mon.logger.init_logger` if nothing is
+            passed.
+
         logs (dict):
             Output from running remotely the command specified in the
             configuration file (``MISC/remote_log_cmd``).
             Default: empty dict
 
+        nologs (boolean)
+            Skip remote log collection. An indication message will be shown in
+            the report showing that the log collection was omitted.
+            Default: ``False``
+
         results_queue (queue.Queue)
             Queue containing the system IDs which data collection is ready.
-            Default: empty Queue object
+            Default: empty ``Queue`` object
+
+        safe (boolean):
+            Define the mode (safe vs threaded) for most of this class methods.
+            Default: ``False``
 
         server (SSHTunnel.SSHTunnelForwarder):
             Object representing the tunnel server.
-            Default: None
+            Default: ``None``
+
+        settings_file(str):
+            Name of the file containing the settings
+            Default: :const:`t4mon.arguments.DEFAULT_SETTINGS_FILE`
 
         systems (list):
             List containing the system IDs as configured in the settings file
@@ -162,7 +185,7 @@ class Collector(object):
         use_gateway (boolean):
             Whether or not the remote systems are behind an SSH proxy.
             It defines if the connectivity is done via tunnels or directly.
-            Default: True
+            Default: ``True``
 
       Examples:
 
@@ -228,8 +251,7 @@ class Collector(object):
                 )
 
     def __getstate__(self):
-        """
-        """
+        """ Method enabling class pickle """
         odict = self.__dict__.copy()
         if self.logger:
             odict['loggername'] = self.logger.name
@@ -238,8 +260,7 @@ class Collector(object):
         return odict
 
     def __setstate__(self, state):
-        """
-        """
+        """ Method enabling class pickle """
         state['logger'] = init_logger(name=state.get('loggername'))
         if 'loggername' in state:
             del state['loggername']
@@ -283,7 +304,7 @@ class Collector(object):
 
             Type: string
 
-            Default: None
+            Default: ``None``
 
             Description:
             system to initialize the tunnels. If nothing given it initializes
@@ -382,9 +403,14 @@ class Collector(object):
 
     def check_if_tunnel_is_up(self, system):
         """
-        Return true if there's a tuple in ``self.server.tunnel_is_up`` such as:
-        ``{('0.0.0.0', port): True}``
+        Return true if there's a tuple in :attr:`.server`'s' ``.tunnel_is_up``
+        such as: ``{('0.0.0.0', port): True}``
         where port is the tunnel listen port for ``system``.
+
+        Arguments:
+            system (str): system which tunnel port will be checked
+        Return:
+            boolean
         """
         if not self.server or system not in self.server.tunnelports:
             return False
@@ -398,8 +424,10 @@ class Collector(object):
         By default the connection is done via SSH tunnels (controlled by
         :attr:`.use_gateway`)
 
-        :param str system: Open an SFTP session to that system
-        :rtype: SftpClient
+        Arguments:
+            system (str): system where to open the SFTP session
+        Return:
+            ``paramiko.SFTPClient``
         """
         if system not in self.conf.sections():
             self.logger.error('{0} | System not found in configuration'
@@ -445,28 +473,38 @@ class Collector(object):
                      compressed=False,
                      **kwargs):
         """
-        Connect to a remote system via SFTP and looks for ``filespec_list``
-        in the remote host.
-        Works locally when hosntame=None.
+        Connect to a remote system via SFTP and get a list of files matching
+        ``filespec_list`` in the remote host.
+        Works locally when ``hostname=None``.
 
         Files that will be returned must match every item in ``filespec_list``,
         i.e. ``data*2015*csv`` would match ``data_2015.csv``,
         ``2015_data_full.csv`` but not ``data_2016.csv``.
-        When working with the local filesystem, filespec_list may contain
+        When working with the local filesystem, ``filespec_list`` may contain
         absolute paths.
 
         Working with local filesystem if not a valid sftp_session is passed
 
-        Return:
-
-         - files: list of files matching the filespec_list in the remote
-           host or a string with wildmarks (*), i.e. ``data*2015*.csv``
-
-        kwargs (optional):
-
-        - sftp_session: already established sftp session
-        - files_folder: folder where files are located, either on sftp srv or
+        Arguments:
+            hostname (Optional[str]):
+                Remote hostname where to download the CSV files.
+                Default: working with local filesystem
+            filespec_list (Optional[list]):
+                list of files to look for (valid filespecs may contain
+                wildcards (``*``))
+            compressed (Optional[boolean]):
+                whether to look for compressed or plain (CSV) files
+                Default: ``False`` (look for CSV files)
+        Keyword Arguments:
+            sftp_session (paramiko.SFTPClient):
+                already established sftp session
+            files_folder: folder where files are located, either on sftp srv or
           local filesystem
+
+        Return:
+           list:
+               files matching the filespec_list in the remote
+               host or a string with wildmarks (*), i.e. ``data*2015*.csv``
         """
         sftp_session = kwargs.get('sftp_session', None)
         files_folder = kwargs.get('files_folder', '.')
@@ -519,34 +557,29 @@ class Collector(object):
                             sftp_session=None,
                             **kwargs):
         """
-        Connect to a remote system via SFTP and reads the CSV files, which
+        Optionally connect to a remote system via SFTP to read CSV files, which
         might be compressed in ZIP files, then call the CSV-pandas conversion
         function.
 
-        :param filespec_list:
-        :type filespec_list: list or None
-
-        :param hostname:
-            Remote hostname where to download the CSV files. Working with local
-            filesystem if ``None``
-        :type hostname: str or None
-
-        :param compressed:
-            Whether or not the files matching ``filespec_list`` are compressed
-            (deflate)
-        :type compressed: boolean or None
-
-        :param sftp_session:
-            SFTP session to the remote ``hostname``, or None for local
-            filesystem
-        :type sftp_session: SftpClient or None
-
-        :param files_folder:
-            folder where files are located, either on sftp server or local
-            filesystem
-        :type files_folder: str or None
-
-        :rtype: pandas.DataFrame
+        Arguments:
+            filespec_list (Optional[list]):
+                List of strings, each representing a valid file specification
+                (wildcards (``*``) allowed
+            hostname (Optional[str]):
+                Remote hostname where to download the CSV files.
+                Default: working with local filesystem
+            compressed (Optional[boolean]):
+                Whether or not the files matching ``filespec_list`` are
+                compressed (deflate)
+                Default: ``False`` (not compressed)
+            sftp_session (Optional[paramiko.SFTPClient]):
+                SFTP session to the remote ``hostname``
+                Default: ``None`` (work with local filesystem)
+            files_folder (Optional[str]):
+                folder where files are located, either on sftp server or local
+                filesystem
+        Return:
+            ``pandas.DataFrame``
         """
         _df = pd.DataFrame()
 
@@ -599,21 +632,21 @@ class Collector(object):
         Get log info from the remote system, assumes an already established
         ssh tunnel.
 
-        :param paramiko.SSHClient ssh_session:
-            Active SSH client to the remote host where the ``command`` will be
+        Arguments:
+            ssh_session (paramiko.SSHClient):
+                Active SSH client to the remote host where the ``command``
+                will be invoked
 
-        :param str system:
-            System representation as configured in :attr:`self.settings_file`
-            hostname where to download the CSV files. Working with local
-            filesystem if ``None``
+            system (str):
+                System representation as configured in
+                :attr:`.settings_file` hostname where to download the CSV
+                files. Working with local filesystem if ``None``
 
-        :param command:
-            Command that will be executed in the remote host
-        :type command: str or None
-
-        :return: stdout text representation
-            (stdin and stderr ignored for OpenVMS' SSH2)
-        :rtype: str
+            command (Optional[str]):
+                Command that will be executed in the remote host
+        Return:
+            str: stdout text representation (stdin and stderr ignored for
+            OpenVMS' SSH2)
         """
         if not command:
             self.logger.error('No command was specified for log collection')
@@ -630,11 +663,13 @@ class Collector(object):
 
     def get_single_day_data(self, given_date=None):
         """
-        Given a single date, collect all systems data for such date
+        Given a single date, collect all systems data for such date and put the
+        results in :attr:`.data`.
 
-        :param datetime given_date:
-            define for which day the data will be collected from the remote
-            systems (default: today's datetime).
+        Arguments:
+            given_date (datetime):
+                define for which day the data will be collected from the remote
+                systems; default: today's datetime.
         """
 
         def _single_day_and_system_data(system, given_date=None):
@@ -658,15 +693,16 @@ class Collector(object):
         """
         Create pandas DF from current session CSV files downloaded via SFTP.
 
-        :param SftpClient session:
-            **Already initialized** sftp session to the remote system
-
-        :param str system:
-            remote system hostname, as present in settings file
-
-        :param str day:
-          String identifying for which day the data will be collected.
-          Default: ``datetime.date.today()`` in the format ``%d%b%Y``
+        Arguments:
+            session (SftpClient):
+                **Already initialized** sftp session to the remote system
+            system (str):
+                remote system hostname, as present in settings file
+            day (str):
+              String identifying for which day the data will be collected.
+              Default: ``datetime.date.today()`` in the format ``%d%b%Y``
+        Return:
+            ``pandas.DataFrame``
         """
         data = pd.DataFrame()
         destdir = self.conf.get(system, 'folder') or '.'
@@ -707,8 +743,10 @@ class Collector(object):
         Collect everything needed for a system.
         By default the connection is done via SSH tunnels.
 
-        :param str system: Open an SFTP session to system and collect the CSVs
-        :rtype: pandas.DataFrame
+        Arguments:
+            system (str): Open an SFTP session to system and collect the CSVs
+        Return:
+            ``pandas.DataFrame``
 
         """
         # TODO: allow parallel (data | log) collection
@@ -809,18 +847,24 @@ class Collector(object):
         except Exception as exc:
             self.logger.exception(exc)
 
-    def to_pickle(self, name, compress=False):
+    def to_pickle(self, name, compress=False, version=None):
         """
-        Save collector object to [optionally] gzipped pickle
+        Save collector object to [optionally] gzipped pickle.
+        The pickle protocol used by default is the highest supported by the
+        platform.
 
-        :param str name: Name of the output file
-        :param compress: Whether or not compress (deflate) the pickle file
-        :type compress: boolean or False
+        Arguments:
+            name (str): Name of the output file
+            compress (boolean):
+                Whether or not compress (deflate) the pickle file, defaults to
+                ``False``
+            version (int):
+                pickle version, defaults to :const:`cPickle.HIGHEST_PROTOCOL`
         """
         buffer_object = BytesIO()
         cPickle.dump(obj=self,
                      file=buffer_object,
-                     protocol=cPickle.HIGHEST_PROTOCOL)
+                     protocol=version or cPickle.HIGHEST_PROTOCOL)
         buffer_object.flush()
         if name.endswith('.gz'):
             compress = True
@@ -838,8 +882,8 @@ class Collector(object):
 
     def _load_zipfile(self, zip_file, sftp_session=None):
         """
-        Inflate a zip file and call get_stats_from_host with the decompressed
-        CSV files
+        Inflate a zip file and call :meth:`get_stats_from_host` with the
+        decompressed CSV files
         """
         temp_dir = tempfile.gettempdir()
         self.logger.info('Decompressing ZIP file {0} into {1}...'
@@ -879,10 +923,12 @@ def load_zipfile(zipfile, system=None):
     """
     Load T4-CSV files contained inside a zip archive
 
-    :param system:
-        Hostname where the zip file is located, None for local filesystem
-    :type system: str or None
-    :rtype: pandas.DataFrame
+    Arguments:
+        zipfile
+        system (Optional[str]):
+            Hostname where the zip file is located, None for local filesystem
+    Return:
+        ``pandas.DataFrame``
     """
     col = Collector(alldays=True, nologs=True)
     return col.get_stats_from_host(zipfile, hostname=system, compressed=True)
@@ -892,13 +938,14 @@ def read_pickle(name, compress=False, logger=None):
     """
     Restore dataframe plus its metadata from (optionally deflated) pickle store
 
-    :param str name: Input file name
-    :param compress: Whether or not the file is compressed (True if file
-        extension ends with '.gz')
-    :type compress: boolean or False
-    :param logger: Optional logger object
-    :type logger: logging.Logger or None
-
+    Arguments:
+        name(str): Input file name
+        compress (Optional[boolean]):
+            Whether or not the file is compressed (``True`` if file extension
+            ends with '.gz'). Defaults to ``False``.
+        logger (Optional[logging.Logger]): Optional logger object
+    Return:
+        ``Collector``
     """
     if compress or name.endswith('.gz'):
         mode = gzip
@@ -923,8 +970,8 @@ def add_methods_to_pandas_dataframe(logger=None):
     :meth:`t4mon.calculations.apply_calcs` or
     :meth:`t4mon.calculations.clean_calcs` directly from any pandas DataFrame
 
-    :param logger: Optional logger object
-    :type logger: logging.Logger or None
+    Arguments:
+        logger (Optional[logging.Logger]): Optional logger object
     """
     pd.DataFrame.oper = calculations.oper
     pd.DataFrame.oper_wrapper = calculations.oper_wrapper

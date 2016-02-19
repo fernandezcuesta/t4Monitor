@@ -50,7 +50,7 @@ def remove_duplicate_columns(dataframe):
     Arguments:
         dataframe (pandas.DataFrame): Original DataFrame
     Return:
-        pandas.DataFrame
+        ``pandas.DataFrame``
     """
     columns = list(dataframe.columns)
     field_names = list(OrderedDict.fromkeys((f for f in columns)))
@@ -70,7 +70,7 @@ def consolidate_data(partial_dataframe, dataframe=None, system=None):
         dataframe (pandas.DataFrame): Optional dataframe to consolidate with
         system (str): system to which the data in partial_dataframe belongs
     Return:
-        pandas.DataFrame
+        ``pandas.DataFrame``
 
     """
     if not isinstance(partial_dataframe, pd.DataFrame):
@@ -94,7 +94,7 @@ def reload_from_csv(csv_filename, plain=False, index_col=0):
         plain(boolean): Whether the file is a plain (excel) CSV or T4-flavored
         index_col(int): Column number containing the time-stamp information
     Return:
-        pandas.DataFrame
+        ``pandas.DataFrame``
     """
     if plain:  # plain CSV
         data = pd.read_csv(csv_filename, index_col=index_col)
@@ -164,7 +164,7 @@ def select(dataframe, *args, **kwargs):
         logger(logging.Logger): Optional logger instance
 
     Returns:
-        pandas.DataFrame
+        ``pandas.DataFrame``
 
 
     """
