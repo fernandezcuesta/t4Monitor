@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import os
 import sys
 
 import versioneer
@@ -9,12 +8,15 @@ from setuptools import setup
 from pip.download import PipSession
 from setuptools.command.test import test as TestCommand
 
-requires = [str(ir.req) for ir in
-            parse_requirements('requirements/requirements-common.txt',
-                               session=PipSession)]
+install_requires = [str(ir.req) for ir in
+                    parse_requirements('requirements/requirements.txt',
+                                       session=PipSession)]
+tests_require = [str(ir.req) for ir in
+                 parse_requirements('requirements/requirements-test.txt',
+                                    session=PipSession)]
 
 if sys.platform.startswith('linux') or sys.platform == 'darwin':
-    requires.append('cairocffi')
+    install_requires.append('cairocffi')
 
 entry_points = {
     'console_scripts': [
@@ -25,11 +27,14 @@ entry_points = {
 README = open('README.rst').read()
 CHANGELOG = open('changelog.rst').read()
 
+
 class Tox(TestCommand):
+
     def finalize_options(self):
         TestCommand.finalize_options(self)
-        self.test_args = []
+        self.test_args = ['--recreate']
         self.test_suite = True
+
     def run_tests(self):
         # import here, otherwise eggs aren't loaded
         import tox
@@ -51,7 +56,8 @@ setup(
     long_description=README + '\n' + CHANGELOG,
     packages=['t4mon', 'sshtunnels'],
     include_package_data=True,
-    install_requires=requires,
+    install_requires=install_requires,
+    tests_require=tests_require,
     entry_points=entry_points,
     platforms='any',
     classifiers=[
@@ -67,6 +73,4 @@ setup(
          'Programming Language :: Python :: 3.5',
          'Topic :: System :: Monitoring',
     ],
-    tests_require=['tox'],
-#    test_suite='t4mon.tests',
 )

@@ -19,7 +19,7 @@
 from __future__ import absolute_import
 
 import os
-# import copy
+import re
 import gzip
 import zipfile
 import datetime as dt
@@ -319,6 +319,7 @@ class Collector(object):
                 else None
             user = self.conf.get('GATEWAY', 'username') or None \
                 if self.conf.has_option('GATEWAY', 'username') else None
+            self.logger.critical(pwd)
             self.server = sshtunnel.SSHTunnelForwarder(
                 ssh_address_or_host=(jumpbox_addr, jumpbox_port),
                 ssh_username=user,
@@ -328,6 +329,7 @@ class Collector(object):
                 threaded=True,
                 logger=self.logger,
                 ssh_private_key=pkey,
+                ssh_private_key_password=pwd,
                 set_keepalive=15,
                 raise_exception_if_any_forwarder_have_a_problem=False
             )
@@ -548,7 +550,6 @@ class Collector(object):
         :rtype: pandas.DataFrame
         """
         _df = pd.DataFrame()
-        _dz = pd.DataFrame()
 
         files = self.files_lookup(hostname=hostname,
                                   filespec_list=filespec_list,
@@ -572,16 +573,19 @@ class Collector(object):
                                 disable=compressed,
                                 unit='Archives' if compressed else 'Files'):
             if compressed:
-                _dz = _dz.combine_first(
+                _df = _df.combine_first(
                     self._load_zipfile(zip_file=a_file,
                                        sftp_session=sftp_session)
                 )
+                # if no hostname, try to infer it from the file name
+                regex = 't4_(\w+)[0-9]_\w+_[0-9]{{4}}_[0-9]{{4}}_\w+.{0}'.\
+                    format(os.path.splitext(a_file)[-1])
+                if not hostname and re.search(regex, a_file):
+                    hostname = re.search(regex, a_file).groups()[0]
+
                 if hostname:
-                    _df = df_tools.consolidate_data(_dz,
-                                                    dataframe=_df,
+                    _df = df_tools.consolidate_data(_df,
                                                     system=hostname)
-                else:
-                    return _dz
 
             else:
                 _df = _df.combine_first(
@@ -910,9 +914,13 @@ def read_pickle(name, compress=False, logger=None):
     return collector_
 
 
+def __from_t4csv(*args, **kwargs):
+    return df_tools.reload_from_csv(*args, **kwargs)
+
+
 def add_methods_to_pandas_dataframe(logger=None):
     """
-    Add custom methods to pandas.DataFrame, allowing running
+    Add custom methods to pandas.DataFrame, allowing for example running
     :meth:`t4mon.calculations.apply_calcs` or
     :meth:`t4mon.calculations.clean_calcs` directly from any pandas DataFrame
 
@@ -925,3 +933,7 @@ def add_methods_to_pandas_dataframe(logger=None):
     pd.DataFrame.apply_calcs = calculations.apply_calcs
     pd.DataFrame.clean_calcs = calculations.clean_calcs
     pd.DataFrame.logger = logger or init_logger()
+    pd.DataFrame.select_var = df_tools.select
+    pd.DataFrame.plot_var = gen_plot.plot_var
+    pd.DataFrame.from_t4csv = __from_t4csv
+    pd.DataFrame.from_t4zip = load_zipfile

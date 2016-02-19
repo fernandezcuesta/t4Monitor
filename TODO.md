@@ -1,3 +1,5 @@
+- Allow password protected pkeys
+
 - <s>Fix threading bug under windows with the plots</s>
 
 - <s>Move from threading to multiprocessing</s>

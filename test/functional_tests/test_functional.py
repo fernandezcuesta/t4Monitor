@@ -8,10 +8,10 @@ from __future__ import print_function, absolute_import
 
 import tempfile
 from os import sep
+from test.functional_tests import base as b
 
 import pandas as pd
 from t4mon import collector
-from test.functional_tests import base as b
 from sshtunnels.sftpsession import SftpSession
 
 

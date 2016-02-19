@@ -44,7 +44,7 @@ class SftpSession(object):
                           username, self.hostname, self.tcp_port)
         client = paramiko.SSHClient()
 
-        try:  # This is somehow required with paramiko 1.15.2
+        try:
             client.load_system_host_keys()
             # Automatically add new hostkeys if not found in ssh config file
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -60,10 +60,10 @@ class SftpSession(object):
                     client.connect(self.hostname,
                                    port=self.tcp_port,
                                    username=username,
-                                   password=password,
+                                   # password=password,
                                    key_filename=expanduser(identityfile),
-                                   allow_agent=False,
-                                   look_for_keys=False,
+                                   allow_agent=True,
+                                   look_for_keys=True,
                                    compress=True,
                                    timeout=ssh_timeout)
                 # Retry without the password if failure

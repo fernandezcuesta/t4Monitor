@@ -119,8 +119,8 @@ def plot_var_by_system(dataframe, *var_names, **optional):
                               logger=logger)
         if sel.empty:  # other systems may have this column with some data
             continue
-        # Remove outliers (>3 std away from mean)
-        sel = df_tools.remove_outliers(sel.dropna(), n_std=3)
+        # # Remove outliers (>3 std away from mean)
+        # sel = df_tools.remove_outliers(sel.dropna(), n_std=3)
         for item in sel.columns:
             logger.debug('Drawing item: {0} ({1})'.format(item, system))
             plotaxis = sel[item].plot(label='{0} {1}'.format(item, system),
