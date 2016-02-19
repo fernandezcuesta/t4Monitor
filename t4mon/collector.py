@@ -319,7 +319,6 @@ class Collector(object):
                 else None
             user = self.conf.get('GATEWAY', 'username') or None \
                 if self.conf.has_option('GATEWAY', 'username') else None
-            self.logger.critical(pwd)
             self.server = sshtunnel.SSHTunnelForwarder(
                 ssh_address_or_host=(jumpbox_addr, jumpbox_port),
                 ssh_username=user,
