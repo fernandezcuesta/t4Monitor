@@ -3,5 +3,6 @@ matplotlib>=1.4.3
 pandas>=0.15.2
 paramiko>=1.15.2
 six
+sshtunnel==0.0.7
 tqdm
--e git+https://github.com/fernandezcuesta/sshtunnel.git@devel#egg=sshtunnel-0.0.6
+#-e git+https://github.com/fernandezcuesta/sshtunnel.git@devel#egg=sshtunnel-0.0.6
