@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 
 import os
+import sys
 import types
 import logging
 import datetime as dt
@@ -229,8 +230,21 @@ class Orchestrator(object):
         self.logger.debug('Using settings file: {0}'
                           .format(self.settings_file))
         conf = arguments.read_config(self.settings_file)
-        self.reports_folder = conf.get('MISC', 'reports_folder') or './reports'
-        self.store_folder = conf.get('MISC', 'store_folder') or './store'
+        if six.PY3:
+            self.reports_folder = conf.get('MISC',
+                                           'reports_folder',
+                                           fallback='./reports')
+            self.store_folder = conf.get('MISC',
+                                         'store_folder',
+                                         fallback='./store')
+        else:
+            self.reports_folder = conf.get('MISC',
+                                           'reports_folder',
+                                           './reports')
+            self.reports_folder = conf.get('MISC',
+                                           'reports_folder',
+                                           './reports')
+
         self.systems = [item for item in conf.sections()
                         if item not in ['GATEWAY', 'MISC']]
 
@@ -404,7 +418,8 @@ class Orchestrator(object):
         self._reports_generator()
         self.logger.info('Done!')
 
-if six.PY2:
+
+if sys.version_info < (3, 5):
     six.moves.copyreg.pickle(types.MethodType,
                              _pickle_method,
                              _unpickle_method)

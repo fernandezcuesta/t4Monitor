@@ -1,3 +1,4 @@
+- [0.15.3] - Refactoring, update sshtunnel requirement to v008
 - [0.15.1] - Get rid of tox with TravisCI, environment setup leads to timeout
            - Add versioneer for version control
            - Add sphinx, flake8 and isort to CI

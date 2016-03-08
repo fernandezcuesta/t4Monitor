@@ -52,11 +52,11 @@ def main():  # pragma: no cover
     """
     sys_arguments = sys.argv[1:]
     arguments_ = arguments._parse_arguments_cli(sys_arguments)
-    if arguments.get('config', False):
+    if arguments_.get('config', False):
         dump_config(**arguments_)
         return
     for par in ['local', 'localcsv']:
-        if arguments.get(par, False):
+        if arguments_.get(par, False):
             sys_arguments.remove('--{0}'.format(par))
             create_reports_from_local(sys_arguments,
                                       prog='{0} --{1}'.format(sys.argv[0],

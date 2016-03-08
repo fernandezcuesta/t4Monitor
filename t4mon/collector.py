@@ -27,10 +27,10 @@ import tempfile
 import threading
 from contextlib import contextmanager
 
+import six
 import tqdm
 import pandas as pd
 import sshtunnel
-from six import BytesIO, iterkeys
 from paramiko import SFTPClient, SSHException
 from six.moves import queue, cPickle, builtins, cStringIO
 from sshtunnels.sftpsession import SftpSession, SFTPSessionError
@@ -325,14 +325,17 @@ class Collector(object):
         lbal = []
         tunnelports = {}
         systems = [system] if system else self.systems
+        sshtunnel.SSH_TIMEOUT = arguments.DEFAULT_SSH_TIMEOUT
 
         for _sys in systems:
             rbal.append((self.conf.get(_sys, 'ip_or_hostname'),
                          self.conf.getint(_sys, 'ssh_port')))
             lbal.append(('', self.conf.getint(_sys, 'tunnel_port')))
+        if len(tunnelports) != len(set(tunnelports.values())):
+            self.logger.error('Local tunnel ports MUST be different: {0}'
+                              .format(tunnelports))
+            raise sshtunnel.BaseSSHTunnelForwarderError
         try:
-            # Assert local tunnel ports are different
-            assert len(tunnelports) == len(set(tunnelports.values()))
             pwd = self.conf.get('GATEWAY', 'password').strip("\"' ") or None \
                 if self.conf.has_option('GATEWAY', 'password') else None
             pkey = self.conf.get('GATEWAY', 'identity_file').strip("\"' ") \
@@ -348,42 +351,40 @@ class Collector(object):
                 local_bind_addresses=lbal,
                 threaded=True,
                 logger=self.logger,
-                ssh_private_key=pkey,
+                ssh_pkey=pkey,
                 ssh_private_key_password=pwd,
-                set_keepalive=15,
-                raise_exception_if_any_forwarder_have_a_problem=False
+                set_keepalive=15.0,
+                allow_agent=False,
+                mute_exceptions=True,
             )
             self.server.is_use_local_check_up = True  # Check local side
             self._start_server()
+            assert self.server.is_alive
             # Add the system<>port bindings to the return object
             self.server.tunnelports = dict(
                 list(zip(systems, self.server.local_bind_ports))
             )
             self.logger.debug('Registered tunnels: {0}'
                               .format(self.server.tunnelports))
-
-        except AssertionError:
-            self.logger.error('Local tunnel ports MUST be different: {0}'
-                              .format(tunnelports))
-            raise sshtunnel.BaseSSHTunnelForwarderError
-        except sshtunnel.BaseSSHTunnelForwarderError:
+        except (sshtunnel.BaseSSHTunnelForwarderError, AssertionError):
             self.logger.error('{0}Could not open connection to remote server: '
-                              '{1}:{2}',
-                              '{0} | '.format(system if system else ''),
-                              jumpbox_addr,
-                              jumpbox_port)
+                              '{1}:{2}'.format(
+                                  '{0} | '.format(system) if system else '',
+                                  jumpbox_addr,
+                                  jumpbox_port
+                              ))
             raise sshtunnel.BaseSSHTunnelForwarderError
 
     def _start_server(self):  # pragma: no cover
         """
-        Start the SSH servers
+        Start the SSH tunnels
         """
         if not self.server:
             raise sshtunnel.BaseSSHTunnelForwarderError
         try:
             self.logger.info('Opening connection to gateway')
             self.server.start()
-            if not self.server._is_started:
+            if not self.server.is_alive:
                 raise sshtunnel.BaseSSHTunnelForwarderError(
                     "Couldn't start server"
                 )
@@ -392,10 +393,10 @@ class Collector(object):
 
     def stop_server(self):  # pragma: no cover
         """
-        Stop the SSH servers
+        Stop the SSH tunnels
         """
         try:
-            if self.server and self.server._is_started:
+            if self.server and self.server.is_alive:
                 self.logger.info('Closing connection to gateway')
                 self.server.stop()
         except AttributeError as msg:
@@ -416,7 +417,7 @@ class Collector(object):
             return False
         port = self.server.tunnelports[system]
         return any(port in address_tuple for address_tuple
-                   in iterkeys(self.server.tunnel_is_up)
+                   in six.iterkeys(self.server.tunnel_is_up)
                    if self.server.tunnel_is_up[address_tuple])
 
     def get_sftp_session(self, system):
@@ -456,12 +457,24 @@ class Collector(object):
         user = self.conf.get(system, 'username') or None \
             if self.conf.has_option(system, 'username') else None
         try:
+            if six.PY3:
+                ssh_timeout = self.conf.get(
+                    system,
+                    'ssh_timeout',
+                    fallback=arguments.DEFAULT_SSH_TIMEOUT
+                )
+            else:
+                ssh_timeout = self.conf.get(
+                    system,
+                    'ssh_timeout',
+                    arguments.DEFAULT_SSH_TIMEOUT
+                )
+
             return SftpSession(hostname=remote_system_address,
                                ssh_user=user,
                                ssh_pass=ssh_pass,
                                ssh_key=ssh_key,
-                               ssh_timeout=self.conf.get(system,
-                                                         'ssh_timeout'),
+                               ssh_timeout=ssh_timeout,
                                ssh_port=remote_system_port,
                                logger=self.logger)
         except SFTPSessionError:
@@ -861,7 +874,7 @@ class Collector(object):
             version (int):
                 pickle version, defaults to :const:`cPickle.HIGHEST_PROTOCOL`
         """
-        buffer_object = BytesIO()
+        buffer_object = six.BytesIO()
         cPickle.dump(obj=self,
                      file=buffer_object,
                      protocol=version or cPickle.HIGHEST_PROTOCOL)
@@ -892,7 +905,7 @@ class Collector(object):
         if not isinstance(sftp_session, SFTPClient):
             sftp_session = builtins  # open local file
         with sftp_session.open(zip_file, 'rb') as file_descriptor:
-            c = BytesIO()
+            c = six.BytesIO()
             c.write(file_descriptor.read())
             c.seek(0)
         decompressed_files = []

@@ -141,12 +141,14 @@ class OrchestratorSandbox(Orchestrator):
         conf = read_config(self.settings_file)
         for folder in ['reports_folder', 'store_folder']:
             # first of all delete the original folders created during __init__
-            delete_temporary_folder(getattr(self, folder))
+            conf_folder = getattr(self, folder)
+            if conf_folder:
+                delete_temporary_folder(conf_folder)
             value = conf.get('MISC', folder)
             setattr(self,
                     folder,
                     path.join(tempfile.gettempdir(), value))
-            self.folders.append(getattr(self, folder))
+            self.folders.append(folder)
 
 
 class CollectorSandbox(Collector):

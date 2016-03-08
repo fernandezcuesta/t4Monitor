@@ -60,10 +60,10 @@ class SftpSession(object):
                     client.connect(self.hostname,
                                    port=self.tcp_port,
                                    username=username,
-                                   # password=password,
+                                   password=password,
                                    key_filename=expanduser(identityfile),
-                                   allow_agent=True,
-                                   look_for_keys=True,
+                                   allow_agent=False,
+                                   look_for_keys=False,
                                    compress=True,
                                    timeout=ssh_timeout)
                 # Retry without the password if failure

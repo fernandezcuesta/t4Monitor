@@ -1,5 +1,7 @@
 - Allow password protected pkeys
 
+- Set up AppVeyor for Windows builds
+
 - <s>Fix threading bug under windows with the plots</s>
 
 - <s>Move from threading to multiprocessing</s>
@@ -9,7 +11,7 @@ instead of `collector` giving a random port, which **may be in use**.</s>
 
 - <s>Test functions for all submodules</s>
 
-- Functional tests should use mocks (rely on `sshtunnel`'s)
+- Functional tests should use mocks (rely on `sshtunnel`'s?)
 
 - <s>Make reports from local stored data (PKL, CSV loses metadata)</s>
 

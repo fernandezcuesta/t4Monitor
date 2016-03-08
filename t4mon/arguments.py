@@ -30,6 +30,8 @@ if not os.path.exists(DEFAULT_SETTINGS_FILE):
         'settings.cfg'
     )
 
+DEFAULT_SSH_TIMEOUT = 10.0  #: default timeout for SSH and SFTP connections
+
 
 class ConfigReadError(Exception):
 

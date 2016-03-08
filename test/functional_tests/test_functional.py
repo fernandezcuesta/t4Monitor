@@ -11,6 +11,7 @@ from os import sep
 from test.functional_tests import base as b
 
 import pandas as pd
+import pytest
 from t4mon import collector
 from sshtunnels.sftpsession import SftpSession
 
@@ -21,26 +22,28 @@ class TestOrchestrator(b.TestWithTempConfig):
     Set of test functions for interactive (ssh) methods of orchestrator.py
     """
 
+    @pytest.mark.timeout(timeout=60)  # disable timeout, slowest test
     def test_orchestrator_start(self):
         """ Test function for Orchestrator.start() """
         # Orchestrator needs a file with the settings, and the files linked in
         # that settings file may be relative to the settings file location, so
         # work in a temporary directory
-        orch = self.sandbox
-        orch.safe = True
-        with tempfile.NamedTemporaryFile(mode='w') as temp_config:
-            orch.conf.write(temp_config)
-            temp_config.seek(0)
-            orch.settings_file = temp_config.name
-            orch.start()
-        for system in orch.systems:
-            if system:
-                self.assertIn(
-                    '{0}/Report_{1}_{2}.html'.format(orch.reports_folder,
-                                                     orch.date_tag(),
-                                                     system),
-                    orch.reports_written
-                )
+        for safe_mode in [True, False]:
+            orch = self.sandbox
+            orch.safe = safe_mode
+            with tempfile.NamedTemporaryFile(mode='w') as temp_config:
+                orch.conf.write(temp_config)
+                temp_config.seek(0)
+                orch.settings_file = temp_config.name
+                orch.start()
+            for system in orch.systems:
+                if system:
+                    self.assertIn(
+                        '{0}/Report_{1}_{2}.html'.format(orch.reports_folder,
+                                                         orch.date_tag(),
+                                                         system),
+                        orch.reports_written
+                    )
 
 
 class TestCollector(b.TestWithSsh):
