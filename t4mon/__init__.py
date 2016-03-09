@@ -23,6 +23,7 @@ from .gen_plot import plot_var
 from .gen_report import gen_report
 from .logger import init_logger
 
+from .collector import Collector
 from .orchestrator import Orchestrator
 from . import arguments
 

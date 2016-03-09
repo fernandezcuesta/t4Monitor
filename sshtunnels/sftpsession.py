@@ -34,7 +34,7 @@ class SftpSession(object):
         This is the main method and expects self to have a ssharguments dict
         with all keys as described in init.
         """
-        (username, identityfile, tcp_port) = self._load_ssh_config()
+        (username, identityfile, self.tcp_port) = self._load_ssh_config()
         # if a password was not specified, send an empty string
         password = self.ssh_arguments.get('ssh_pass', '')
         # if a ssh timeout is not specified, set it to 10 seconds
@@ -103,7 +103,7 @@ class SftpSession(object):
             raise SFTPSessionError
         except socket_error:
             self.logger.error('Connection refused on port %s, destination: %s',
-                              tcp_port, self.hostname)
+                              self.tcp_port, self.hostname)
             raise SFTPSessionError
         except paramiko.ssh_exception.SSHException as _exc:
             self.logger.error("Server doesn't allow sftp or tunnel forwarding,"
@@ -173,7 +173,7 @@ class SftpSession(object):
             'ssh_port',
             locals().get('tcp_port', self.tcp_port))
                                                    )
-        return (username, identityfile, tcp_port)
+        return (username, identityfile, self.tcp_port)
 
     def __init__(self, hostname, **ssh_arguments):
         """
