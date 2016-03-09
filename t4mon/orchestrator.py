@@ -238,12 +238,14 @@ class Orchestrator(object):
                                          'store_folder',
                                          fallback='./store')
         else:
-            self.reports_folder = conf.get('MISC',
-                                           'reports_folder',
-                                           './reports')
-            self.reports_folder = conf.get('MISC',
-                                           'reports_folder',
-                                           './reports')
+            self.reports_folder = conf.get(
+                'MISC',
+                'reports_folder'
+            ) if conf.has_option('MISC', 'reports_folder') else './reports'
+            self.store_folder = conf.get(
+                'MISC',
+                'store_folder'
+            ) if conf.has_option('MISC', 'store_folder') else './store'
 
         self.systems = [item for item in conf.sections()
                         if item not in ['GATEWAY', 'MISC']]

@@ -66,6 +66,43 @@ def read_config(settings_file=None, **kwargs):
         settings_file (Optional[str]):
             File containing the settings, defaults to
             :const:`DEFAULT_SETTINGS_FILE`
+
+    .. note::
+        Sample settings file contents::
+
+            [DEFAULT]
+            ssh_timeout = 10  ; Timeout in seconds
+            ssh_port = 22
+            ip_or_hostname = 127.0.0.1
+            folder = dsa3:[statistics]  ; remote location of CSV files
+            username = user
+            password = pass123
+            tunnel_port = 0  ; random port
+            use_gateway = Yes  ; whether or not connect with SSH tunnels
+
+            [GATEWAY]
+            username =  ; empty: load from ~/.ssh/config
+            password =
+            ip_or_hostname = ssh-gateway
+
+            [MISC]
+            calculations_file = calc.cfg
+            graphs_definition_file = graphs_list.cfg
+            html_template = reports_template.html
+            remote_log_cmd = @command_on_destination_host.com
+
+            [CLUSTER1]
+            ip_or_hostname = 10.0.1.5
+            cluster_id = sys1
+
+            [CLUSTER2]
+            ip_or_hostname = 10.0.2.5
+            cluster_id = clu2
+
+            [CLUSTER3]
+            ip_or_hostname = 10.0.3.5
+            cluster_id = sys3
+
     """
     config = six.moves.configparser.ConfigParser()
     try:

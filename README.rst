@@ -1,4 +1,4 @@
-t4Monitor
+]t4Monitor
 =========
 *OpenVMS statistics (T4) collector and reporting tools*
 
@@ -29,9 +29,9 @@ Its features include:
 - comprehensive test suite
 
 
-Note:
-
-T4 CSV files header may come in 2 different formats:
+.. note::
+    T4 CSV files header may come in 2 different formats: ``Format#1`` and
+    ``Format#2```
 
 **Format 1**
 
@@ -68,7 +68,8 @@ hash and contents followed by it (sometimes even more samples...) is ignored.
 Requirements
 ------------
 
-> embedded in ``requirements/requirements.txt``.
+.. note::
+    embedded in ``requirements/requirements.txt``
 
 - Python 2.7 or later
 - `Jinja2 <http://jinja.pocoo.org>`_
@@ -77,9 +78,9 @@ Requirements
 - `paramiko <http://www.paramiko.org/>`_
 - `six <https://pypi.python.org/pypi/six>`_
 - `tqdm <https://github.com/tqdm/tqdm)>`_
-- `cairocffi <https://pythonhosted.org/cairocffi/>`_ (linux only)
-- `Anaconda-Miniconda <https://www.continuum.io/why-anaconda>`_
 - `sshtunnel <https://github.com/pahaz/sshtunnel>`_
+- `cairocffi <https://pythonhosted.org/cairocffi/>`_ (linux only)
+- `Anaconda-Miniconda <https://www.continuum.io/why-anaconda>`_ (windows only)
 
 How to install
 --------------

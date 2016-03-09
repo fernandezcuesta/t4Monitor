@@ -466,9 +466,11 @@ class Collector(object):
             else:
                 ssh_timeout = self.conf.get(
                     system,
-                    'ssh_timeout',
-                    arguments.DEFAULT_SSH_TIMEOUT
-                )
+                    'ssh_timeout'
+                ) if self.conf.has_option(
+                    system,
+                    'ssh_timeout'
+                ) else arguments.DEFAULT_SSH_TIMEOUT
 
             return SftpSession(hostname=remote_system_address,
                                ssh_user=user,
