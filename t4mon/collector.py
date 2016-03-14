@@ -612,7 +612,7 @@ class Collector(object):
 
         progressbar_prefix = 'Loading {0}files{1}'.format(
             'compressed ' if compressed else '',
-            ' from {0}'.format(hostname if hostname else '')
+            ' from {0}'.format(hostname) if hostname else ''
         )
         for a_file in tqdm.tqdm(files,
                                 leave=True,
