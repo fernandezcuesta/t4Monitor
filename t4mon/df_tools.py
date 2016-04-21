@@ -304,7 +304,7 @@ def _add_secondary_index(dataframe, system):
     # represented by systems LONDON-1 and LONDON-2
     index_len = len(dataframe.index)
     midx = pd.MultiIndex(
-        levels=[dataframe.index.get_level_values(0), [system]],
+        levels=[dataframe.index.get_level_values(0).values, [system]],
         labels=[list(range(index_len)), [0] * index_len],
         names=[DATETIME_TAG, 'system']
     )
