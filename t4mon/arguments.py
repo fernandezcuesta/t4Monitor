@@ -42,7 +42,7 @@ class ConfigReadError(Exception):
 
 
 def __get_input(text):
-    return six.input(text)
+    return six.moves.input(text)
 
 
 def get_absolute_path(filename='', settings_file=None):
