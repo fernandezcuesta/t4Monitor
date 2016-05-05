@@ -368,7 +368,7 @@ def to_dataframe(field_names, data):
             # only use first (case insensitive search)
             df_timecol = (s for s in field_names
                           if DATETIME_TAG.upper() in s.upper())
-            index_col = advance_iterator(df_timecol)
+            index_col = [advance_iterator(df_timecol)]
             _df = pd.read_csv(fbuffer,
                               header=None,
                               parse_dates=index_col,
