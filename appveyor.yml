@@ -1,0 +1,14 @@
+platform: x86
+
+version: 0.18.{build}
+
+install:
+  - set "PATH=C:\msys64\usr\bin;C:\msys64\mingw64\bin;%PATH%"
+  - set
+  - C:\msys64\usr\bin\bash -lc "pacman -Sy mingw-w64-i686-python2-pip --noconfirm"
+  - C:\msys64\usr\bin\bash -lc "/mingw32/bin/pip install -r C:/projects/t4Monitor/requirements/requirements-test.txt"
+
+build: off
+
+test_script:
+  - C:\msys64\usr\bin\bash -lc "/mingw32/bin/py.test C:/projects/t4Monitor/tests"
