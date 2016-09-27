@@ -1,6 +1,6 @@
 platform: x86
 
-version: 0.18.{build}
+version: 0.18.1.{build}
 
 install:
   - set "PATH=C:\msys64\usr\bin;C:\msys64\mingw64\bin;%PATH%"
