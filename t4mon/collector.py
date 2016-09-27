@@ -108,6 +108,8 @@ class Collector(object):
             Logger object passed from an external function. A new logger is
             created by calling :func:`t4mon.logger.init_logger` if nothing is
             passed.
+        loglevel (str):
+            logger level, if no ``logger`` passed
         nologs (boolean or False)
             Skip remote log collection. An indication message will be shown in
             the report showing that the log collection was omitted.
@@ -202,6 +204,7 @@ class Collector(object):
     def __init__(self,
                  alldays=False,
                  logger=None,
+                 loglevel=None,
                  nologs=False,
                  safe=False,
                  settings_file=None,
@@ -211,7 +214,7 @@ class Collector(object):
         self.conf = arguments.read_config(settings_file)
         self.data = pd.DataFrame()
         self.filecache = {}
-        self.logger = logger or init_logger()
+        self.logger = logger or init_logger(loglevel)
         self.logs = {}
         self.nologs = nologs
         self.results_queue = queue.Queue()
