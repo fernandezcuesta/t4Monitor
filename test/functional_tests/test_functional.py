@@ -53,7 +53,6 @@ class TestCollector(b.TestWithSsh):
     def test_init_tunnels(self):
         """ Test function for init_tunnels """
         monitor = self.sandbox.collector
-        monitor.conf = None
         monitor.init_tunnels()
         # after init, tunnel should be already started
         self.assertTrue(monitor.server._is_started)

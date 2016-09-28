@@ -184,11 +184,6 @@ class Collector(object):
             sections.
             Default: empty list
 
-        use_gateway (boolean):
-            Whether or not the remote systems are behind an SSH proxy.
-            It defines if the connectivity is done via tunnels or directly.
-            Default: ``True``
-
       Examples:
 
         >>> with Collector(**options) as col:
@@ -223,14 +218,10 @@ class Collector(object):
         self.server = None
         self.systems = [item for item in self.conf.sections()
                         if item not in ['GATEWAY', 'MISC']]
-        self.use_gateway = self.conf.getboolean('DEFAULT', 'use_gateway') \
-            if 'use_gateway' in self.conf.defaults() else True
-        self.__str__()
         add_methods_to_pandas_dataframe(self.logger)
 
     def __enter__(self, system=None):
-        if self.use_gateway:
-            self.init_tunnels(system)
+        self.init_tunnels(system)
         return self
 
     def __exit__(self, etype, *args):
@@ -239,8 +230,8 @@ class Collector(object):
 
     def __str__(self):
         return ('alldays/nologs: {0}/{1}\ndata shape: {2}\nlogs (keys): {3}\n'
-                'threaded: {4}\nserver is set up?: {5}\nusing gateway? {7}\n'
-                'Settings file: {6}\n\n{8}'
+                'threaded: {4}\nserver is set up?: {5}\n'
+                'Settings file: {6}\n\n{7}'
                 ''.format(self.alldays,
                           self.nologs,
                           self.data.shape,
@@ -248,10 +239,16 @@ class Collector(object):
                           not self.safe,
                           'Yes' if self.server else 'No',
                           self.settings_file,
-                          self.use_gateway,
                           self.dump_config()
                           )
                 )
+
+    def __check_if_using_gateway(self, system=None):
+        """ Check if the connection is tunneled over an SSH gateway or not """
+        try:
+            return self.conf.getboolean(system or 'DEFAULT', 'use_gateway')
+        except six.moves.configparser.Error:
+            return True
 
     def __getstate__(self):
         """ Method enabling class pickle """
@@ -318,6 +315,8 @@ class Collector(object):
             ``SSHTunnelForwarder`` instance (non-started) with all tunnels
             already established
         """
+        if not self.__check_if_using_gateway(system):
+            return
         self.logger.info('Initializing tunnels')
         if not self.conf:
             self.conf = arguments.read_config(self.settings_file)
@@ -426,7 +425,7 @@ class Collector(object):
     def get_sftp_session(self, system):
         """
         By default the connection is done via SSH tunnels (controlled by
-        :attr:`.use_gateway`)
+        configutation item `use_gateway`)
 
         Arguments:
             system (str): system where to open the SFTP session
@@ -438,7 +437,8 @@ class Collector(object):
                               .format(system))
             raise SFTPSessionError('connection to {0} failed'.format(system))
 
-        if self.use_gateway:
+        use_gateway = self.__check_if_using_gateway(system)
+        if use_gateway:
             remote_system_address = '127.0.0.1'
             remote_system_port = self.server.tunnelports[system]
         else:
@@ -447,7 +447,7 @@ class Collector(object):
 
         self.logger.info('{0} | Connecting to {1}port {2}'
                          .format(system,
-                                 'tunnel ' if self.use_gateway else '',
+                                 'tunnel ' if use_gateway else '',
                                  remote_system_port))
 
         ssh_pass = self.conf.get(system, 'password').strip("\"' ") or None \
@@ -770,7 +770,10 @@ class Collector(object):
         # TODO: allow parallel (data | log) collection
         try:
             self.logger.info('{0} | Collecting statistics...'.format(system))
-            if self.use_gateway and not self.check_if_tunnel_is_up(system):
+            if (
+                self.__check_if_using_gateway(system) and not
+                self.check_if_tunnel_is_up(system)
+            ):
                 self.logger.error('{0} | System not reachable!'.format(system))
                 raise SFTPSessionError
 
@@ -837,8 +840,7 @@ class Collector(object):
         for system in self.systems:
             self.logger.info('{0} | Initializing tunnel'.format(system))
             try:
-                if self.use_gateway:
-                    self.init_tunnels(system=system)
+                self.init_tunnels(system=system)
                 self.get_data_and_logs(system=system)
             except (sshtunnel.BaseSSHTunnelForwarderError,
                     IOError,
