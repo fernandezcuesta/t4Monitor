@@ -6,6 +6,7 @@
 
 from __future__ import print_function, absolute_import
 
+import re
 import tempfile
 from os import sep
 from test.functional_tests import base as b
@@ -55,10 +56,10 @@ class TestCollector(b.TestWithSsh):
         monitor = self.sandbox.collector
         monitor.init_tunnels()
         # after init, tunnel should be already started
-        self.assertTrue(monitor.server._is_started)
+        self.assertTrue(monitor.server.is_alive)
         # Starting again should be silent
         self.assertIsNone(monitor._start_server())
-        self.assertTrue(monitor.server._is_started)
+        self.assertTrue(monitor.server.is_alive)
         self.assertIsInstance(monitor.server.tunnel_is_up, dict)
         for port in monitor.server.tunnel_is_up:
             self.assertTrue(monitor.server.tunnel_is_up[port])
@@ -69,8 +70,8 @@ class TestCollector(b.TestWithSsh):
         monitor.conf.set('DEFAULT', 'tunnel_port', '22000')
         with monitor:
             self.assertIn("Couldn't open tunnel :22000 <> 127.0.0.1:22 "
-                          "might be in use or destination not reachable.",
-                          self.test_log_messages['error'])
+                          "might be in use or destination not reachable",
+                          self.test_log_messages['error'][-1])
 
     def test_collector_start(self):
         """ Test function for Collector.start """

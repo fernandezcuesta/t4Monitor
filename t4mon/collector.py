@@ -345,7 +345,7 @@ class Collector(object):
                 else None
             user = self.conf.get('GATEWAY', 'username') or None \
                 if self.conf.has_option('GATEWAY', 'username') else None
-            self.server = sshtunnel.SSHTunnelForwarder(
+            self.server = sshtunnel.open_tunnel(
                 ssh_address_or_host=(jumpbox_addr, jumpbox_port),
                 ssh_username=user,
                 ssh_password=pwd,
@@ -358,6 +358,7 @@ class Collector(object):
                 set_keepalive=15.0,
                 allow_agent=False,
                 mute_exceptions=True,
+                skip_tunnel_checkup=False,
             )
             self.server.is_use_local_check_up = True  # Check local side
             self._start_server()
