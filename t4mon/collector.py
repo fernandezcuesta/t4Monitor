@@ -243,7 +243,7 @@ class Collector(object):
                           )
                 )
 
-    def __check_if_using_gateway(self, system=None):
+    def _check_if_using_gateway(self, system=None):
         """ Check if the connection is tunneled over an SSH gateway or not """
         try:
             return self.conf.getboolean(system or 'DEFAULT', 'use_gateway')
@@ -315,7 +315,7 @@ class Collector(object):
             ``SSHTunnelForwarder`` instance (non-started) with all tunnels
             already established
         """
-        if not self.__check_if_using_gateway(system):
+        if not self._check_if_using_gateway(system):
             return
         self.logger.info('Initializing tunnels')
         if not self.conf:
@@ -437,7 +437,7 @@ class Collector(object):
                               .format(system))
             raise SFTPSessionError('connection to {0} failed'.format(system))
 
-        use_gateway = self.__check_if_using_gateway(system)
+        use_gateway = self._check_if_using_gateway(system)
         if use_gateway:
             remote_system_address = '127.0.0.1'
             remote_system_port = self.server.tunnelports[system]
@@ -771,7 +771,7 @@ class Collector(object):
         try:
             self.logger.info('{0} | Collecting statistics...'.format(system))
             if (
-                self.__check_if_using_gateway(system) and not
+                self._check_if_using_gateway(system) and not
                 self.check_if_tunnel_is_up(system)
             ):
                 self.logger.error('{0} | System not reachable!'.format(system))

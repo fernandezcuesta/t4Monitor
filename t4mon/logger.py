@@ -6,6 +6,7 @@ import logging
 from logging import handlers
 
 DEFAULT_LOGLEVEL = logging.WARNING  #: Default console handler level (WARNING)
+FILE_HANDLER = True  # Add a timed rotating file handler if no handlers yet
 
 
 def init_logger(loglevel=None, name=__name__):
@@ -27,13 +28,14 @@ def init_logger(loglevel=None, name=__name__):
 
     # If no console handlers yet, add a new one
     if not any(isinstance(x, logging.Handler) for x in logger.handlers):
-        # Add a file handler with 'DEBUG' level
-        log_name = '{0}.log'.format(__name__.split('.')[0])
-        _handler = handlers.TimedRotatingFileHandler(filename=log_name,
-                                                     when='H')
-        _add_handler(logger,
-                     handler=_handler,
-                     loglevel=logging.DEBUG)
+        if FILE_HANDLER:
+            # Add a file handler with 'DEBUG' level
+            log_name = '{0}.log'.format(__name__.split('.')[0])
+            _handler = handlers.TimedRotatingFileHandler(filename=log_name,
+                                                         when='H')
+            _add_handler(logger,
+                         handler=_handler,
+                         loglevel=logging.DEBUG)
 
         # Add a console handler
         _handler = logging.StreamHandler()
