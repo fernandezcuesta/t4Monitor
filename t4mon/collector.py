@@ -1004,3 +1004,4 @@ def add_methods_to_pandas_dataframe(logger=None):
     pd.DataFrame.plot_var = gen_plot.plot_var
     pd.DataFrame.from_t4csv = __from_t4csv
     pd.DataFrame.from_t4zip = load_zipfile
+    pd.DataFrame.to_t4csv = df_tools.dataframe_to_t4csv

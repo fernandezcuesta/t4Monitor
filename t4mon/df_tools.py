@@ -270,6 +270,7 @@ def dataframe_to_t4csv(dataframe, output, t4format=2):
         Dictionary matching ``{system: filename}``
     """
     output_names = {}
+    (_dir, output) = os.path.split(output)
     for system in dataframe.index.levels[1]:
         data = dataframe.xs(system, level='system')
         try:
@@ -277,14 +278,14 @@ def dataframe_to_t4csv(dataframe, output, t4format=2):
             data.to_csv(buffer_object,
                         date_format=T4_DATE_FORMAT)
             buffer_object.seek(0)
-            (_dir, output) = os.path.split(output)
-            output = '{0}{1}{3}_{2}{4}'.format(_dir,
-                                               os.sep if _dir else '',
-                                               system,
-                                               *os.path.splitext(output))
-            output_names[system] = output
+            output_names[system] = '{0}{1}{3}_{2}{4}'.format(
+                _dir,
+                os.sep if _dir else '',
+                system,
+                *os.path.splitext(output)
+            )
             _to_t4csv(buffer_object,
-                      output=output,
+                      output=output_names[system],
                       t4format=t4format,
                       system_id=system)
         finally:
