@@ -119,9 +119,7 @@ def get_matching_columns(dataframe, *args, **kwargs):
     """
     if dataframe.empty:
         return []
-    excluded = kwargs.get('excluded', None)
-    if not excluded:
-        excluded = []
+    excluded = kwargs.get('excluded', None) or []
     if not isinstance(excluded, list):
         excluded = [excluded]
     regex = re.compile('^.*({0}).*$'.format('|'.join(args)),

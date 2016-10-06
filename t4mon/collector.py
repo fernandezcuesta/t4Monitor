@@ -531,7 +531,7 @@ class Collector(object):
         if files_folder[-1] == os.sep:
             files_folder = files_folder[:-1]  # remove trailing separator (/)
 
-        if filespec_list and not isinstance(filespec_list, list):
+        if filespec_list and isinstance(filespec_list, six.string_types):
             filespec_list = filespec_list.split('*')
         # default if no filter given is just the extension of the files
         spec_list = filespec_list[:] or ['.zip' if compressed else '.csv']
