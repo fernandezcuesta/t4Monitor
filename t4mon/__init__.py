@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 # isort:skip_file
 
-from __future__ import absolute_import
-
 import os
 import sys
 
@@ -17,15 +15,15 @@ else:
     matplotlib.use('TkAgg')
     import six.moves.tkinter_filedialog  # Required when using TkAgg backend
 
-from ._version import get_versions
-from .collector import add_methods_to_pandas_dataframe, read_pickle
-from .gen_plot import plot_var
-from .gen_report import gen_report
-from .logger import init_logger
+from t4mon._version import get_versions
+from t4mon.collector import add_methods_to_pandas_dataframe, read_pickle
+from t4mon.gen_plot import plot_var
+from t4mon.gen_report import gen_report
+from t4mon.logger import init_logger
 
-from .collector import Collector
-from .orchestrator import Orchestrator
-from . import arguments
+from t4mon.collector import Collector
+from t4mon.orchestrator import Orchestrator
+from t4mon import arguments
 
 
 __version__ = get_versions()['version']
@@ -49,7 +47,7 @@ def dump_config(output=None, **kwargs):
 
 def main():  # pragma: no cover
     """
-    Check input arguments and pass it to Orchestrator
+    Get input arguments and pass it to Orchestrator
     """
     sys_arguments = sys.argv[1:]
     arguments_ = arguments._parse_arguments_cli(sys_arguments)
@@ -59,16 +57,25 @@ def main():  # pragma: no cover
     for par in ['local', 'localcsv']:
         if arguments_.get(par, False):
             sys_arguments.remove('--{0}'.format(par))
-            create_reports_from_local(sys_arguments,
-                                      prog='{0} --{1}'.format(sys.argv[0],
-                                                              par),
-                                      pkl=par is 'local')
+            create_reports_from_local(
+                sys_arguments,
+                prog='{0} --{1}'.format(sys.argv[0], par),
+                pkl=par is 'local'
+            )
             return
-    arguments_ = arguments._parse_arguments_main(sys_arguments)
+    arguments_ = arguments._parse_arguments_main(
+        sys_arguments if sys_arguments else ['--dummy']
+    )
     _orchestrator = Orchestrator(**arguments_)
     _orchestrator.start()
 
-
+# def gui():  # pragma: no cover
+    # """ Graphical interface for main """
+    # sys_arguments = sys.argv[1:]
+    # arguments_ = arguments._parse_arguments_gui(sys_arguments)
+    # _orchestrator = Orchestrator(**arguments_)
+    # _orchestrator.start()
+    
 def create_reports_from_local(cli_arguments,
                               prog=None,
                               pkl=True):  # pragma: no cover
@@ -83,3 +90,6 @@ def create_reports_from_local(cli_arguments,
     _orchestrator.create_reports_from_local(arguments_.pop(argument_file_name),
                                             pkl=pkl,
                                             **arguments_)
+
+if __name__ == "__main__":
+    main()

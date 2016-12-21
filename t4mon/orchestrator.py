@@ -1,6 +1,5 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import
 
 import os
 import sys
@@ -13,9 +12,9 @@ from multiprocessing import Pool
 import six
 import pandas as pd
 
-from . import df_tools, arguments, collector
-from .logger import init_logger
-from .gen_report import gen_report
+from t4mon import df_tools, arguments, collector
+from t4mon.logger import init_logger
+from t4mon.gen_report import gen_report
 
 
 # Make the Orchestrator class picklable, required by Pool.map()
@@ -128,7 +127,7 @@ class Orchestrator(object):
     def __setstate__(self, state):
         """
         """
-        state['logger'] = init_logger(state.get('loggername'))
+        state['logger'] = init_logger(name=state.get('loggername'))
         self.__dict__.update(state)
 
     def _check_folders(self):
@@ -363,7 +362,7 @@ class Orchestrator(object):
         else:
             self._reports_generator()
 
-        self.logger.warning('Done!')
+        self.logger.info('Done!')
 
     @check_files
     def create_reports_from_local(self,
@@ -426,6 +425,6 @@ if sys.version_info < (3, 5):
                              _pickle_method,
                              _unpickle_method)
 else:
-    six.moves.copyreg.pickle(Orchestrator,
+    six.moves.copyreg.pickle(Orchestrator.__init__,
                              _pickle_method,
                              _unpickle_method)

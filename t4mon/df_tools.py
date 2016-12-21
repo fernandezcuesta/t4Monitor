@@ -4,8 +4,6 @@
 Dataframe-related functions used by other submodules.
 """
 
-from __future__ import absolute_import
-
 import re
 import os.path
 from itertools import takewhile
@@ -18,7 +16,7 @@ from six import string_types, advance_iterator
 from paramiko import SFTPClient
 from six.moves import builtins, cStringIO
 
-from .logger import init_logger
+from t4mon.logger import init_logger
 
 SEPARATOR = ','  #: CSV separator
 START_HEADER_TAG = "$$$ START COLUMN HEADERS $$$"  #: Start of Format-2 header

@@ -16,7 +16,6 @@
      get_stats_from_host()
 
 """
-from __future__ import absolute_import
 
 import os
 import re
@@ -35,8 +34,8 @@ from paramiko import SFTPClient, SSHException
 from six.moves import queue, cPickle, builtins, cStringIO
 from sshtunnels.sftpsession import SftpSession, SFTPSessionError
 
-from . import df_tools, gen_plot, arguments, calculations
-from .logger import init_logger
+from t4mon import df_tools, gen_plot, arguments, calculations
+from t4mon.logger import init_logger
 
 __all__ = ('add_methods_to_pandas_dataframe',
            'Collector',
@@ -399,9 +398,8 @@ class Collector(object):
         Stop the SSH tunnels
         """
         try:
-            if self.server and self.server.is_alive:
-                self.logger.info('Closing connection to gateway')
-                self.server.stop()
+            self.logger.info('Closing connection to gateway')
+            self.server.stop()
         except AttributeError as msg:
             raise sshtunnel.BaseSSHTunnelForwarderError(msg)
 
@@ -847,6 +845,7 @@ class Collector(object):
                     IOError,
                     SFTPSessionError):
                 self.logger.warning('Continue to next system (if any)')
+                self.systems.remove(system)
                 continue
             finally:
                 self.stop_server()

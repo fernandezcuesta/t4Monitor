@@ -1,6 +1,5 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import
 
 import os
 import sys
@@ -8,8 +7,9 @@ import logging
 import argparse
 
 import six
+#from gooey import Gooey
 
-from . import logger
+from t4mon import logger
 
 TITLE = 'T4 collector and report generator script'
 
@@ -150,8 +150,7 @@ def __create_parser(args=None, prog=None):
                                      add_help=False,
                                      prog=prog)
     parser.add_argument('--safe', action='store_true', dest='safe',
-                        help='Serial mode, increasing execution time by 2x, '
-                             'more stable under Windows environment')
+                        help='Serial mode, increasing execution time')
     parser.add_argument(
         '--settings', dest='settings_file',
         default=DEFAULT_SETTINGS_FILE,
@@ -181,7 +180,7 @@ def _parse_arguments_cli(args=None):
     parser.add_argument('--localcsv', action='store_true',
                         help='Make a report from local CSV data')
     # Additional arguments passed to other parsers, ignored on this parser
-    parser.add_argument('dummy', type=str, nargs='?',
+    parser.add_argument('filename', type=str, nargs='?',
                         help=argparse.SUPPRESS)
     parser.add_argument('--system', help=argparse.SUPPRESS)
     for null_argument in ['help', 'all', 'noreports', 'nologs']:
@@ -211,7 +210,6 @@ def _parse_arguments_local(args=None, prog=None, pkl=True):
                              'Defaults to all')
     return __check_for_sysargs(parser, args)
 
-
 def _parse_arguments_main(args=None):
     """
     Argument parser for main method
@@ -222,11 +220,37 @@ def _parse_arguments_main(args=None):
                         action="help",
                         help="show this help message and exit")
     parser.add_argument('--all', action='store_true', dest='alldays',
-                        help='Collect all data available on remote hosts'
+                        help='Collect all data available on remote hosts '
                              'not just for today')
     parser.add_argument('--noreports', action='store_true',
                         help='Skip report creation, files are just gathered '
                              'and stored locally')
     parser.add_argument('--nologs', action='store_true',
                         help='Skip log collection from remote hosts')
+    # Hook to bypass (y/n) question when no arguments are passed to CLI parser
+    parser.add_argument('--dummy', type=str, nargs='?',
+                        help=argparse.SUPPRESS)
     return __check_for_sysargs(parser, args)
+
+
+# def _parse_arguments_gui(args=None):
+    # """
+    # Parse arguments directly passed from GUI
+    # """
+    # parser = Gooey(__create_parser, program_name=TITLE)()
+    # parser.description += DESCRIPTION
+    # parser.add_argument('--config', action='store_true',
+                        # help='Show current configuration')
+    # parser.add_argument('--local', action='store_true',
+                        # help='Render a report from local data')
+    # parser.add_argument('--localcsv', action='store_true',
+                        # help='Make a report from local CSV data')
+    # parser.add_argument('--all', action='store_true', dest='alldays',
+                        # help='Collect all data available on remote hosts '
+                             # 'not just for today')
+    # parser.add_argument('--noreports', action='store_true',
+                        # help='Skip report creation, files are just gathered '
+                             # 'and stored locally')
+    # parser.add_argument('--nologs', action='store_true',
+                        # help='Skip log collection from remote hosts')
+    # return vars(parser.parse_args(args))

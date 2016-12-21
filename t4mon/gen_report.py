@@ -3,7 +3,6 @@
 """
 Report generator module based on **Jinja2**
 """
-from __future__ import absolute_import
 
 import codecs
 import datetime as dt
@@ -14,8 +13,8 @@ import tqdm
 import jinja2
 from matplotlib import pyplot as plt
 
-from . import gen_plot, arguments
-from .logger import init_logger
+from t4mon import gen_plot, arguments
+from t4mon.logger import init_logger
 
 
 # from ast import literal_eval  # TODO: is literal_eval working in Linux?

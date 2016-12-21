@@ -6,3 +6,4 @@ matplotlib>=1.4.3
 pandas>=0.15
 paramiko>=1.15
 pip
+tk

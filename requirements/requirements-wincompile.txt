@@ -1,2 +1,4 @@
--e git+https://github.com/pyinstaller/pyinstaller.git#egg=pyinstaller-dev
+pyinstaller>=3.2
+appdirs
+packaging
 -r requirements-common.txt

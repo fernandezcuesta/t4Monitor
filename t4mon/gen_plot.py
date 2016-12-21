@@ -2,7 +2,6 @@
 """
 **Plot generation helper methods**
 """
-from __future__ import absolute_import
 
 import sys
 import base64
@@ -13,8 +12,8 @@ from matplotlib import dates as md
 from matplotlib import pyplot as plt
 from matplotlib import pylab
 
-from . import df_tools
-from .logger import init_logger
+from t4mon import df_tools
+from t4mon.logger import init_logger
 
 DFLT_COLORMAP = 'cool'  # default matplotlib colormap if nothing specified
 
@@ -76,7 +75,8 @@ def plot_var(dataframe, *args, **kwargs):
             if sel.empty:
                 raise TypeError
             # Remove outliers (>3 std away from mean)
-            sel = df_tools.remove_outliers(sel.dropna(), n_std=3)
+            sel = df_tools.remove_outliers(sel.dropna(axis=1, how='all'),
+                                           n_std=3)
             plotaxis = sel.plot(**kwargs)
             update_colors(plotaxis, kwargs.get('cmap', DFLT_COLORMAP))
         else:

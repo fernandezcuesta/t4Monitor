@@ -5,4 +5,4 @@ pandas>=0.15.2
 paramiko>=1.15.2
 six
 tqdm
-sshtunnel>0.1
+-e git+https://github.com/pahaz/sshtunnel.git#egg=sshtunnel
