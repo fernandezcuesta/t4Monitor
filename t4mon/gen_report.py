@@ -9,11 +9,11 @@ import datetime as dt
 from os import path
 
 import six
+
 import tqdm
 import jinja2
-from matplotlib import pyplot as plt
-
 from t4mon import gen_plot, arguments
+from matplotlib import pyplot as plt
 from t4mon.logger import init_logger
 
 

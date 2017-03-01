@@ -10,8 +10,8 @@ from functools import wraps
 from multiprocessing import Pool
 
 import six
-import pandas as pd
 
+import pandas as pd
 from t4mon import df_tools, arguments, collector
 from t4mon.logger import init_logger
 from t4mon.gen_report import gen_report

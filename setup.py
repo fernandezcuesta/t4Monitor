@@ -20,7 +20,7 @@ if sys.platform.startswith('linux') or sys.platform == 'darwin':
 
 entry_points = {
     'console_scripts': [
-        't4monitor = t4mon:main'
+        't4monitor = t4mon:main',
     ]
 }
 

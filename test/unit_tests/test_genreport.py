@@ -10,6 +10,7 @@ import imghdr
 import tempfile
 
 import six
+
 import pandas as pd
 from t4mon.gen_report import Report, gen_report
 

@@ -55,8 +55,6 @@ class TestCollector(BaseTestClass):
                               pd.DataFrame)
         self.assertDictEqual(my_collector.logs,
                              {})
-        self.assertDictEqual(my_collector.filecache,
-                             {})
 
         # Test also CollectorSandbox class methods
         coll_clone = self.collector_test.clone()
@@ -79,8 +77,6 @@ class TestCollector(BaseTestClass):
                                  coll_clone.conf.items(section))
         self.assertEqual(self.collector_test.safe,
                          coll_clone.safe)
-        self.assertDictEqual(self.collector_test.filecache,
-                             coll_clone.filecache)
 
         self.assertIn('Settings file: {0}'.format(
                       self.collector_test.settings_file

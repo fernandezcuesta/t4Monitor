@@ -14,7 +14,7 @@ from test.functional_tests import base as b
 import pandas as pd
 import pytest
 from t4mon import collector
-from sshtunnels.sftpsession import SftpSession
+from t4mon.sftpsession import SftpSession
 
 
 class TestOrchestrator(b.TestWithTempConfig):

@@ -7,12 +7,12 @@ import sys
 import base64
 
 import six
+
 import numpy as np
+from t4mon import df_tools
 from matplotlib import dates as md
 from matplotlib import pyplot as plt
 from matplotlib import pylab
-
-from t4mon import df_tools
 from t4mon.logger import init_logger
 
 DFLT_COLORMAP = 'cool'  # default matplotlib colormap if nothing specified

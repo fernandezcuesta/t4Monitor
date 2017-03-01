@@ -11,8 +11,9 @@ import tempfile
 import unittest
 from os import path, remove
 
-import paramiko
 from six import print_
+
+import paramiko
 from t4mon.arguments import get_absolute_path
 
 from ..unit_tests.base import MY_DIR, TEST_CONFIG, BaseTestClass

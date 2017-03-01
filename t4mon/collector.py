@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 ::
@@ -27,15 +27,15 @@ import threading
 from contextlib import contextmanager
 
 import six
+
 import tqdm
 import pandas as pd
 import sshtunnel
+from t4mon import df_tools, gen_plot, arguments, calculations
 from paramiko import SFTPClient, SSHException
 from six.moves import queue, cPickle, builtins, cStringIO
-from sshtunnels.sftpsession import SftpSession, SFTPSessionError
-
-from t4mon import df_tools, gen_plot, arguments, calculations
 from t4mon.logger import init_logger
+from t4mon.sftpsession import SftpSession, SFTPSessionError
 
 __all__ = ('add_methods_to_pandas_dataframe',
            'Collector',
@@ -48,18 +48,6 @@ MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
 
 
 # sshtunnel.DAEMON = True  # Cleanly stop threads when quitting
-
-
-@contextmanager
-def change_dir(directory, module):
-    """
-    Context manager for restoring the current working directory
-    """
-    module = module or os
-    current_dir = module.getcwd()
-    module.chdir(directory)
-    yield
-    module.chdir(current_dir)
 
 
 def get_datetag(date=None):
@@ -140,13 +128,6 @@ class Collector(object):
 
             Default: ``pandas.DataFrame()``
 
-        filecache (dict):
-            (key, value) dictionary containting for each remote folder for a
-            system (key=(system, folder)), the list of files (value) in the
-            remote system (or localfs if working locally) cached to avoid
-            doing sucessive file lookups (slow when number of files is high).
-            Default: empty dict
-
         logger (Optional[logging.Logger]):
             Logger object passed from an external function. A new logger is
             created by calling :func:`t4mon.logger.init_logger` if nothing is
@@ -207,7 +188,6 @@ class Collector(object):
         self.alldays = alldays
         self.conf = arguments.read_config(settings_file)
         self.data = pd.DataFrame()
-        self.filecache = {}
         self.logger = logger or init_logger(loglevel)
         self.logs = {}
         self.nologs = nologs
@@ -538,30 +518,26 @@ class Collector(object):
             self.logger.debug('Using established sftp session...')
             self.logger.debug("Looking for remote files ({0}) at '{1}'"
                               .format(spec_list, files_folder))
-            filesource = sftp_session
+            folder_files = sftp_session.run_command(
+                'dir /nohead /notrail {0}'.format(files_folder)
+            )
+            full_dir = sftp_session.getcwd()
         else:
             self.logger.debug('Using local filesystem to get the files')
             self.logger.debug("Looking for local files ({0}) at '{1}'"
                               .format(spec_list,
                                       os.path.abspath(files_folder)))
-            filesource = os
+            folder_files = os.listdir(files_folder)
+            full_dir = os.getcwd()
         # get file list by filtering with taglist (case insensitive)
         try:
-            with change_dir(directory=files_folder,
-                            module=filesource):
-                key = (hostname or 'localfs', files_folder)
-                if key not in self.filecache:  # fill the cache
-                    self.filecache[key] = filesource.listdir('.')
-                else:
-                    self.logger.debug('Using cached file list for {0}'
-                                      .format(key))
-                files = ['{0}/{1}'.format(filesource.getcwd(), f)
-                         for f in self.filecache[key]
-                         if all([v.upper() in f.upper() for v in spec_list])
-                         ]
+            files = ['{0}/{1}'.format(full_dir, f)
+                     for f in folder_files
+                     if all([v.upper() in f.upper() for v in spec_list])
+                     ]
             if not files and not sftp_session:
                 files = filespec_list  # Relative and absolute paths (local)
-        except EnvironmentError:  # cannot do the chdir
+        except EnvironmentError:  # files could not be fetched
             self.logger.error('{0} | Directory "{1}" not found at destination'
                               .format(hostname, files_folder))
             return

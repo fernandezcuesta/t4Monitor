@@ -75,7 +75,8 @@ def main():  # pragma: no cover
     # arguments_ = arguments._parse_arguments_gui(sys_arguments)
     # _orchestrator = Orchestrator(**arguments_)
     # _orchestrator.start()
-    
+
+
 def create_reports_from_local(cli_arguments,
                               prog=None,
                               pkl=True):  # pragma: no cover
@@ -90,6 +91,7 @@ def create_reports_from_local(cli_arguments,
     _orchestrator.create_reports_from_local(arguments_.pop(argument_file_name),
                                             pkl=pkl,
                                             **arguments_)
+
 
 if __name__ == "__main__":
     main()

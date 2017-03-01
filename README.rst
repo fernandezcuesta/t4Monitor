@@ -1,4 +1,4 @@
-]t4Monitor
+t4Monitor
 =========
 *OpenVMS statistics (T4) collector and reporting tools*
 
@@ -89,7 +89,7 @@ For Linux::
 
     git clone https://github.com/fernandezcuesta/t4Monitor.git
     cd t4Monitor
-    pip install requirements/requirements.txt
+    pip install -r requirements/requirements.txt
     python setup.py develop
 
 For Windows::
