@@ -50,6 +50,18 @@ MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
 # sshtunnel.DAEMON = True  # Cleanly stop threads when quitting
 
 
+@contextmanager
+def change_dir(directory, module):
+    """
+    Context manager for restoring the current working directory
+    """
+    module = module or os
+    current_dir = module.getcwd()
+    module.chdir(directory)
+    yield
+    module.chdir(current_dir)
+
+
 def get_datetag(date=None):
     """
     Return date in '%d%b%Y' format, locale independent
@@ -60,6 +72,14 @@ def get_datetag(date=None):
     return '{0:02d}{1}{2}'.format(date.day,
                                   MONTHS[date.month - 1],
                                   date.year)
+
+
+def get_filename(filespec):
+    """
+    Remove OpenVMS drive/folder from a file spec
+    """
+    separator = ']' if ']' in filespec else ':'
+    return filespec.strip().split(separator)[-1]
 
 
 class Collector(object):
@@ -128,6 +148,13 @@ class Collector(object):
 
             Default: ``pandas.DataFrame()``
 
+        filecache (dict):
+            (key, value) dictionary containting for each remote folder for a
+            system (key=(system, folder)), the list of files (value) in the
+            remote system (or localfs if working locally) cached to avoid
+            doing sucessive file lookups (slow when number of files is high).
+            Default: empty dict
+
         logger (Optional[logging.Logger]):
             Logger object passed from an external function. A new logger is
             created by calling :func:`t4mon.logger.init_logger` if nothing is
@@ -188,6 +215,7 @@ class Collector(object):
         self.alldays = alldays
         self.conf = arguments.read_config(settings_file)
         self.data = pd.DataFrame()
+        self.filecache = {}
         self.logger = logger or init_logger(loglevel)
         self.logs = {}
         self.nologs = nologs
@@ -518,23 +546,32 @@ class Collector(object):
             self.logger.debug('Using established sftp session...')
             self.logger.debug("Looking for remote files ({0}) at '{1}'"
                               .format(spec_list, files_folder))
-            folder_files = sftp_session.run_command(
-                'dir /nohead /notrail {0}'.format(files_folder)
-            )
-            full_dir = sftp_session.getcwd()
+            folder_files = (get_filename(f) for f in sftp_session.run_command(
+                'dir /noheading /notrailing {0}'.format(files_folder)
+            ))
+            filesource = sftp_session
         else:
             self.logger.debug('Using local filesystem to get the files')
             self.logger.debug("Looking for local files ({0}) at '{1}'"
                               .format(spec_list,
                                       os.path.abspath(files_folder)))
             folder_files = os.listdir(files_folder)
-            full_dir = os.getcwd()
+            filesource = os
         # get file list by filtering with taglist (case insensitive)
         try:
-            files = ['{0}/{1}'.format(full_dir, f)
-                     for f in folder_files
-                     if all([v.upper() in f.upper() for v in spec_list])
-                     ]
+            with change_dir(directory=files_folder,
+                            module=filesource):
+                key = (hostname or 'localfs', files_folder)
+                if key not in self.filecache:  # fill the cache in
+                    self.filecache[key] = folder_files
+                else:
+                    self.logger.debug(
+                        'Using cached file list for {0}'.format(key)
+                    )
+                files = ['{0}/{1}'.format(filesource.getcwd(), f)
+                         for f in self.filecache[key]
+                         if all([v.upper() in f.upper() for v in spec_list])
+                         ]
             if not files and not sftp_session:
                 files = filespec_list  # Relative and absolute paths (local)
         except EnvironmentError:  # files could not be fetched

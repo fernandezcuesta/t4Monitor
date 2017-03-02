@@ -1,3 +1,4 @@
+- [0.16.0] - Improve remote directory fetch
 - [0.15.5] - Sync to sshtunnel 0.1.2
 - [0.15.4] - Small fixes
 - [0.15.3] - Refactoring, update sshtunnel requirement to v008
