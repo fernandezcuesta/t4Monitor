@@ -546,9 +546,9 @@ class Collector(object):
             self.logger.debug('Using established sftp session...')
             self.logger.debug("Looking for remote files ({0}) at '{1}'"
                               .format(spec_list, files_folder))
-            folder_files = (get_filename(f) for f in sftp_session.run_command(
+            folder_files = [get_filename(f) for f in sftp_session.run_command(
                 'dir /noheading /notrailing {0}'.format(files_folder)
-            ))
+            )]
             filesource = sftp_session
         else:
             self.logger.debug('Using local filesystem to get the files')
@@ -633,7 +633,7 @@ class Collector(object):
                                 leave=True,
                                 desc=progressbar_prefix,
                                 disable=compressed,
-                                unit='Archives' if compressed else 'Files'):
+                                unit='Archive' if compressed else 'File'):
             if compressed:
                 _df = _df.combine_first(
                     self._load_zipfile(zip_file=a_file,
