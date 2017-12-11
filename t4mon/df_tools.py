@@ -237,7 +237,7 @@ def _extract_t4csv(file_descriptor):
             field_names = data_lines[3].split(SEPARATOR)
             data_lines = data_lines[4:]
         return (field_names, data_lines)
-    except:
+    except Exception:
         raise ExtractCSVException
 
 
