@@ -40,8 +40,7 @@ from t4mon.sftpsession import SftpSession, SFTPSessionError
 __all__ = ('add_methods_to_pandas_dataframe',
            'Collector',
            'load_zipfile',
-           '
-           ')
+           'read_pickle')
 
 # Avoid using locale in Linux+Windows environments, keep these lowercase
 MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
