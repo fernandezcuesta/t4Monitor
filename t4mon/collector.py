@@ -82,6 +82,14 @@ def get_filename(filespec):
     return filespec.strip().split(separator)[-1]
 
 
+def is_running_from_ipython():
+    try:
+        from IPython import get_ipython
+        return get_ipython() is not None
+    except ImportError:
+        return false
+
+
 class Collector(object):
 
     """
@@ -629,7 +637,9 @@ class Collector(object):
             'compressed ' if compressed else '',
             ' from {0}'.format(hostname) if hostname else ''
         )
-        for a_file in tqdm.tqdm(files,
+        tqdm_call = tqdm.tqdm_notebook if is_running_from_ipython() \
+                    else tqdm.tqdm
+        for a_file in tqdm_call(files,
                                 leave=True,
                                 desc=progressbar_prefix,
                                 disable=compressed,

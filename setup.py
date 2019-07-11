@@ -3,9 +3,9 @@ import sys
 
 import versioneer
 
-from pip.req import parse_requirements
+from pip._internal.req import parse_requirements
 from setuptools import setup
-from pip.download import PipSession
+from pip._internal.download import PipSession
 from setuptools.command.test import test as TestCommand
 
 install_requires = [str(ir.req) for ir in
